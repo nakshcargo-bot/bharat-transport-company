@@ -385,7 +385,10 @@ app.get('/api/reports/dashboard', async (req, res) => {
 // ============================================
 // START SERVER
 // ============================================
-
+console.log('STEP 15: About to start server...');
+console.log('PORT from env:', process.env.PORT);
+console.log('Actual PORT:', PORT);
+console.log('HOST:', HOST);
 app.listen(PORT, HOST, () => {
     console.log('===========================================');
     console.log('  BHARAT TRANSPORT COMPANY - Backend API');
@@ -394,4 +397,4 @@ app.listen(PORT, HOST, () => {
     console.log(`  Environment: ${process.env.NODE_ENV}`);
     console.log('===========================================');
 });
-});
+
