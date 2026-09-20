@@ -55,6 +55,16 @@ const pool = new Client({
 console.log('STEP 12: Pool created successfully');
 
 console.log('STEP 13: Pool error handler attached');
+
+console.log('STEP 14: Connecting to database...');
+pool.connect()
+  .then(() => {
+    console.log('✅ DATABASE CONNECTED SUCCESSFULLY!');
+  })
+  .catch((err) => {
+    console.error('❌ DATABASE CONNECTION FAILED:', err.message);
+    console.error('Full error:', err);
+  });
 // ============================================
 // HEALTH CHECK
 // ============================================
