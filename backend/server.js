@@ -9,7 +9,11 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err.message);
+  console.error('Stack:', err.stack);
+  process.exit(1);
+});
 const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
@@ -24,7 +28,9 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
-
+pool.on('error', (err) => {
+  console.error('DATABASE POOL ERROR:', err.message);
+});
 // ============================================
 // HEALTH CHECK
 // ============================================
