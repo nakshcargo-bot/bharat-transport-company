@@ -6,24 +6,41 @@ console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
 // BHARAT TRANSPORT COMPANY - BACKEND SERVER
 // ============================================
 
+console.log('STEP 1: Requiring express...');
 const express = require('express');
+
+console.log('STEP 2: Requiring cors...');
 const cors = require('cors');
+
+console.log('STEP 3: Requiring body-parser...');
 const bodyParser = require('body-parser');
+
+console.log('STEP 4: Requiring pg...');
 const { Pool } = require('pg');
+
+console.log('STEP 5: Requiring bcryptjs...');
 const bcrypt = require('bcryptjs');
+
+console.log('STEP 6: Requiring jsonwebtoken...');
 const jwt = require('jsonwebtoken');
+
+console.log('STEP 7: Checking dotenv...');
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
+
+console.log('STEP 8: Adding uncaughtException handler...');
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION:', err.message);
   console.error('Stack:', err.stack);
   process.exit(1);
 });
+
+console.log('STEP 9: Creating express app...');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
-
+console.log('STEP 10: App created successfully');
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
