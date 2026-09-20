@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -345,7 +346,7 @@ app.get('/api/reports/dashboard', async (req, res) => {
 // START SERVER
 // ============================================
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
     console.log('===========================================');
     console.log('  BHARAT TRANSPORT COMPANY - Backend API');
     console.log('===========================================');
