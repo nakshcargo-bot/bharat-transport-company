@@ -36,6 +36,7 @@ const pool = new Pool({
     connectionTimeoutMillis: 30000,
     idleTimeoutMillis: 30000,
     max: 10
+      });
 pool.on('error', (err) => {
   console.error('DATABASE POOL ERROR:', err.message);
 });
