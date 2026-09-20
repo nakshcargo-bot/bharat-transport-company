@@ -16,7 +16,7 @@ console.log('STEP 3: Requiring body-parser...');
 const bodyParser = require('body-parser');
 
 console.log('STEP 4: Requiring pg...');
-const { Pool } = require('pg');
+const { Client } = require('pg');
 
 console.log('STEP 5: Requiring bcryptjs...');
 const bcrypt = require('bcryptjs');
@@ -48,11 +48,10 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // Database Connection
 console.log('STEP 11: Creating Pool...');
-const pool = new Pool({
+const pool = new Client({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
-      });
-    
+});    
 console.log('STEP 12: Pool created successfully');
 
 console.log('STEP 13: Pool error handler attached');
