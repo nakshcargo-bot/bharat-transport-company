@@ -51,6 +51,7 @@ console.log('STEP 11: Creating Pool...');
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
+      });
     
 console.log('STEP 12: Pool created successfully');
 
