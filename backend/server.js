@@ -47,13 +47,20 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // Database Connection
+console.log('STEP 11: Creating Pool...');
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 10000
 });
+console.log('STEP 12: Pool created successfully');
+
 pool.on('error', (err) => {
-  console.error('DATABASE POOL ERROR:', err.message);
+    console.error('DATABASE POOL ERROR:', err.message);
 });
+console.log('STEP 13: Pool error handler attached');
 // ============================================
 // HEALTH CHECK
 // ============================================
