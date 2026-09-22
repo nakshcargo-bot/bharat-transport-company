@@ -11,7 +11,7 @@ export default function PartyEntry() {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     customer_code: '',
-    name: '',
+    customer_name: '',
     mobile: '',
     whatsapp: '',
     email: '',
@@ -58,7 +58,25 @@ export default function PartyEntry() {
     setLoading(true)
     try {
       const res = await customerAPI.getOne(id)
-      setFormData(res.data)
+      const data = res.data
+      setFormData({
+        customer_code: data.customer_code || '',
+        customer_name: data.customer_name || data.name || '',
+        mobile: data.mobile || '',
+        whatsapp: data.whatsapp || '',
+        email: data.email || '',
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        pincode: data.pincode || '',
+        gst_no: data.gst_no || '',
+        pan_no: data.pan_no || '',
+        customer_type: data.customer_type || 'Cash',
+        credit_limit: data.credit_limit || 0,
+        credit_days: data.credit_days || 0,
+        opening_balance: data.opening_balance || 0,
+        is_active: data.is_active !== false
+      })
     } catch (err) {
       toast.error('Party details load नहीं हो पाईं')
       navigate('/party')
@@ -77,7 +95,7 @@ export default function PartyEntry() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!formData.name || !formData.mobile) {
+    if (!formData.customer_name || !formData.mobile) {
       toast.error('Party Name और Mobile required हैं')
       return
     }
@@ -129,14 +147,14 @@ export default function PartyEntry() {
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Party Name *</label>
-                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                <input type="text" name="customer_name" value={formData.customer_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Customer Type</label>
                 <select name="customer_type" value={formData.customer_type} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white">
-                  <option value="Cash">Cash</option>
-                  <option value="Credit">Credit</option>
-                  <option value="To-Pay">To-Pay</option>
+                  <option value="Cash" className="bg-slate-800 text-black">Cash</option>
+                  <option value="Credit" className="bg-slate-800 text-black">Credit</option>
+                  <option value="To-Pay" className="bg-slate-800 text-black">To-Pay</option>
                 </select>
               </div>
             </div>
@@ -176,8 +194,8 @@ export default function PartyEntry() {
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">State</label>
                 <select name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white">
-                  <option value="">Select State</option>
-                  {states.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="" className="bg-slate-800 text-black">Select State</option>
+                  {states.map(s => <option key={s} value={s} className="bg-slate-800 text-black">{s}</option>)}
                 </select>
               </div>
               <div>
@@ -208,7 +226,7 @@ export default function PartyEntry() {
                 <input type="number" name="credit_days" value={formData.credit_days} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Opening Balance ()</label>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Opening Balance (₹)</label>
                 <input type="number" name="opening_balance" value={formData.opening_balance} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div className="flex items-end">
