@@ -1076,7 +1076,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
         c.invoice_no, c.invoice_date,
         c.from_code, c.from_name, c.to_code, c.to_name,
         c.lorry_no, c.driver_name, c.driver_mobile,
-        c.delivery_type || 'Door Delivery', c.pickup_address, c.delivery_godown, c.unloading_party_mobile,
+        c.delivery_type || 'Door Delivery', c.pickup_address, c.delivery_godown,
         c.no_of_packages, c.method_of_packing, c.hsn_code, c.description,
         c.actual_weight, c.charged_weight, c.rate,
         c.length, c.width, c.height, c.dimension_pkgs, c.cft_cmt, c.distance_km,
