@@ -1054,7 +1054,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
         delivery_type, pickup_address, delivery_godown,
         no_of_packages, method_of_packing, hsn_code, description,
         actual_weight, charged_weight, rate,
-        length, width, height, dimension_pkgs, cft_cmt,
+        length, width, height, cft_cmt, distance_km,
         private_marks, mr_no, mr_date, mr_amount, load_type,
         freight, aoc_percent, aoc_amount, eov_charges, cover_charges,
         material_charges, mgmt_charges, collection_charges, door_delivery,
