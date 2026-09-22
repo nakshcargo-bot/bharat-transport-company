@@ -98,8 +98,7 @@ export default function BiltyEntry() {
     collection_charges: 0, door_dly_charges: 0, pass_cc_charges: 0, enroute_charges: 0,
     statistical_charges: 0, misc_charges: 0, grand_total: 0,
     eway_bill_no: '', eway_valid_upto: '',
-    payment_type: '', payment_amount: 0, declared_value: 0, basis_of_booking: '', billed_at: '', gst_through: '', amount_in_words: '',
-    // Insurance fields
+    declared_value: 0, basis_of_booking: '', billed_at: '', gst_through: '', amount_in_words: '',
     insurance_status: 'Not Insured', insurance_company: '', insurance_policy_no: '', insurance_date: '', insurance_amount: 0,
     created_by: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username || 'Admin' : 'Admin'
   })
@@ -141,11 +140,14 @@ export default function BiltyEntry() {
     setFormData(prev => {
       const newData = { ...prev, [name]: value }
       
-      // Auto: Freight = Charged Wt × Rate
+      // Auto: Freight = Charged Wt × Rate (only if freight not manually edited)
       if (name === 'charged_weight' || name === 'rate') {
         const w = parseFloat(name === 'charged_weight' ? value : prev.charged_weight) || 0
         const r = parseFloat(name === 'rate' ? value : prev.rate) || 0
-        newData.freight = w * r
+        // Only auto-calculate if freight is 0 or matches previous calculation
+        if (prev.freight === 0 || prev.freight === (prev.charged_weight * prev.rate)) {
+          newData.freight = w * r
+        }
       }
       
       // Auto: A.O.C. Amount = Freight × AOC% / 100
@@ -228,13 +230,6 @@ export default function BiltyEntry() {
     { value: 'Godown Delivery', label: 'Godown Delivery' },
     { value: 'Pickup', label: 'Pickup' },
     { value: 'Self', label: 'Self' }
-  ]
-  const paymentOptions = [
-    { value: '', label: 'Select' },
-    { value: 'To Pay', label: 'To Pay' },
-    { value: 'Paid', label: 'Paid' },
-    { value: 'TBB', label: 'TBB' },
-    { value: 'Credit', label: 'Credit' }
   ]
   const gstOptions = [
     { value: '', label: 'Select' },
@@ -345,7 +340,7 @@ export default function BiltyEntry() {
 
           {/* Section 3: Consignee */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📥 Section 3: Consignee (लेने वाला)</h3>
+            <h3 className="text-xl font-bold text-white mb-4"> Section 3: Consignee (लेने वाला)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <CustomSelect label="Select Party" name="consignee_select" value="" onChange={(e) => handleCustomerSelect('consignee', e.target.value)} options={consigneeOptions} />
@@ -400,7 +395,7 @@ export default function BiltyEntry() {
 
           {/* Section 5: Vehicle & Driver */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">🚚 Section 5: Vehicle & Driver</h3>
+            <h3 className="text-xl font-bold text-white mb-4"> Section 5: Vehicle & Driver</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Lorry No (Vehicle No)</label>
@@ -540,8 +535,8 @@ export default function BiltyEntry() {
             <h3 className="text-xl font-bold text-white mb-4">💰 Section 10: Charges (Auto + Manual)</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">FREIGHT (Auto: Wt × Rate)</label>
-                <input type="number" name="freight" value={formData.freight} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white font-bold" />
+                <label className="block text-gray-300 text-sm font-medium mb-1">FREIGHT (Editable)</label>
+                <input type="number" name="freight" value={formData.freight} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">A.O.C. %</label>
@@ -611,15 +606,8 @@ export default function BiltyEntry() {
 
           {/* Section 12: Payment */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4"> Section 12: Payment / Booking</h3>
+            <h3 className="text-xl font-bold text-white mb-4">💵 Section 12: Booking Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <CustomSelect label="Payment Type" name="payment_type" value={formData.payment_type} onChange={handleChange} options={paymentOptions} />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">To Pay/Paid/TBB Amount</label>
-                <input type="number" name="payment_amount" value={formData.payment_amount} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Declared Value of Goods</label>
                 <input type="number" name="declared_value" value={formData.declared_value} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
@@ -632,7 +620,7 @@ export default function BiltyEntry() {
                 <label className="block text-gray-300 text-sm font-medium mb-1">Billed at with M/s</label>
                 <input type="text" name="billed_at" value={formData.billed_at} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
-              <div>
+              <div className="md:col-span-3">
                 <CustomSelect label="GST Through" name="gst_through" value={formData.gst_through} onChange={handleChange} options={gstOptions} />
               </div>
               <div className="md:col-span-3">
