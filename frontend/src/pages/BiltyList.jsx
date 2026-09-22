@@ -17,9 +17,18 @@ export default function BiltyList() {
     setLoading(true)
     try {
       const res = await biltyAPI.getAll()
-      setBiltyList(res.data)
+      console.log('API Response:', res)
+      console.log('API Data:', res.data)
+      
+      // Check if data is array or object
+      const data = Array.isArray(res.data) ? res.data : (res.data?.consignments || res.data?.bilty || [])
+      console.log('Processed Data:', data)
+      
+      setBiltyList(data)
     } catch (err) {
-      toast.error('Bilties load नहीं हो पाईं')
+      console.error('Error fetching bilties:', err)
+      toast.error('Bilties load नहीं हो पाईं: ' + (err.message || 'Unknown error'))
+      setBiltyList([])
     } finally {
       setLoading(false)
     }
@@ -130,7 +139,9 @@ export default function BiltyList() {
               <tbody className="divide-y divide-white/5">
                 {filteredBilties.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-8 text-center text-gray-400">No bilties found matching your criteria.</td>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-400">
+                      {biltyList.length === 0 ? 'No bilties found. Create your first bilty!' : 'No bilties found matching your criteria.'}
+                    </td>
                   </tr>
                 ) : (
                   filteredBilties.map((bilty) => (
