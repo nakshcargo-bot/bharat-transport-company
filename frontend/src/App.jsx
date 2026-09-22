@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard'
 import BillEntry from './pages/BillEntry'
 import BillPrint from './pages/BillPrint'
 import BillList from './pages/BillList'
+import PartyEntry from './pages/PartyEntry'
+import PartyList from './pages/PartyList'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -19,6 +21,13 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        
+        {/* Party Master Routes */}
+        <Route path="/party" element={<PrivateRoute><PartyList /></PrivateRoute>} />
+        <Route path="/party/new" element={<PrivateRoute><PartyEntry /></PrivateRoute>} />
+        <Route path="/party/edit/:id" element={<PrivateRoute><PartyEntry /></PrivateRoute>} />
+        
+        {/* Bill Routes */}
         <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
         <Route path="/bill/print/:billNo" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
         <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
