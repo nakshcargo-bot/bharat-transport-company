@@ -90,7 +90,7 @@ export default function BiltyEntry() {
     consignor_name: '', consignor_address: '', consignor_gst: '', consignor_mobile: '', customer_code_consignor: '',
     consignee_name: '', consignee_address: '', consignee_gst: '', consignee_mobile: '', customer_code_consignee: '',
     invoice_no: '', invoice_date: '', po_no: '', po_date: '',
-    vehicle_no: '', driver_name: '', driver_mobile: '', vehicle_phone: '',
+    vehicle_no: '', driver_name: '', driver_mobile: '',
     no_of_packages: 0, method_of_packing: '', hsn_code: '', description: '', actual_weight: 0, charged_weight: 0, rate: 0, distance: 0,
     length: 0, width: 0, height: 0, no_of_pkgs_dimension: 0, total_cft_cmt: 0,
     private_marks: '', mr_no: '', mr_date: '', mr_amount: 0, load_type: 'Part Load',
@@ -99,7 +99,9 @@ export default function BiltyEntry() {
     statistical_charges: 0, misc_charges: 0, grand_total: 0,
     eway_bill_no: '', eway_valid_upto: '',
     payment_type: '', payment_amount: 0, declared_value: 0, basis_of_booking: '', billed_at: '', gst_through: '', amount_in_words: '',
-    status: 'Booked', remarks: '', created_by: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username || 'Admin' : 'Admin'
+    // Insurance fields
+    insurance_status: 'Not Insured', insurance_company: '', insurance_policy_no: '', insurance_date: '', insurance_amount: 0,
+    created_by: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username || 'Admin' : 'Admin'
   })
 
   useEffect(() => {
@@ -240,18 +242,13 @@ export default function BiltyEntry() {
     { value: 'CONSIGNEE', label: 'CONSIGNEE' },
     { value: 'N.B.T.C.', label: 'N.B.T.C.' }
   ]
-  const statusOptions = [
-    { value: 'Booked', label: 'Booked' },
-    { value: 'In-Transit', label: 'In-Transit' },
-    { value: 'Reached', label: 'Reached' },
-    { value: 'Out for Delivery', label: 'Out for Delivery' },
-    { value: 'Delivered', label: 'Delivered' },
-    { value: 'Cancelled', label: 'Cancelled' },
-    { value: 'RTO', label: 'RTO' }
-  ]
   const loadTypeOptions = [
     { value: 'Full Load', label: 'Full Load' },
     { value: 'Part Load', label: 'Part Load' }
+  ]
+  const insuranceOptions = [
+    { value: 'Not Insured', label: 'Not Insured' },
+    { value: 'Insured', label: 'Insured' }
   ]
 
   const consignorOptions = [{ value: '', label: 'Select Party' }, ...customers.map(c => ({ value: c.id, label: c.customer_name || c.name }))]
@@ -316,7 +313,7 @@ export default function BiltyEntry() {
 
           {/* Section 2: Consignor */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📤 Section 2: Consignor (भेजने वाला)</h3>
+            <h3 className="text-xl font-bold text-white mb-4"> Section 2: Consignor (भेजने वाला)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <CustomSelect label="Select Party" name="consignor_select" value="" onChange={(e) => handleCustomerSelect('consignor', e.target.value)} options={consignorOptions} />
@@ -404,7 +401,7 @@ export default function BiltyEntry() {
           {/* Section 5: Vehicle & Driver */}
           <div className="border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold text-white mb-4">🚚 Section 5: Vehicle & Driver</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Lorry No (Vehicle No)</label>
                 <input type="text" name="vehicle_no" value={formData.vehicle_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
@@ -417,16 +414,38 @@ export default function BiltyEntry() {
                 <label className="block text-gray-300 text-sm font-medium mb-1">Driver Mobile</label>
                 <input type="text" name="driver_mobile" value={formData.driver_mobile} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
+            </div>
+          </div>
+
+          {/* Section 6: Insurance */}
+          <div className="border-b border-white/10 pb-6">
+            <h3 className="text-xl font-bold text-white mb-4">🛡️ Section 6: Insurance</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Vehicle Phone No</label>
-                <input type="text" name="vehicle_phone" value={formData.vehicle_phone} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                <CustomSelect label="Insurance Status" name="insurance_status" value={formData.insurance_status} onChange={handleChange} options={insuranceOptions} />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Insurance Company</label>
+                <input type="text" name="insurance_company" value={formData.insurance_company} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Policy No</label>
+                <input type="text" name="insurance_policy_no" value={formData.insurance_policy_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Insurance Date</label>
+                <input type="date" name="insurance_date" value={formData.insurance_date} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Insurance Amount (₹)</label>
+                <input type="number" name="insurance_amount" value={formData.insurance_amount} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
             </div>
           </div>
 
-          {/* Section 6: Package */}
+          {/* Section 7: Package */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4"> Section 6: Package Details</h3>
+            <h3 className="text-xl font-bold text-white mb-4">📦 Section 7: Package Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">No of Packages *</label>
@@ -463,9 +482,9 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 7: Dimensions */}
+          {/* Section 8: Dimensions */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📐 Section 7: Dimensions (if Bulky/ODC)</h3>
+            <h3 className="text-xl font-bold text-white mb-4">📐 Section 8: Dimensions (if Bulky/ODC)</h3>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Length</label>
@@ -490,9 +509,9 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 8: Private Marks/MR */}
+          {/* Section 9: Private Marks/MR */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">🏷️ Section 8: Private Marks / MR</h3>
+            <h3 className="text-xl font-bold text-white mb-4">🏷️ Section 9: Private Marks / MR</h3>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-gray-300 text-sm font-medium mb-1">Private Marks</label>
@@ -516,9 +535,9 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 9: Charges */}
+          {/* Section 10: Charges */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">💰 Section 9: Charges (Auto + Manual)</h3>
+            <h3 className="text-xl font-bold text-white mb-4">💰 Section 10: Charges (Auto + Manual)</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">FREIGHT (Auto: Wt × Rate)</label>
@@ -575,9 +594,9 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 10: E-Way Bill */}
+          {/* Section 11: E-Way Bill */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📋 Section 10: E-Way Bill</h3>
+            <h3 className="text-xl font-bold text-white mb-4">📋 Section 11: E-Way Bill</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">E-Way Bill No</label>
@@ -590,9 +609,9 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 11: Payment */}
+          {/* Section 12: Payment */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">💳 Section 11: Payment / Booking</h3>
+            <h3 className="text-xl font-bold text-white mb-4"> Section 12: Payment / Booking</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <CustomSelect label="Payment Type" name="payment_type" value={formData.payment_type} onChange={handleChange} options={paymentOptions} />
@@ -619,24 +638,6 @@ export default function BiltyEntry() {
               <div className="md:col-span-3">
                 <label className="block text-gray-300 text-sm font-medium mb-1">Amount in Words (Auto)</label>
                 <input type="text" value={formData.amount_in_words} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white font-bold italic" />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 12: Status */}
-          <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📊 Section 12: Status & Remarks</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <CustomSelect label="Status" name="status" value={formData.status} onChange={handleChange} options={statusOptions} />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Created By (Auto)</label>
-                <input type="text" value={formData.created_by} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div className="md:col-span-3">
-                <label className="block text-gray-300 text-sm font-medium mb-1">Remarks</label>
-                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows="2" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
             </div>
           </div>
