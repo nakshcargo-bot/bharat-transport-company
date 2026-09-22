@@ -1,7 +1,58 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { customerAPI } from '../api'
 import toast from 'react-hot-toast'
+
+// Custom Dropdown Component - Black text guaranteed
+function CustomSelect({ label, value, onChange, options, name }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedLabel = options.find(o => o.value === value)?.label || 'Select'
+
+  return (
+    <div className="relative" ref={ref}>
+      <label className="block text-gray-300 text-sm font-medium mb-1">{label}</label>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white cursor-pointer flex justify-between items-center hover:bg-white/10 transition"
+      >
+        <span>{selectedLabel}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-60 overflow-auto">
+          {options.map((option) => (
+            <div
+              key={option.value}
+              onClick={() => {
+                onChange({ target: { name, value: option.value } })
+                setIsOpen(false)
+              }}
+              className={`px-4 py-2 cursor-pointer text-black hover:bg-blue-100 ${
+                value === option.value ? 'bg-blue-500 text-white' : 'bg-white'
+              }`}
+            >
+              {option.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function PartyEntry() {
   const { id } = useParams()
@@ -125,6 +176,17 @@ export default function PartyEntry() {
     'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi'
   ]
 
+  const customerTypeOptions = [
+    { value: 'Cash', label: 'Cash' },
+    { value: 'Credit', label: 'Credit' },
+    { value: 'To-Pay', label: 'To-Pay' }
+  ]
+
+  const stateOptions = [
+    { value: '', label: 'Select State' },
+    ...states.map(s => ({ value: s, label: s }))
+  ]
+
   if (loading && isEdit) return <div className="p-8 text-center text-gray-500">Loading...</div>
 
   return (
@@ -150,12 +212,13 @@ export default function PartyEntry() {
                 <input type="text" name="customer_name" value={formData.customer_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Customer Type</label>
-                <select name="customer_type" value={formData.customer_type} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white">
-                  <option value="Cash" className="bg-slate-800 text-black">Cash</option>
-                  <option value="Credit" className="bg-slate-800 text-black">Credit</option>
-                  <option value="To-Pay" className="bg-slate-800 text-black">To-Pay</option>
-                </select>
+                <CustomSelect
+                  label="Customer Type"
+                  name="customer_type"
+                  value={formData.customer_type}
+                  onChange={handleChange}
+                  options={customerTypeOptions}
+                />
               </div>
             </div>
           </div>
@@ -192,11 +255,13 @@ export default function PartyEntry() {
                 <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">State</label>
-                <select name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white">
-                  <option value="" className="bg-slate-800 text-black">Select State</option>
-                  {states.map(s => <option key={s} value={s} className="bg-slate-800 text-black">{s}</option>)}
-                </select>
+                <CustomSelect
+                  label="State"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  options={stateOptions}
+                />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">Pincode</label>
