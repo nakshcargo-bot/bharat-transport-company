@@ -288,26 +288,34 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-// Auto-create admin user if not exists
+// Force-reset admin password to 'admin123'
 async function ensureAdminUser() {
   try {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
     const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    
     if (result.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
+      // Create new admin
       await pool.query(
         `INSERT INTO users (username, password, full_name, role, is_active) 
          VALUES ($1, $2, $3, $4, $5)`,
         ['admin', hashedPassword, 'Administrator', 'admin', true]
       );
-      console.log('✅ Default admin user created (username: admin, password: admin123)');
+      console.log('✅ New admin user created (username: admin, password: admin123)');
     } else {
-      console.log('✅ Admin user already exists');
+      // Update existing admin password
+      await pool.query(
+        `UPDATE users SET password = $1, is_active = TRUE WHERE username = $2`,
+        [hashedPassword, 'admin']
+      );
+      console.log('✅ Admin password reset to admin123');
     }
   } catch (err) {
-    console.error('⚠️ Could not create admin user:', err.message);
+    console.error('⚠️ Could not setup admin user:', err.message);
   }
 }
 
+ensureAdminUser();
 ensureAdminUser();
 app.listen(PORT, HOST, () => {
   console.log('✅ Bharat Transport API v3.0 running on port', PORT);
