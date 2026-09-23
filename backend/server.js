@@ -130,19 +130,48 @@ app.get('/', (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log('Login attempt:', username);
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+    if (result.rows.length === 0) {
+      console.log('User not found:', username);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     const user = result.rows[0];
+    console.log('User found. Stored password:', user.password);
+    console.log('Entered password:', password);
+    
     let valid = false;
-    try { valid = await bcrypt.compare(password, user.password); } catch (e) { valid = password === user.password; }
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    // Try bcrypt compare
+    if (user.password && user.password.startsWith('$2')) {
+      try {
+        valid = await bcrypt.compare(password, user.password);
+        console.log('bcrypt compare result:', valid);
+      } catch (e) {
+        console.log('bcrypt error:', e.message);
+        valid = false;
+      }
+    }
+    
+    // Fallback: plain text compare
+    if (!valid && password === user.password) {
+      valid = true;
+      console.log('Plain text match');
+    }
+    
+    if (!valid) {
+      console.log('Login failed for:', username);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('Login successful for:', username);
     res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
+    console.error('Login error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
-
 // CUSTOMERS
 app.get('/api/customers', authMiddleware, async (req, res) => {
   try {
