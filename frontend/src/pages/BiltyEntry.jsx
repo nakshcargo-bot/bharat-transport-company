@@ -280,6 +280,17 @@ export default function BiltyEntry() {
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
                 <input type="text" name="lr_no" value={formData.lr_no} onChange={handleChange} className="w-full px-4 py-2...
               <div>
+                              <div>
+              <label className="block text-gray-300 text-sm font-medium mb-1">Consignment No</label>
+              <input 
+                type="text" 
+                name="invoice_no" 
+                value={formData.invoice_no || ''} 
+                onChange={handleChange} 
+                className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                placeholder="Enter Consignment No"
+              />
+            </div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
                 <input type="date" name="lr_date" value={formData.lr_date} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
