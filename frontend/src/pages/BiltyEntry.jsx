@@ -115,26 +115,33 @@ export default function BiltyEntry() {
     } catch (err) { console.error('Failed to load customers') }
   }
 
-  const generateLRNo = async () => {
+   const generateLRNo = async () => {
     try {
       const res = await biltyAPI.getAll()
-      const last = res.data[res.data.length - 1]
       const year = new Date().getFullYear().toString().slice(-2)
-      if (last && last.lr_no) {
-        const match = last.lr_no.match(/(\d+)$/)
-        if (match) {
-          const nextNum = parseInt(match[1]) + 1
-          setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` }))
-        }
-      } else {
-        setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/0001` }))
-      }
+      
+      // Database se saare LR numbers nikaalo jo is saal ke hain
+      const thisYearLRs = res.data
+        .filter(item => item.lr_no && item.lr_no.startsWith(`BTC/${year}/`))
+        .map(item => {
+          const parts = item.lr_no.split('/')
+          return parseInt(parts[2]) || 0
+        })
+      
+      // Sabse bada number dhoondo
+      const maxNum = thisYearLRs.length > 0 ? Math.max(...thisYearLRs) : 0
+      const nextNum = maxNum + 1
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` 
+      }))
     } catch (err) {
+      console.error('LR No generate error:', err)
       const year = new Date().getFullYear().toString().slice(-2)
       setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/0001` }))
     }
   }
-
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => {
@@ -218,7 +225,13 @@ export default function BiltyEntry() {
       toast.success('Bilty successfully created!')
       navigate('/dashboard')
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create bilty')
+            const errorMsg = err.response?.data?.error || 'Failed to create bilty'
+      if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
+        toast.error('LR Number already exists! Generating new number...')
+        await generateLRNo()
+      } else {
+        toast.error(errorMsg)
+      }
     } finally {
       setLoading(false)
     }
