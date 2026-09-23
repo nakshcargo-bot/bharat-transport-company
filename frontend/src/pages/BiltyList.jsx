@@ -21,7 +21,7 @@ export default function BiltyList() {
       console.log('API Data:', res.data)
       
       // Check if data is array or object
-      const data = Array.isArray(res.data) ? res.data : (res.data?.consignments || res.data?.bilty || [])
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.consignments || res.data?.bilty || [])
       console.log('Processed Data:', data)
       
       setBiltyList(data)
