@@ -44,6 +44,12 @@ async function getTableColumns(tableName) {
 
 // Smart insert - only uses columns that actually exist
 async function smartInsert(tableName, data) {
+  // Convert empty strings to null (fixes date field errors)
+  for (let key in data) {
+    if (data[key] === '') {
+      data[key] = null;
+    }
+  }  
   const columns = await getTableColumns(tableName);
   
   // Filter: only keep keys that exist in table AND are not auto-generated
@@ -67,6 +73,12 @@ async function smartInsert(tableName, data) {
 
 // Smart update
 async function smartUpdate(tableName, data, id) {
+   // Convert empty strings to null (fixes date field errors)
+  for (let key in data) {
+    if (data[key] === '') {
+      data[key] = null;
+    }
+  } 
   const columns = await getTableColumns(tableName);
   const autoColumns = ['id', 'created_at', 'updated_at', 'lr_no', 'bill_no'];
   const validKeys = Object.keys(data).filter(
