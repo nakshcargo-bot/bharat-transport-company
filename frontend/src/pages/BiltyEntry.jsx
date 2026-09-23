@@ -278,8 +278,7 @@ export default function BiltyEntry() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
-                <input type="text" value={formData.lr_no} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white font-bold" />
-              </div>
+                <input type="text" name="lr_no" value={formData.lr_no} onChange={handleChange} className="w-full px-4 py-2...
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
                 <input type="date" name="lr_date" value={formData.lr_date} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
