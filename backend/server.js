@@ -100,26 +100,29 @@ async function smartUpdate(tableName, data, id) {
 
 async function generateBiltyNo() {
   const year = String(new Date().getFullYear()).slice(-2);
+  
+  // Get the latest LR number from database
+  const result = await pool.query(
+    `SELECT lr_no FROM consignments 
+     WHERE lr_no LIKE $1 
+     ORDER BY id DESC 
+     LIMIT 1`,
+    [`BTC/${year}/%`]
+  );
+  
   let nextSerial = 1;
   
-  // Try up to 100 times to find a unique LR number
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const lrNo = `BTC/${year}/${String(nextSerial).padStart(4, '0')}`;
-    
-    // Check if this LR number already exists
-    const check = await pool.query(
-      `SELECT lr_no FROM consignments WHERE lr_no = $1`,
-      [lrNo]
-    );
-    
-    if (check.rows.length === 0) {
-      return lrNo; // Found unique number
+  if (result.rows.length > 0) {
+    const lastLR = result.rows[0].lr_no;
+    // Extract serial number from last LR (e.g., "BTC/26/0005" -> 5)
+    const parts = lastLR.split('/');
+    if (parts.length === 3) {
+      nextSerial = parseInt(parts[2]) + 1;
     }
-    
-    nextSerial++; // Try next number
   }
   
-  throw new Error('Could not generate unique LR number');
+  const lrNo = `BTC/${year}/${String(nextSerial).padStart(4, '0')}`;
+  return lrNo;
 }
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
