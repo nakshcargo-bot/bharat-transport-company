@@ -288,7 +288,27 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// Auto-create admin user if not exists
+async function ensureAdminUser() {
+  try {
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    if (result.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await pool.query(
+        `INSERT INTO users (username, password, full_name, role, is_active) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        ['admin', hashedPassword, 'Administrator', 'admin', true]
+      );
+      console.log('✅ Default admin user created (username: admin, password: admin123)');
+    } else {
+      console.log('✅ Admin user already exists');
+    }
+  } catch (err) {
+    console.error('⚠️ Could not create admin user:', err.message);
+  }
+}
 
+ensureAdminUser();
 app.listen(PORT, HOST, () => {
   console.log('✅ Bharat Transport API v3.0 running on port', PORT);
   console.log('✅ Smart Column Detection Enabled - No more missing column errors!');
