@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { biltyAPI } from '../api'
 
-export default function BiltyPrint() {
-  const { lr_no } = useParams()
-  const [bilty, setBilty] = useState(null)
-  const [loading, setLoading] = useState(true)
+  export default function BiltyPrint() {
+  const [searchParams] = useSearchParams()
+  const lr_no = searchParams.get('lr_no')
 
-  useEffect(() => {
+      useEffect(() => {
     const fetchBilty = async () => {
       try {
         const res = await biltyAPI.getAll()
-        // LR No से बिल्टी ूंढें
         const found = res.data.find(b => b.lr_no === lr_no)
         setBilty(found)
       } catch (err) {
@@ -22,7 +20,6 @@ export default function BiltyPrint() {
     }
     fetchBilty()
   }, [lr_no])
-
   if (loading) return <div className="p-10 text-center">Loading Bilty...</div>
   if (!bilty) return <div className="p-10 text-center text-red-500">Bilty Not Found!</div>
 
