@@ -55,7 +55,7 @@ export default function BiltyPrint() {
           margin: 0 auto;
           background: white;
           font-family: Arial, Helvetica, sans-serif;
-          font-size: 11px;
+          font-size: 10px;
           box-sizing: border-box;
         }
         .b-table {
@@ -65,9 +65,10 @@ export default function BiltyPrint() {
         }
         .b-table td, .b-table th {
           border: 1px solid #000;
-          padding: 3px 5px;
+          padding: 2px 4px;
           vertical-align: top;
           word-wrap: break-word;
+          overflow: hidden;
         }
         .b-table th {
           background: #f5f5f5;
@@ -79,8 +80,9 @@ export default function BiltyPrint() {
         .bold { font-weight: bold; }
         .center { text-align: center; }
         .right { text-align: right; }
-        .small { font-size: 10px; }
-        .xs { font-size: 9px; }
+        .small { font-size: 9px; }
+        .xs { font-size: 8px; }
+        .nowrap { white-space: nowrap; }
       `}</style>
 
       <div className="no-print" style={{minHeight:'100vh',background:'#e5e7eb',padding:'20px'}}>
@@ -92,10 +94,13 @@ export default function BiltyPrint() {
               <tr>
                 <td style={{width:'12%',textAlign:'center',verticalAlign:'middle',padding:'10px 5px'}}>
                   <div style={{fontSize:'32px',fontWeight:'bold',color:'#cc0000',lineHeight:1}}>BTC</div>
-                  <div style={{fontSize:'24px',marginTop:'4px'}}>🇳</div>
+                  <svg width="40" height="50" viewBox="0 0 100 120" style={{marginTop:'5px'}}>
+                    <path d="M50 10 L70 30 L80 60 L70 90 L50 110 L30 90 L20 60 L30 30 Z" fill="none" stroke="#cc0000" strokeWidth="2"/>
+                    <text x="50" y="65" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#cc0000">BTC</text>
+                  </svg>
                 </td>
                 <td style={{width:'88%',textAlign:'center',padding:'10px 8px'}}>
-                  <h1 style={{fontSize:'28px',fontWeight:'bold',color:'#cc0000',margin:'0 0 6px 0',textTransform:'uppercase',letterSpacing:'1px'}}>BHARAT TRANSPORT COMPANY</h1>
+                  <h1 style={{fontSize:'26px',fontWeight:'bold',color:'#cc0000',margin:'0 0 6px 0',textTransform:'uppercase',letterSpacing:'1px'}}>BHARAT TRANSPORT COMPANY</h1>
                   <p style={{margin:'3px 0',fontSize:'11px'}}>Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan, 331023</p>
                   <p style={{margin:'3px 0',fontSize:'11px'}}>Email : bharattrsnportcompany@gmail.com</p>
                   <p style={{margin:'3px 0',fontSize:'11px',fontWeight:'bold'}}>PAN No.: CMRPP0955N &nbsp;&nbsp; GST No.: 08CMRPP0955N1Z5</p>
@@ -113,12 +118,12 @@ export default function BiltyPrint() {
                   <p className="small" style={{margin:0}}>Delay collection charge after......... days from today@6/- per day Quintal on charged weight.</p>
                 </td>
                 <td style={{width:'30%',textAlign:'center',padding:'0'}}>
-                  <div className="red-bg bold" style={{padding:'6px',fontSize:'14px',borderBottom:'1px solid #000'}}>CONSIGNOR COPY</div>
+                  <div className="red-bg bold" style={{padding:'6px',fontSize:'13px',borderBottom:'1px solid #000'}}>CONSIGNOR COPY</div>
                   <div className="bold" style={{padding:'6px'}}>OWNER RISK</div>
                 </td>
                 <td style={{width:'40%',verticalAlign:'top',padding:'5px'}}>
                   <div className="small" style={{marginBottom:'4px'}}><span className="bold">CAUTION :</span>This consignment will not be detained, diverted, re-routed or re-booked without Consignee Bank's written permission will be delivered at the destination</div>
-                  <div style={{border:'1px solid #000',padding:'5px',minHeight:'35px',marginTop:'4px'}}>
+                  <div style={{border:'1px solid #000',padding:'5px',minHeight:'30px',marginTop:'4px'}}>
                     <div className="center small">Address of Issuing office</div>
                   </div>
                 </td>
@@ -131,7 +136,7 @@ export default function BiltyPrint() {
             <tbody>
               <tr>
                 <td style={{width:'30%',verticalAlign:'top',padding:'5px'}}>
-                  <div className="bold center red-text" style={{marginBottom:'4px',fontSize:'13px'}}>NOTICE</div>
+                  <div className="bold center red-text" style={{marginBottom:'4px',fontSize:'12px'}}>NOTICE</div>
                   <p className="red-text xs" style={{margin:0,lineHeight:'1.4'}}>The Consignment covered by this Lorry receipt shall be stored at the destination under the control of the TransportOperator and shall be delivered to or to the order of theConsignee Bank whose name's mentioned in the Lorryreceipt. It will be under no circumstances be delivered toanyone without the written authority from the ConsigneeBank or its order, endorsed on the Consignee Copy or on aseperate letter of Authority.</p>
                 </td>
                 <td style={{width:'30%',verticalAlign:'top',padding:'5px'}}>
@@ -143,9 +148,9 @@ export default function BiltyPrint() {
                   <p className="small" style={{margin:'2px 0'}}><span className="bold">Amount</span></p>
                 </td>
                 <td style={{width:'40%',verticalAlign:'top',textAlign:'center',padding:'5px'}}>
-                  <div className="red-text bold" style={{fontSize:'16px',margin:'10px 0 5px 0'}}>CONSIGNMENT NOTE NO.</div>
-                  <div style={{fontSize:'22px',fontWeight:'bold',margin:'5px 0'}}>{bilty.lr_no}</div>
-                  <p className="small" style={{marginTop:'10px'}}><span className="bold">Date</span></p>
+                  <div className="red-text bold" style={{fontSize:'15px',margin:'8px 0 5px 0'}}>CONSIGNMENT NOTE NO.</div>
+                  <div style={{fontSize:'20px',fontWeight:'bold',margin:'5px 0'}}>{bilty.lr_no}</div>
+                  <p className="small" style={{marginTop:'8px'}}><span className="bold">Date</span> {fmtDate(bilty.lr_date)}</p>
                 </td>
               </tr>
             </tbody>
@@ -157,7 +162,7 @@ export default function BiltyPrint() {
               <tr>
                 <td style={{width:'65%',verticalAlign:'top',padding:'5px'}} rowSpan={2}>
                   <div className="small"><span className="bold">Consignor's Full Name & Address:</span><span style={{float:'right'}}><span className="bold">Customer Code :</span></span></div>
-                  <div className="bold" style={{fontSize:'13px',marginTop:'4px'}}>{bilty.consignor_name}</div>
+                  <div className="bold" style={{fontSize:'12px',marginTop:'4px'}}>{bilty.consignor_name}</div>
                   <div className="small">{bilty.consignor_address}</div>
                   <div className="small" style={{marginTop:'8px'}}>Invoice No. <span style={{float:'right'}}><span className="bold">GST No.</span></span></div>
                   <div className="small">Date</div>
@@ -181,7 +186,7 @@ export default function BiltyPrint() {
               <tr>
                 <td style={{width:'65%',verticalAlign:'top',padding:'5px'}} rowSpan={2}>
                   <div className="small"><span className="bold">Consignee/Bank's Full Name & Address:</span><span style={{float:'right'}}><span className="bold">Customer Code :</span></span></div>
-                  <div className="bold" style={{fontSize:'13px',marginTop:'4px'}}>{bilty.consignee_name}</div>
+                  <div className="bold" style={{fontSize:'12px',marginTop:'4px'}}>{bilty.consignee_name}</div>
                   <div className="small">{bilty.consignee_address}</div>
                   <div className="small" style={{marginTop:'8px'}}>Purchase Order No. <span style={{float:'right'}}><span className="bold">GST No.</span></span></div>
                   <div className="small">Date</div>
@@ -203,7 +208,7 @@ export default function BiltyPrint() {
             </tbody>
           </table>
 
-          {/* ===== ROW 6: MAIN TABLE HEADER + CHARGES HEADER ===== */}
+          {/* ===== ROW 6: MAIN TABLE HEADER + CHARGES ===== */}
           <table className="b-table">
             <tbody>
               <tr className="bold center small">
@@ -213,11 +218,11 @@ export default function BiltyPrint() {
                 <td style={{width:'12%'}}>Actual Wt. in Kgs.</td>
                 <td style={{width:'12%'}}>Charged Wt. in Kgs.</td>
                 <td style={{width:'8%'}}>Rate<br/>Fixed</td>
-                <td style={{width:'26%'}} rowSpan={2}>CHARGES</td>
-                <td style={{width:'12%'}} colSpan={2}>Amount</td>
+                <td style={{width:'20%'}} rowSpan={2} className="nowrap">CHARGES</td>
+                <td style={{width:'18%'}} colSpan={2}>Amount</td>
               </tr>
               <tr>
-                <td className="center bold" style={{height:'30px'}}>{bilty.no_of_packages}</td>
+                <td className="center bold" style={{height:'25px'}}>{bilty.no_of_packages}</td>
                 <td className="center">{bilty.method_of_packing}</td>
                 <td className="center">{bilty.hsn_code}</td>
                 <td className="center">{bilty.actual_weight}</td>
@@ -228,13 +233,13 @@ export default function BiltyPrint() {
               </tr>
               <tr>
                 <td colSpan={6} className="center bold small">Description (Said to contain)</td>
-                <td className="bold small">FREIGHT</td>
+                <td className="bold small nowrap">FREIGHT</td>
                 <td className="right small">{fmt(bilty.freight)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td colSpan={6} style={{height:'50px',verticalAlign:'top'}}>{bilty.description}</td>
-                <td className="bold small">A.O.C. %</td>
+                <td colSpan={6} style={{height:'45px',verticalAlign:'top'}}>{bilty.description}</td>
+                <td className="bold small nowrap">A.O.C. %</td>
                 <td className="right small">{bilty.aoc_percent || 0}%</td>
                 <td></td>
               </tr>
@@ -247,20 +252,20 @@ export default function BiltyPrint() {
                         <td>Length</td><td>Width</td><td>Height</td><td>No. Of Pkgs.</td><td>Total CFT/CMT</td>
                       </tr>
                       <tr className="center small">
-                        <td>{bilty.length}</td><td>{bilty.width}</td><td>{bilty.height}</td><td>{bilty.no_of_pkgs_dimension}</td><td>{bilty.total_cft_cmt || bilty.cft_cmt || ''}</td>
+                        <td>{bilty.length || ''}</td><td>{bilty.width || ''}</td><td>{bilty.height || ''}</td><td>{bilty.no_of_pkgs_dimension || ''}</td><td>{bilty.total_cft_cmt || bilty.cft_cmt || ''}</td>
                       </tr>
                     </tbody>
                   </table>
                 </td>
-                <td colSpan={2} className="small"><span className="bold">Distance</span> <span style={{float:'right'}}><span className="bold">Kms.</span></span></td>
-                <td className="bold small">EOV CHARGES</td>
+                <td colSpan={2} className="small nowrap"><span className="bold">Distance</span> <span style={{float:'right'}}><span className="bold">Kms.</span></span></td>
+                <td className="bold small nowrap">EOV CHARGES</td>
                 <td className="right small">{fmt(bilty.eov_charges)}</td>
                 <td></td>
               </tr>
               <tr>
                 <td colSpan={2} rowSpan={3} style={{verticalAlign:'top',padding:'3px'}}>
                   <div className="center bold small" style={{borderBottom:'1px solid #000',paddingBottom:'2px',marginBottom:'3px'}}>Private Marks</div>
-                  <div className="small" style={{minHeight:'30px'}}>{bilty.private_marks}</div>
+                  <div className="small" style={{minHeight:'25px'}}>{bilty.private_marks || ''}</div>
                 </td>
                 <td colSpan={2} rowSpan={3} style={{verticalAlign:'top',padding:'3px'}}>
                   <div className="small"><span className="bold">In case of Paid Consignment/Advance Payment Specify</span></div>
@@ -269,17 +274,17 @@ export default function BiltyPrint() {
                   <div className="small"><span className="bold">Amount :</span></div>
                   <div className="small bold center" style={{marginTop:'4px'}}>LOAD TYPE<br/>{bilty.load_type || 'FULL LOAD'}</div>
                 </td>
-                <td className="bold small">COVER CHARGES</td>
+                <td className="bold small nowrap">COVER CHARGES</td>
                 <td className="right small">{fmt(bilty.cover_charges)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td className="bold small">MATERIAL MGMT CH</td>
+                <td className="bold small nowrap">MATERIAL MGMT CH</td>
                 <td className="right small">{fmt(bilty.material_mgmt_ch || bilty.material_charges || 0)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td className="bold small">COLLECTION CHARGES</td>
+                <td className="bold small nowrap">COLLECTION CHARGES</td>
                 <td className="right small">{fmt(bilty.collection_charges)}</td>
                 <td></td>
               </tr>
@@ -288,18 +293,18 @@ export default function BiltyPrint() {
                   <div className="small"><span className="bold">E WAY BILL No.:</span> {bilty.eway_bill_no || ''}</div>
                   <div className="small" style={{float:'right'}}><span className="bold">Valid upto</span> {fmtDate(bilty.eway_valid_upto)}</div>
                 </td>
-                <td className="bold small">DOOR DLY CHARGES</td>
+                <td className="bold small nowrap">DOOR DLY CHARGES</td>
                 <td className="right small">{fmt(bilty.door_dly_charges || bilty.door_delivery || 0)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td className="bold small">WITH PASS/CC ATTACH CH.</td>
+                <td className="bold small nowrap">WITH PASS/CC ATTACH CH.</td>
                 <td className="right small">{fmt(bilty.pass_cc_charges || bilty.with_pass_cc || 0)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td colSpan={7} className="small bold">To Pay/Paid/TBB Amount Rs. (in words) TBB</td>
-                <td className="bold small">ENROUTE CHARGES</td>
+                <td colSpan={7} className="small bold nowrap">To Pay/Paid/TBB Amount Rs. (in words) TBB</td>
+                <td className="bold small nowrap">ENROUTE CHARGES</td>
                 <td className="right small">{fmt(bilty.enroute_charges)}</td>
                 <td></td>
               </tr>
@@ -309,18 +314,18 @@ export default function BiltyPrint() {
                   <div className="small" style={{marginTop:'3px'}}><span className="bold">Basis of Booking: (1) To Pay (3) Paid (2) To be</span></div>
                   <div className="small" style={{marginTop:'3px'}}><span className="bold">Billed at with M/s</span> {bilty.billed_at || ''}</div>
                 </td>
-                <td className="bold small">STATISTICAL CHARGES</td>
+                <td className="bold small nowrap">STATISTICAL CHARGES</td>
                 <td className="right small">{fmt(bilty.statistical_charges)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td className="bold small">MISC. CHARGES</td>
+                <td className="bold small nowrap">MISC. CHARGES</td>
                 <td className="right small">{fmt(bilty.misc_charges)}</td>
                 <td></td>
               </tr>
               <tr>
-                <td className="bold small center" style={{fontSize:'12px'}}>GRAND TOTAL</td>
-                <td className="right bold" style={{fontSize:'13px'}}>{fmt(bilty.grand_total)}</td>
+                <td className="bold small center nowrap" style={{fontSize:'11px'}}>GRAND TOTAL</td>
+                <td className="right bold" style={{fontSize:'12px'}}>{fmt(bilty.grand_total)}</td>
                 <td></td>
               </tr>
             </tbody>
@@ -331,14 +336,14 @@ export default function BiltyPrint() {
             <tbody>
               <tr>
                 <td style={{width:'65%',verticalAlign:'top',padding:'8px 5px'}}>
-                  <div className="small bold">GST Through : CONSIGNOR/CONSIGNEE/ <span className="bold" style={{fontSize:'13px'}}>N.B.T.C:</span> <span className="red-text">{bilty.gst_through || ''}</span></div>
+                  <div className="small bold">GST Through : CONSIGNOR/CONSIGNEE/ <span className="bold" style={{fontSize:'12px'}}>N.B.T.C:</span> <span className="red-text">{bilty.gst_through || ''}</span></div>
                   <div className="red-text small" style={{marginTop:'15px',marginLeft:'100px'}}>
                     <b>• Payment should be made only through A/c Payee Cheque / D.D. /in favour of</b>
                   </div>
                 </td>
                 <td style={{width:'35%',textAlign:'center',verticalAlign:'bottom',padding:'8px 5px'}}>
-                  <div className="red-text bold" style={{fontSize:'18px',marginBottom:'35px'}}>Bharat Transport Company</div>
-                  <div style={{borderTop:'1px solid #000',paddingTop:'4px',fontSize:'11px'}}>Signature of Booking Official</div>
+                  <div className="red-text bold" style={{fontSize:'16px',marginBottom:'30px'}}>Bharat Transport Company</div>
+                  <div style={{borderTop:'1px solid #000',paddingTop:'4px',fontSize:'10px'}}>Signature of Booking Official</div>
                 </td>
               </tr>
             </tbody>
