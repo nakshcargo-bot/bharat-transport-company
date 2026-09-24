@@ -160,7 +160,7 @@ export default function BiltyList() {
                       <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button 
-                            onClick={() => navigate(`/bilty/print/${bilty.lr_no}`)} 
+                            onClick={() => navigate(`/bilty/print?lr_no=${encodeURIComponent(bilty.lr_no)}`)} 
                             className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition" 
                             title="Print"
                           >
