@@ -1,3 +1,4 @@
+   // Updated for Consignment No field
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
