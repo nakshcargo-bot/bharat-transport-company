@@ -1,4 +1,4 @@
-   // Updated for Consignment No field
+// Updated for Consignment No field
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
@@ -120,52 +120,38 @@ export default function BiltyEntry() {
     try {
       const res = await biltyAPI.getAll()
       const year = new Date().getFullYear().toString().slice(-2)
-      
-      // Database se saare LR numbers nikaalo jo is saal ke hain
       const thisYearLRs = res.data
         .filter(item => item.lr_no && item.lr_no.startsWith(`BTC/${year}/`))
         .map(item => {
           const parts = item.lr_no.split('/')
           return parseInt(parts[2]) || 0
         })
-      
-      // Sabse bada number dhoondo
       const maxNum = thisYearLRs.length > 0 ? Math.max(...thisYearLRs) : 0
       const nextNum = maxNum + 1
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` 
-      }))
+      setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` }))
     } catch (err) {
       console.error('LR No generate error:', err)
       const year = new Date().getFullYear().toString().slice(-2)
       setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/0001` }))
     }
   }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => {
       const newData = { ...prev, [name]: value }
-      
-      // Auto: Freight = Charged Wt × Rate (only if freight not manually edited)
       if (name === 'charged_weight' || name === 'rate') {
         const w = parseFloat(name === 'charged_weight' ? value : prev.charged_weight) || 0
         const r = parseFloat(name === 'rate' ? value : prev.rate) || 0
-        // Only auto-calculate if freight is 0 or matches previous calculation
         if (prev.freight === 0 || prev.freight === (prev.charged_weight * prev.rate)) {
           newData.freight = w * r
         }
       }
-      
-      // Auto: A.O.C. Amount = Freight × AOC% / 100
       if (name === 'aoc_percent' || name === 'freight') {
         const freight = parseFloat(name === 'freight' ? value : prev.freight) || 0
         const aocPercent = parseFloat(name === 'aoc_percent' ? value : prev.aoc_percent) || 0
         newData.aoc_amount = (freight * aocPercent) / 100
       }
-      
-      // Auto: CFT/CMT = L × W × H × Pkgs
       if (['length', 'width', 'height', 'no_of_pkgs_dimension'].includes(name)) {
         const l = parseFloat(name === 'length' ? value : prev.length) || 0
         const w = parseFloat(name === 'width' ? value : prev.width) || 0
@@ -173,12 +159,7 @@ export default function BiltyEntry() {
         const qty = parseFloat(name === 'no_of_pkgs_dimension' ? value : prev.no_of_pkgs_dimension) || 0
         newData.total_cft_cmt = l * w * h * qty
       }
-      
-      // Auto: Grand Total = Sum of all charges
-      const chargeFields = ['freight', 'aoc_amount', 'eov_charges', 'cover_charges', 'material_mgmt_ch', 
-        'collection_charges', 'door_dly_charges', 'pass_cc_charges', 'enroute_charges', 
-        'statistical_charges', 'misc_charges']
-      
+      const chargeFields = ['freight', 'aoc_amount', 'eov_charges', 'cover_charges', 'material_mgmt_ch', 'collection_charges', 'door_dly_charges', 'pass_cc_charges', 'enroute_charges', 'statistical_charges', 'misc_charges']
       if (chargeFields.includes(name)) {
         let total = 0
         chargeFields.forEach(f => { 
@@ -188,7 +169,6 @@ export default function BiltyEntry() {
         newData.grand_total = total
         newData.amount_in_words = numberToWords(total)
       }
-      
       return newData
     })
   }
@@ -226,7 +206,7 @@ export default function BiltyEntry() {
       toast.success('Bilty successfully created!')
       navigate('/dashboard')
     } catch (err) {
-            const errorMsg = err.response?.data?.error || 'Failed to create bilty'
+      const errorMsg = err.response?.data?.error || 'Failed to create bilty'
       if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
         toast.error('LR Number already exists! Generating new number...')
         await generateLRNo()
@@ -277,15 +257,15 @@ export default function BiltyEntry() {
           <div className="border-b border-white/10 pb-6">
             <h3 className="text-xl font-bold text-white mb-4">📋 Section 1: Header Info</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                             <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
-                  <input type="text" name="lr_no" value={formData.lr_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
-                </div>
-                <div>
-                  <label className="block text-gray-300 text-sm font-medium mb-1">Consignment No</label>
-                  <input type="text" name="invoice_no" value={formData.invoice_no || ''} onChange={handleChange} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" placeholder="Enter Consignment No" />
-                </div>
-               <div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
+                <input type="text" name="lr_no" value={formData.lr_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Consignment No</label>
+                <input type="text" name="invoice_no" value={formData.invoice_no || ''} onChange={handleChange} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" placeholder="Enter Consignment No" />
+              </div>
+              <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
                 <input type="date" name="lr_date" value={formData.lr_date} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
