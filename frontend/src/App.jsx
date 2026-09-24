@@ -9,6 +9,7 @@ import PartyEntry from './pages/PartyEntry'
 import PartyList from './pages/PartyList'
 import BiltyEntry from './pages/BiltyEntry'
 import BiltyList from './pages/BiltyList'
+import BiltyPrint from './pages/BiltyPrint'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -32,6 +33,7 @@ export default function App() {
         {/* Bilty Routes */}
         <Route path="/bilty/new" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
         <Route path="/bilty" element={<PrivateRoute><BiltyList /></PrivateRoute>} />
+        <Route path="/bilty/print/:lr_no" element={<PrivateRoute><BiltyPrint /></PrivateRoute>} />
         
         {/* Bill Routes */}
         <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
