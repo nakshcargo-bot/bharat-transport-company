@@ -12,8 +12,9 @@ import { biltyAPI } from '../api'
     const fetchBilty = async () => {
       try {
         const res = await biltyAPI.getAll()
-        const found = res.data.find(b => b.lr_no === lr_no)
-        setBilty(found)
+const bilties = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : [])
+const found = bilties.find(b => b.lr_no === lr_no)
+  setBilty(found)
       } catch (err) {
         console.error('Error fetching bilty:', err)
       } finally {
