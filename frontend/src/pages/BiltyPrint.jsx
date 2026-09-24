@@ -5,7 +5,9 @@ import { biltyAPI } from '../api'
   export default function BiltyPrint() {
   const [searchParams] = useSearchParams()
   const lr_no = searchParams.get('lr_no')
-
+  const [bilty, setBilty] = useState(null)
+  const [loading, setLoading] = useState(true)
+    
       useEffect(() => {
     const fetchBilty = async () => {
       try {
