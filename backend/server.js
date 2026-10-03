@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
+const { sendBiltyEmail } = require('./services/emailService');
+const { runMigrations } = require('./database-migration');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -248,9 +250,23 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     if (!c.created_by) c.created_by = req.user.username;
     if (!c.lr_date) c.lr_date = new Date().toISOString().split('T')[0];
     
-    const row = await smartInsert('consignments', c);
-    res.json(row);
-  } catch (err) {
+        const row = await smartInsert('consignments', c);
+    
+    // Email भेजें
+    try {
+      if (row.consignor_email) {
+        sendBiltyEmail(row, row.consignor_email, row.consignor_name)
+          .catch(err => console.log('Consignor email failed:', err.message));
+      }
+      if (row.consignee_email) {
+        sendBiltyEmail(row, row.consignee_email, row.consignee_name)
+          .catch(err => console.log('Consignee email failed:', err.message));
+      }
+    } catch (emailErr) {
+      console.log('Email error (non-critical):', emailErr.message);
+    }
+    
+    res.json(row);catch (err) {
     console.error('Consignment insert error:', err.message);
     res.status(500).json({ error: err.message });
   }
@@ -332,6 +348,11 @@ async function ensureAdminUser() {
 
 ensureAdminUser();
 ensureAdminUser();
+// Database migrations run करें
+runMigrations().then(() => {
+  console.log('✅ Database migrations completed');
+});
+
 app.listen(PORT, HOST, () => {
   console.log('✅ Bharat Transport API v3.0 running on port', PORT);
   console.log('✅ Smart Column Detection Enabled - No more missing column errors!');
