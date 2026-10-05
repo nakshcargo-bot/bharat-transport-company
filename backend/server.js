@@ -217,14 +217,17 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
 // CONSIGNMENTS (BILTY)
 // IMPORTANT: Specific routes BEFORE generic routes
 
-// PUBLIC TRACKING API (No Auth Required) - MUST be before /:lr_no
-app.get('/api/consignments/track/:lr_no', async (req, res) => {
+// ✅ FIXED: PUBLIC TRACKING API (Uses Query Parameter to handle slashes in LR No like BTC/26/0001)
+app.get('/api/consignments/track', async (req, res) => {
   try {
+    const lr_no = req.query.lr_no;
+    if (!lr_no) return res.status(400).json({ error: 'LR number is required' });
+    
     const result = await pool.query(
       `SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, 
               status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no 
        FROM consignments WHERE lr_no = $1`, 
-      [req.params.lr_no]
+      [lr_no]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
     res.json(result.rows[0]);
