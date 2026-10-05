@@ -144,32 +144,25 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const user = result.rows[0];
-    console.log('User found. Stored password:', user.password);
-    console.log('Entered password:', password);
     
     let valid = false;
     if (user.password && user.password.startsWith('$2')) {
       try {
         valid = await bcrypt.compare(password, user.password);
-        console.log('bcrypt compare result:', valid);
       } catch (e) {
-        console.log('bcrypt error:', e.message);
         valid = false;
       }
     }
     
     if (!valid && password === user.password) {
       valid = true;
-      console.log('Plain text match');
     }
     
     if (!valid) {
-      console.log('Login failed for:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    console.log('Login successful for:', username);
     res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
     console.error('Login error:', err.message);
@@ -215,8 +208,6 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
 });
 
 // CONSIGNMENTS (BILTY)
-// IMPORTANT: Specific routes BEFORE generic routes
-
 // ✅ FIXED: PUBLIC TRACKING API (Uses Query Parameter to handle slashes in LR No like BTC/26/0001)
 app.get('/api/consignments/track', async (req, res) => {
   try {
@@ -225,7 +216,7 @@ app.get('/api/consignments/track', async (req, res) => {
     
     const result = await pool.query(
       `SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, 
-              status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no 
+              status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no, weight, packages, material_desc
        FROM consignments WHERE lr_no = $1`, 
       [lr_no]
     );
@@ -261,7 +252,6 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     
     const row = await smartInsert('consignments', c);
     
-    // Email भेजें
     try {
       if (row.consignor_email) {
         sendBiltyEmail(row, row.consignor_email, row.consignor_name)
@@ -296,12 +286,11 @@ app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GATE PASS / CHALLAN APIs
+// GATE PASS APIs
 app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const { lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by } = req.body;
     
-    // Generate Gate Pass Number
     const year = String(new Date().getFullYear()).slice(-2);
     const result = await pool.query(
       `SELECT pass_no FROM gate_passes WHERE pass_no LIKE $1 ORDER BY id DESC LIMIT 1`,
@@ -312,69 +301,10 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
     if (result.rows.length > 0) {
       const lastPass = result.rows[0].pass_no;
       const parts = lastPass.split('/');
-      if (parts.length === 3) {
-        nextSerial = parseInt(parts[2]) + 1;
-      }
+      if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
     
     const pass_no = `GP/${year}/${String(nextSerial).padStart(4, '0')}`;
-    
-    // Generate QR Code (simple base64)
-    const qr_data = `GP:${pass_no}|LR:${lr_no}|Vehicle:${vehicle_no}|Driver:${driver_name}`;
-    const qr_code = Buffer.from(qr_data).toString('base64');
-    
-    const row = await pool.query(
-      `INSERT INTO gate_passes (pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code]
-    );
-    
-    res.json(row.rows[0]);
-  } catch (err) {
-    console.error('Gate pass error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/gate-pass', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM gate_passes ORDER BY id DESC LIMIT 100');
-    res.json({ data: result.rows, total: result.rows.length });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/gate-pass/:pass_no', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM gate_passes WHERE pass_no = $1', [req.params.pass_no]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// GATE PASS / CHALLAN APIs
-app.post('/api/gate-pass', authMiddleware, async (req, res) => {
-  try {
-    const { lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by } = req.body;
-    
-    // Generate Gate Pass Number (e.g., GP/26/0001)
-    const year = String(new Date().getFullYear()).slice(-2);
-    const result = await pool.query(
-      `SELECT pass_no FROM gate_passes WHERE pass_no LIKE $1 ORDER BY id DESC LIMIT 1`,
-      [`GP/${year}/%`]
-    );
-    
-    let nextSerial = 1;
-    if (result.rows.length > 0) {
-      const lastPass = result.rows[0].pass_no;
-      const parts = lastPass.split('/');
-      if (parts.length === 3) {
-        nextSerial = parseInt(parts[2]) + 1;
-      }
-    }
-    
-    const pass_no = `GP/${year}/${String(nextSerial).padStart(4, '0')}`;
-    
-    // Generate simple QR code data
     const qr_data = `GP:${pass_no}|LR:${lr_no}|Vehicle:${vehicle_no}`;
     const qr_code = Buffer.from(qr_data).toString('base64');
     
@@ -383,10 +313,8 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code]
     );
-    
     res.json(row.rows[0]);
   } catch (err) {
-    console.error('Gate pass error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -395,10 +323,73 @@ app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM gate_passes ORDER BY id DESC LIMIT 100');
     res.json({ data: result.rows, total: result.rows.length });
-  } catch (err) { 
-    res.status(500).json({ error: err.message }); 
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GADI CHALLAN APIs (Vehicle Freight Receipt)
+app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
+  try {
+    const {
+      lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
+      owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
+      from_place, to_place, material_desc, weight, packages,
+      bilty_date, consignor_name, consignee_name,
+      freight_amount, advance_paid, toll_expense, diesel_expense,
+      other_expense, tds_deduction, issue_date
+    } = req.body;
+
+    const freight = parseFloat(freight_amount || 0);
+    const advance = parseFloat(advance_paid || 0);
+    const tds = parseFloat(tds_deduction || 0);
+    const balance = freight - advance;
+    const net_payable = freight - advance - tds;
+
+    const year = String(new Date().getFullYear()).slice(-2);
+    const result = await pool.query(
+      `SELECT challan_no FROM gadi_challans WHERE challan_no LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`GC/${year}/%`]
+    );
+    
+    let nextSerial = 1;
+    if (result.rows.length > 0) {
+      const lastChallan = result.rows[0].challan_no;
+      const parts = lastChallan.split('/');
+      if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
+    }
+    
+    const challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
+    
+    const row = await pool.query(
+      `INSERT INTO gadi_challans 
+       (challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
+        owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
+        from_place, to_place, material_desc, weight, packages,
+        bilty_date, consignor_name, consignee_name,
+        freight_amount, advance_paid, balance_due, toll_expense, diesel_expense,
+        other_expense, tds_deduction, net_payable, issue_date) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) 
+       RETURNING *`,
+      [challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
+       owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
+       from_place, to_place, material_desc, weight, packages,
+       bilty_date, consignor_name, consignee_name,
+       freight, advance, balance, toll_expense, diesel_expense,
+       other_expense, tds, net_payable, issue_date]
+    );
+    res.json(row.rows[0]);
+  } catch (err) {
+    console.error('Gadi challan error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM gadi_challans ORDER BY id DESC LIMIT 100');
+    res.json({ data: result.rows, total: result.rows.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // BILLS
 app.get('/api/bills', authMiddleware, async (req, res) => {
   try {
@@ -433,25 +424,18 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Force-reset admin password to 'admin123'
+// Force-reset admin password
 async function ensureAdminUser() {
   try {
     const hashedPassword = await bcrypt.hash('admin123', 10);
     const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
-    
     if (result.rows.length === 0) {
       await pool.query(
-        `INSERT INTO users (username, password, full_name, role, is_active) 
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`,
         ['admin', hashedPassword, 'Administrator', 'admin', true]
       );
-      console.log('✅ New admin user created (username: admin, password: admin123)');
     } else {
-      await pool.query(
-        `UPDATE users SET password = $1, is_active = TRUE WHERE username = $2`,
-        [hashedPassword, 'admin']
-      );
-      console.log('✅ Admin password reset to admin123');
+      await pool.query(`UPDATE users SET password = $1, is_active = TRUE WHERE username = $2`, [hashedPassword, 'admin']);
     }
   } catch (err) {
     console.error('⚠️ Could not setup admin user:', err.message);
@@ -460,14 +444,12 @@ async function ensureAdminUser() {
 
 ensureAdminUser();
 
-// Database migrations run करें
 runMigrations().then(() => {
   console.log('✅ Database migrations completed');
 });
 
 app.listen(PORT, HOST, () => {
   console.log('✅ Bharat Transport API v3.0 running on port', PORT);
-  console.log('✅ Smart Column Detection Enabled - No more missing column errors!');
 });
 
 module.exports = app;
