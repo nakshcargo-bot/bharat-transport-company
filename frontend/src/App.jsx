@@ -11,6 +11,7 @@ import BiltyEntry from './pages/BiltyEntry'
 import BiltyList from './pages/BiltyList'
 import BiltyPrint from './pages/BiltyPrint'
 import GatePass from './pages/GatePass'
+import GadiChallan from './pages/GadiChallan'
 import TrackBilty from './pages/TrackBilty'
 
 function PrivateRoute({ children }) {
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/track" element={<TrackBilty />} />
         <Route path="/login" element={<Login />} />
         <Route path="/gate-pass" element={<GatePass />} />
+        <Route path="/gadi-challan" element={<GadiChallan />} />
         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         
