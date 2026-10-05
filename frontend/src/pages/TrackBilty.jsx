@@ -17,7 +17,8 @@ export default function TrackBilty() {
     setBilty(null)
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'}/api/consignments/track/${lrNo.trim()}`)
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const response = await fetch(`${apiUrl}/api/consignments/track/${lrNo.trim()}`)
       const data = await response.json()
       
       if (!response.ok) {
@@ -43,22 +44,20 @@ export default function TrackBilty() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <div className="bg-red-700 text-white p-4 shadow-md">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">BHARAT TRANSPORT COMPANY</h1>
-          <button onClick={() => navigate('/')} className="text-sm bg-white text-red-700 px-4 py-2 rounded font-bold hover:bg-gray-100">
+          <h1 className="text-xl md:text-2xl font-bold">BHARAT TRANSPORT COMPANY</h1>
+          <button onClick={() => navigate('/')} className="text-sm bg-white text-red-700 px-4 py-2 rounded font-bold hover:bg-gray-100 transition">
             ← Back to Home
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 max-w-4xl mx-auto w-full p-6">
+      <div className="flex-1 max-w-4xl mx-auto w-full p-4 md:p-6">
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Track Your Consignment</h2>
           
-          <form onSubmit={handleSearch} className="flex gap-4 max-w-lg mx-auto">
+          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4 max-w-lg mx-auto">
             <input
               type="text"
               placeholder="Enter LR Number (e.g., BTC/26/0008)"
@@ -77,18 +76,16 @@ export default function TrackBilty() {
           </form>
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded">
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow">
             <p className="font-bold">Not Found</p>
             <p>{error}. Please check the LR Number and try again.</p>
           </div>
         )}
 
-        {/* Result Card */}
         {bilty && (
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-gray-100 p-4 border-b flex justify-between items-center">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+            <div className="bg-gray-100 p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
               <div>
                 <p className="text-sm text-gray-600">LR Number</p>
                 <p className="text-2xl font-bold text-red-700">{bilty.lr_no}</p>
@@ -101,7 +98,7 @@ export default function TrackBilty() {
             <div className="p-6 grid md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 border-b pb-1">Route Details</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 text-sm md:text-base">
                   <p><span className="text-gray-600">From:</span> <span className="font-semibold">{bilty.from_name}</span></p>
                   <p><span className="text-gray-600">To:</span> <span className="font-semibold">{bilty.to_name}</span></p>
                   <p><span className="text-gray-600">Date:</span> <span className="font-semibold">{new Date(bilty.lr_date).toLocaleDateString('en-IN')}</span></p>
@@ -110,7 +107,7 @@ export default function TrackBilty() {
 
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 border-b pb-1">Parties</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 text-sm md:text-base">
                   <p><span className="text-gray-600">Consignor:</span> <span className="font-semibold">{bilty.consignor_name}</span></p>
                   <p><span className="text-gray-600">Consignee:</span> <span className="font-semibold">{bilty.consignee_name}</span></p>
                 </div>
@@ -118,7 +115,7 @@ export default function TrackBilty() {
 
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 border-b pb-1">Transport Details</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 text-sm md:text-base">
                   <p><span className="text-gray-600">Vehicle No:</span> <span className="font-semibold">{bilty.lorry_no || 'N/A'}</span></p>
                   <p><span className="text-gray-600">Driver:</span> <span className="font-semibold">{bilty.driver_name || 'N/A'}</span></p>
                   <p><span className="text-gray-600">Driver Mobile:</span> <span className="font-semibold">{bilty.driver_mobile || 'N/A'}</span></p>
@@ -127,7 +124,7 @@ export default function TrackBilty() {
 
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 border-b pb-1">Financials</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 text-sm md:text-base">
                   <p><span className="text-gray-600">Grand Total:</span> <span className="font-bold text-lg text-green-700">₹ {parseFloat(bilty.grand_total || 0).toFixed(2)}</span></p>
                   <p><span className="text-gray-600">E-Way Bill:</span> <span className="font-semibold">{bilty.eway_bill_no || 'N/A'}</span></p>
                 </div>
