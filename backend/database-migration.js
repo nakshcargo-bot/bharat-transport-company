@@ -44,6 +44,12 @@ async function runMigrations() {
       )
     `);
     console.log('✅ Gate passes table created');
+        // Add new columns to gadi_challans table
+    await pool.query(`ALTER TABLE gadi_challans ADD COLUMN IF NOT EXISTS packages VARCHAR(20)`);
+    await pool.query(`ALTER TABLE gadi_challans ADD COLUMN IF NOT EXISTS bilty_date DATE`);
+    await pool.query(`ALTER TABLE gadi_challans ADD COLUMN IF NOT EXISTS consignor_name VARCHAR(100)`);
+    await pool.query(`ALTER TABLE gadi_challans ADD COLUMN IF NOT EXISTS consignee_name VARCHAR(100)`);
+    console.log('✅ Added bilty detail columns to gadi_challans');
 
         // Gadi Challan (Vehicle Freight Receipt) Table
     await pool.query(`
