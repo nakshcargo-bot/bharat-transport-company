@@ -350,6 +350,55 @@ app.get('/api/gate-pass/:pass_no', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// GATE PASS / CHALLAN APIs
+app.post('/api/gate-pass', authMiddleware, async (req, res) => {
+  try {
+    const { lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by } = req.body;
+    
+    // Generate Gate Pass Number (e.g., GP/26/0001)
+    const year = String(new Date().getFullYear()).slice(-2);
+    const result = await pool.query(
+      `SELECT pass_no FROM gate_passes WHERE pass_no LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`GP/${year}/%`]
+    );
+    
+    let nextSerial = 1;
+    if (result.rows.length > 0) {
+      const lastPass = result.rows[0].pass_no;
+      const parts = lastPass.split('/');
+      if (parts.length === 3) {
+        nextSerial = parseInt(parts[2]) + 1;
+      }
+    }
+    
+    const pass_no = `GP/${year}/${String(nextSerial).padStart(4, '0')}`;
+    
+    // Generate simple QR code data
+    const qr_data = `GP:${pass_no}|LR:${lr_no}|Vehicle:${vehicle_no}`;
+    const qr_code = Buffer.from(qr_data).toString('base64');
+    
+    const row = await pool.query(
+      `INSERT INTO gate_passes (pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code]
+    );
+    
+    res.json(row.rows[0]);
+  } catch (err) {
+    console.error('Gate pass error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/gate-pass', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM gate_passes ORDER BY id DESC LIMIT 100');
+    res.json({ data: result.rows, total: result.rows.length });
+  } catch (err) { 
+    res.status(500).json({ error: err.message }); 
+  }
+});
 // BILLS
 app.get('/api/bills', authMiddleware, async (req, res) => {
   try {
