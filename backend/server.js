@@ -227,12 +227,7 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
 });
 
 // CONSIGNMENTS (BILTY) - SMART INSERT
-app.get('/api/consignments', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 200');
-    res.json({ data: result.rows, total: result.rows.length });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
+
 // PUBLIC TRACKING API (No Auth Required)
 app.get('/api/consignments/track/:lr_no', async (req, res) => {
   try {
@@ -247,6 +242,13 @@ app.get('/api/consignments/track/:lr_no', async (req, res) => {
   } catch (err) { 
     res.status(500).json({ error: err.message }); 
   }
+});
+
+app.get('/api/consignments', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 200');
+    res.json({ data: result.rows, total: result.rows.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/consignments/:lr_no', authMiddleware, async (req, res) => {
