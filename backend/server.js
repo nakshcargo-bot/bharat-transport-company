@@ -281,7 +281,8 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
       console.log('Email error (non-critical):', emailErr.message);
     }
     
-    res.json(row);catch (err) {
+        res.json(row);
+  } catch (err) {
     console.error('Consignment insert error:', err.message);
     res.status(500).json({ error: err.message });
   }
