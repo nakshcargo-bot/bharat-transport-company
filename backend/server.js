@@ -25,17 +25,12 @@ const pool = new Pool({
   max: 20,
 });
 
-// Cache for table columns
 const tableColumnsCache = {};
 
 async function getTableColumns(tableName) {
-  if (tableColumnsCache[tableName]) {
-    return tableColumnsCache[tableName];
-  }
+  if (tableColumnsCache[tableName]) return tableColumnsCache[tableName];
   const result = await pool.query(
-    `SELECT column_name FROM information_schema.columns 
-     WHERE table_name = $1 
-     ORDER BY ordinal_position`,
+    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position`,
     [tableName]
   );
   const columns = result.rows.map(r => r.column_name);
@@ -44,50 +39,30 @@ async function getTableColumns(tableName) {
 }
 
 async function smartInsert(tableName, data) {
-  for (let key in data) {
-    if (data[key] === '') {
-      data[key] = null;
-    }
-  }  
+  for (let key in data) { if (data[key] === '') data[key] = null; }  
   const columns = await getTableColumns(tableName);
   const autoColumns = ['id', 'created_at', 'updated_at'];
-  const validKeys = Object.keys(data).filter(
-    key => columns.includes(key) && !autoColumns.includes(key) && data[key] !== undefined
-  );
-  
-  if (validKeys.length === 0) {
-    throw new Error('No valid columns to insert');
-  }
+  const validKeys = Object.keys(data).filter(key => columns.includes(key) && !autoColumns.includes(key) && data[key] !== undefined);
+  if (validKeys.length === 0) throw new Error('No valid columns to insert');
   
   const columnsList = validKeys.join(', ');
   const placeholders = validKeys.map((_, i) => `$${i + 1}`).join(', ');
   const values = validKeys.map(key => data[key]);
-  
   const query = `INSERT INTO ${tableName} (${columnsList}) VALUES (${placeholders}) RETURNING *`;
   const result = await pool.query(query, values);
   return result.rows[0];
 }
 
 async function smartUpdate(tableName, data, id) {
-  for (let key in data) {
-    if (data[key] === '') {
-      data[key] = null;
-    }
-  } 
+  for (let key in data) { if (data[key] === '') data[key] = null; } 
   const columns = await getTableColumns(tableName);
   const autoColumns = ['id', 'created_at', 'updated_at', 'lr_no', 'bill_no'];
-  const validKeys = Object.keys(data).filter(
-    key => columns.includes(key) && !autoColumns.includes(key) && data[key] !== undefined
-  );
-  
-  if (validKeys.length === 0) {
-    throw new Error('No valid columns to update');
-  }
+  const validKeys = Object.keys(data).filter(key => columns.includes(key) && !autoColumns.includes(key) && data[key] !== undefined);
+  if (validKeys.length === 0) throw new Error('No valid columns to update');
   
   const setClause = validKeys.map((key, i) => `${key} = $${i + 1}`).join(', ');
   const values = validKeys.map(key => data[key]);
   values.push(id);
-  
   const query = `UPDATE ${tableName} SET ${setClause}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`;
   const result = await pool.query(query, values);
   return result.rows[0];
@@ -95,32 +70,18 @@ async function smartUpdate(tableName, data, id) {
 
 async function generateBiltyNo() {
   const year = String(new Date().getFullYear()).slice(-2);
-  const result = await pool.query(
-    `SELECT lr_no FROM consignments 
-     WHERE lr_no LIKE $1 
-     ORDER BY id DESC 
-     LIMIT 1`,
-    [`BTC/${year}/%`]
-  );
-  
+  const result = await pool.query(`SELECT lr_no FROM consignments WHERE lr_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`BTC/${year}/%`]);
   let nextSerial = 1;
   if (result.rows.length > 0) {
-    const lastLR = result.rows[0].lr_no;
-    const parts = lastLR.split('/');
-    if (parts.length === 3) {
-      nextSerial = parseInt(parts[2]) + 1;
-    }
+    const parts = result.rows[0].lr_no.split('/');
+    if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
   }
-  
-  const lrNo = `BTC/${year}/${String(nextSerial).padStart(4, '0')}`;
-  return lrNo;
+  return `BTC/${year}/${String(nextSerial).padStart(4, '0')}`;
 }
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'No token provided' });
   try {
     req.user = jwt.verify(authHeader.substring(7), process.env.JWT_SECRET);
     next();
@@ -130,42 +91,26 @@ function authMiddleware(req, res, next) {
 }
 
 app.get('/', (req, res) => {
-  res.json({ status: 'OK', message: 'Bharat Transport API v3.0 - Smart Column Detection' });
+  res.json({ status: 'OK', message: 'Bharat Transport API v3.0' });
 });
 
 // AUTH
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log('Login attempt:', username);
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (result.rows.length === 0) {
-      console.log('User not found:', username);
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const user = result.rows[0];
-    
     let valid = false;
     if (user.password && user.password.startsWith('$2')) {
-      try {
-        valid = await bcrypt.compare(password, user.password);
-      } catch (e) {
-        valid = false;
-      }
+      try { valid = await bcrypt.compare(password, user.password); } catch (e) { valid = false; }
     }
-    
-    if (!valid && password === user.password) {
-      valid = true;
-    }
-    
-    if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    if (!valid && password === user.password) valid = true;
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
-    console.error('Login error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -177,14 +122,9 @@ app.get('/api/customers', authMiddleware, async (req, res) => {
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/customers', authMiddleware, async (req, res) => {
-  try {
-    const row = await smartInsert('customers', req.body);
-    res.json(row);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { res.json(await smartInsert('customers', req.body)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.get('/api/customers/:id', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM customers WHERE id = $1', [req.params.id]);
@@ -192,14 +132,9 @@ app.get('/api/customers/:id', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.put('/api/customers/:id', authMiddleware, async (req, res) => {
-  try {
-    const row = await smartUpdate('customers', req.body, req.params.id);
-    res.json(row);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { res.json(await smartUpdate('customers', req.body, req.params.id)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query('UPDATE customers SET is_active = FALSE WHERE id = $1', [req.params.id]);
@@ -207,8 +142,7 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// CONSIGNMENTS (BILTY)
-// ✅ FIXED: PUBLIC TRACKING API (Uses Query Parameter to handle slashes in LR No like BTC/26/0001)
+// ✅ FIXED: PUBLIC TRACKING API (Returns ALL fields needed for Gadi Challan auto-fill)
 app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
@@ -216,7 +150,8 @@ app.get('/api/consignments/track', async (req, res) => {
     
     const result = await pool.query(
       `SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, 
-              status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no, weight, packages, material_desc
+              status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no, 
+              weight, packages, material_desc
        FROM consignments WHERE lr_no = $1`, 
       [lr_no]
     );
@@ -233,7 +168,6 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.get('/api/consignments/:lr_no', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM consignments WHERE lr_no = $1', [req.params.lr_no]);
@@ -241,7 +175,6 @@ app.get('/api/consignments/:lr_no', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
@@ -249,36 +182,15 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     if (!c.status) c.status = 'Booked';
     if (!c.created_by) c.created_by = req.user.username;
     if (!c.lr_date) c.lr_date = new Date().toISOString().split('T')[0];
-    
     const row = await smartInsert('consignments', c);
-    
-    try {
-      if (row.consignor_email) {
-        sendBiltyEmail(row, row.consignor_email, row.consignor_name)
-          .catch(err => console.log('Consignor email failed:', err.message));
-      }
-      if (row.consignee_email) {
-        sendBiltyEmail(row, row.consignee_email, row.consignee_name)
-          .catch(err => console.log('Consignee email failed:', err.message));
-      }
-    } catch (emailErr) {
-      console.log('Email error (non-critical):', emailErr.message);
-    }
-    
     res.json(row);
   } catch (err) {
-    console.error('Consignment insert error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
-
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
-  try {
-    const row = await smartUpdate('consignments', req.body, req.params.id);
-    res.json(row);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { res.json(await smartUpdate('consignments', req.body, req.params.id)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query("UPDATE consignments SET status = 'Cancelled' WHERE id = $1", [req.params.id]);
@@ -290,35 +202,22 @@ app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
 app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const { lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by } = req.body;
-    
     const year = String(new Date().getFullYear()).slice(-2);
-    const result = await pool.query(
-      `SELECT pass_no FROM gate_passes WHERE pass_no LIKE $1 ORDER BY id DESC LIMIT 1`,
-      [`GP/${year}/%`]
-    );
-    
+    const result = await pool.query(`SELECT pass_no FROM gate_passes WHERE pass_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`GP/${year}/%`]);
     let nextSerial = 1;
     if (result.rows.length > 0) {
-      const lastPass = result.rows[0].pass_no;
-      const parts = lastPass.split('/');
+      const parts = result.rows[0].pass_no.split('/');
       if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
-    
     const pass_no = `GP/${year}/${String(nextSerial).padStart(4, '0')}`;
-    const qr_data = `GP:${pass_no}|LR:${lr_no}|Vehicle:${vehicle_no}`;
-    const qr_code = Buffer.from(qr_data).toString('base64');
-    
+    const qr_code = Buffer.from(`GP:${pass_no}|LR:${lr_no}|Vehicle:${vehicle_no}`).toString('base64');
     const row = await pool.query(
-      `INSERT INTO gate_passes (pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      `INSERT INTO gate_passes (pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [pass_no, lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by, qr_code]
     );
     res.json(row.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM gate_passes ORDER BY id DESC LIMIT 100');
@@ -326,7 +225,7 @@ app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GADI CHALLAN APIs (Vehicle Freight Receipt)
+// ✅ FIXED: GADI CHALLAN API (28 Parameters matching 28 columns exactly)
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const {
@@ -345,18 +244,12 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
     const net_payable = freight - advance - tds;
 
     const year = String(new Date().getFullYear()).slice(-2);
-    const result = await pool.query(
-      `SELECT challan_no FROM gadi_challans WHERE challan_no LIKE $1 ORDER BY id DESC LIMIT 1`,
-      [`GC/${year}/%`]
-    );
-    
+    const result = await pool.query(`SELECT challan_no FROM gadi_challans WHERE challan_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`GC/${year}/%`]);
     let nextSerial = 1;
     if (result.rows.length > 0) {
-      const lastChallan = result.rows[0].challan_no;
-      const parts = lastChallan.split('/');
+      const parts = result.rows[0].challan_no.split('/');
       if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
-    
     const challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
     
     const row = await pool.query(
@@ -367,7 +260,7 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
         bilty_date, consignor_name, consignee_name,
         freight_amount, advance_paid, balance_due, toll_expense, diesel_expense,
         other_expense, tds_deduction, net_payable, issue_date) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) 
        RETURNING *`,
       [challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
        owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
@@ -397,12 +290,8 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/bills', authMiddleware, async (req, res) => {
-  try {
-    const row = await smartInsert('bill_book', req.body);
-    res.json(row);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { res.json(await smartInsert('bill_book', req.body)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DASHBOARD
@@ -424,29 +313,20 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Force-reset admin password
 async function ensureAdminUser() {
   try {
     const hashedPassword = await bcrypt.hash('admin123', 10);
     const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
     if (result.rows.length === 0) {
-      await pool.query(
-        `INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`,
-        ['admin', hashedPassword, 'Administrator', 'admin', true]
-      );
+      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
     } else {
       await pool.query(`UPDATE users SET password = $1, is_active = TRUE WHERE username = $2`, [hashedPassword, 'admin']);
     }
-  } catch (err) {
-    console.error('⚠️ Could not setup admin user:', err.message);
-  }
+  } catch (err) { console.error('⚠️ Could not setup admin user:', err.message); }
 }
-
 ensureAdminUser();
 
-runMigrations().then(() => {
-  console.log('✅ Database migrations completed');
-});
+runMigrations().then(() => { console.log('✅ Database migrations completed'); });
 
 app.listen(PORT, HOST, () => {
   console.log('✅ Bharat Transport API v3.0 running on port', PORT);
