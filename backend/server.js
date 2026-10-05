@@ -28,7 +28,6 @@ const pool = new Pool({
 // Cache for table columns
 const tableColumnsCache = {};
 
-// Get actual columns from database
 async function getTableColumns(tableName) {
   if (tableColumnsCache[tableName]) {
     return tableColumnsCache[tableName];
@@ -44,17 +43,13 @@ async function getTableColumns(tableName) {
   return columns;
 }
 
-// Smart insert - only uses columns that actually exist
 async function smartInsert(tableName, data) {
-  // Convert empty strings to null (fixes date field errors)
   for (let key in data) {
     if (data[key] === '') {
       data[key] = null;
     }
   }  
   const columns = await getTableColumns(tableName);
-  
-  // Filter: only keep keys that exist in table AND are not auto-generated
   const autoColumns = ['id', 'created_at', 'updated_at'];
   const validKeys = Object.keys(data).filter(
     key => columns.includes(key) && !autoColumns.includes(key) && data[key] !== undefined
@@ -73,9 +68,7 @@ async function smartInsert(tableName, data) {
   return result.rows[0];
 }
 
-// Smart update
 async function smartUpdate(tableName, data, id) {
-   // Convert empty strings to null (fixes date field errors)
   for (let key in data) {
     if (data[key] === '') {
       data[key] = null;
@@ -102,8 +95,6 @@ async function smartUpdate(tableName, data, id) {
 
 async function generateBiltyNo() {
   const year = String(new Date().getFullYear()).slice(-2);
-  
-  // Get the latest LR number from database
   const result = await pool.query(
     `SELECT lr_no FROM consignments 
      WHERE lr_no LIKE $1 
@@ -113,10 +104,8 @@ async function generateBiltyNo() {
   );
   
   let nextSerial = 1;
-  
   if (result.rows.length > 0) {
     const lastLR = result.rows[0].lr_no;
-    // Extract serial number from last LR (e.g., "BTC/26/0005" -> 5)
     const parts = lastLR.split('/');
     if (parts.length === 3) {
       nextSerial = parseInt(parts[2]) + 1;
@@ -126,6 +115,7 @@ async function generateBiltyNo() {
   const lrNo = `BTC/${year}/${String(nextSerial).padStart(4, '0')}`;
   return lrNo;
 }
+
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -158,8 +148,6 @@ app.post('/api/auth/login', async (req, res) => {
     console.log('Entered password:', password);
     
     let valid = false;
-    
-    // Try bcrypt compare
     if (user.password && user.password.startsWith('$2')) {
       try {
         valid = await bcrypt.compare(password, user.password);
@@ -170,7 +158,6 @@ app.post('/api/auth/login', async (req, res) => {
       }
     }
     
-    // Fallback: plain text compare
     if (!valid && password === user.password) {
       valid = true;
       console.log('Plain text match');
@@ -189,6 +176,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 // CUSTOMERS
 app.get('/api/customers', authMiddleware, async (req, res) => {
   try {
@@ -226,9 +214,10 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// CONSIGNMENTS (BILTY) - SMART INSERT
+// CONSIGNMENTS (BILTY)
+// IMPORTANT: Specific routes BEFORE generic routes
 
-// PUBLIC TRACKING API (No Auth Required)
+// PUBLIC TRACKING API (No Auth Required) - MUST be before /:lr_no
 app.get('/api/consignments/track/:lr_no', async (req, res) => {
   try {
     const result = await pool.query(
@@ -267,7 +256,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     if (!c.created_by) c.created_by = req.user.username;
     if (!c.lr_date) c.lr_date = new Date().toISOString().split('T')[0];
     
-        const row = await smartInsert('consignments', c);
+    const row = await smartInsert('consignments', c);
     
     // Email भेजें
     try {
@@ -283,7 +272,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
       console.log('Email error (non-critical):', emailErr.message);
     }
     
-        res.json(row);
+    res.json(row);
   } catch (err) {
     console.error('Consignment insert error:', err.message);
     res.status(500).json({ error: err.message });
@@ -337,6 +326,7 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 // Force-reset admin password to 'admin123'
 async function ensureAdminUser() {
   try {
@@ -344,7 +334,6 @@ async function ensureAdminUser() {
     const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
     
     if (result.rows.length === 0) {
-      // Create new admin
       await pool.query(
         `INSERT INTO users (username, password, full_name, role, is_active) 
          VALUES ($1, $2, $3, $4, $5)`,
@@ -352,7 +341,6 @@ async function ensureAdminUser() {
       );
       console.log('✅ New admin user created (username: admin, password: admin123)');
     } else {
-      // Update existing admin password
       await pool.query(
         `UPDATE users SET password = $1, is_active = TRUE WHERE username = $2`,
         [hashedPassword, 'admin']
@@ -365,7 +353,7 @@ async function ensureAdminUser() {
 }
 
 ensureAdminUser();
-ensureAdminUser();
+
 // Database migrations run करें
 runMigrations().then(() => {
   console.log('✅ Database migrations completed');
