@@ -6,10 +6,10 @@ export default function GadiChallan() {
   const [formData, setFormData] = useState({
     lr_no: '', vehicle_no: '', driver_name: '', driver_mobile: '', driver_license: '',
     owner_name: '', owner_mobile: '', broker_name: '', broker_mobile: '', broker_commission: '',
-    from_place: '', to_place: '', material_desc: '', weight: '',
+    from_place: '', to_place: '', material_desc: '', weight: '', packages: '',
+    bilty_date: '', consignor_name: '', consignee_name: '',
     freight_amount: '', advance_paid: '', toll_expense: '', diesel_expense: '',
-    other_expense: '', tds_deduction: '', issue_date: new Date().toISOString().split('T')[0],
-    bilty_date: '', consignor_name: '', consignee_name: '', packages: ''
+    other_expense: '', tds_deduction: '', issue_date: new Date().toISOString().split('T')[0]
   })
   const [challan, setChallan] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -19,20 +19,22 @@ export default function GadiChallan() {
     setFormData({...formData, [e.target.name]: e.target.value})
   }
 
+  // ✅ FIXED: Auto-fetch and map ALL bilty details correctly
   const handleLRChange = async (e) => {
     const lr_no = e.target.value
-    setFormData({...formData, lr_no})
+    setFormData(prev => ({ ...prev, lr_no }))
     
     if (lr_no.trim().length > 5) {
       setFetchingLR(true)
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'}/api/consignments/track?lr_no=${encodeURIComponent(lr_no.trim())}`)
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+        const response = await fetch(`${apiUrl}/api/consignments/track?lr_no=${encodeURIComponent(lr_no.trim())}`)
         const data = await response.json()
         
         if (response.ok && data.lr_no) {
           setFormData(prev => ({
             ...prev,
-            lr_no: lr_no,
+            lr_no: data.lr_no,
             bilty_date: data.lr_date || '',
             from_place: data.from_name || '',
             to_place: data.to_name || '',
@@ -40,12 +42,12 @@ export default function GadiChallan() {
             consignee_name: data.consignee_name || '',
             material_desc: data.material_desc || '',
             weight: data.weight || '',
-            packages: data.packages || ''
+            packages: data.packages || '',
+            vehicle_no: data.lorry_no || prev.vehicle_no // Auto-fill vehicle if available
           }))
-          alert('✅ Bilty details auto-filled!')
         }
       } catch (err) {
-        console.log('LR fetch error:', err.message)
+        console.error('LR fetch error:', err)
       } finally {
         setFetchingLR(false)
       }
@@ -57,13 +59,18 @@ export default function GadiChallan() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'}/api/gadi-challan`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const response = await fetch(`${apiUrl}/api/gadi-challan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(formData)
       })
       const data = await response.json()
-      setChallan(data)
+      if (response.ok) {
+        setChallan(data)
+      } else {
+        alert('Error: ' + (data.error || 'Failed to create challan'))
+      }
     } catch (err) {
       alert('Error: ' + err.message)
     } finally {
@@ -96,15 +103,8 @@ export default function GadiChallan() {
                 <h3 className="font-bold text-gray-700 mb-2">🔍 Bilty/LR Details (Auto-Fill)</h3>
                 <div className="grid md:grid-cols-2 gap-3">
                   <div className="relative">
-                    <input 
-                      name="lr_no" 
-                      placeholder="Enter LR Number (e.g., BTC/26/0001)" 
-                      value={formData.lr_no} 
-                      onChange={handleLRChange} 
-                      className="border p-2 rounded w-full" 
-                      required 
-                    />
-                    {fetchingLR && <span className="absolute right-2 top-2 text-blue-600"></span>}
+                    <input name="lr_no" placeholder="Enter LR Number (e.g., BTC/26/0001)" value={formData.lr_no} onChange={handleLRChange} className="border p-2 rounded w-full" required />
+                    {fetchingLR && <span className="absolute right-2 top-2 text-blue-600 text-sm">Fetching...</span>}
                   </div>
                   <input name="bilty_date" placeholder="Bilty Date" value={formData.bilty_date} onChange={handleChange} className="border p-2 rounded bg-gray-100" readOnly />
                 </div>
@@ -164,7 +164,7 @@ export default function GadiChallan() {
                 <div className="grid md:grid-cols-3 gap-3">
                   <input name="freight_amount" type="number" placeholder="Freight Amount (₹)" value={formData.freight_amount} onChange={handleChange} className="border p-2 rounded" required />
                   <input name="advance_paid" type="number" placeholder="Advance Paid (₹)" value={formData.advance_paid} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="tds_deduction" type="number" placeholder="TDS ()" value={formData.tds_deduction} onChange={handleChange} className="border p-2 rounded" />
+                  <input name="tds_deduction" type="number" placeholder="TDS (₹)" value={formData.tds_deduction} onChange={handleChange} className="border p-2 rounded" />
                 </div>
                 <div className="grid md:grid-cols-3 gap-3 mt-3">
                   <input name="toll_expense" type="number" placeholder="Toll (₹)" value={formData.toll_expense} onChange={handleChange} className="border p-2 rounded" />
@@ -185,7 +185,7 @@ export default function GadiChallan() {
               </div>
 
               <button type="submit" disabled={loading} className="bg-red-700 text-white px-6 py-3 rounded font-bold hover:bg-red-800 disabled:bg-gray-400 w-full">
-                {loading ? 'Generating...' : ' Generate Gadi Challan'}
+                {loading ? 'Generating...' : '🚛 Generate Gadi Challan'}
               </button>
             </form>
           </div>
@@ -200,7 +200,7 @@ export default function GadiChallan() {
 
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="border p-3 rounded bg-blue-50">
-                  <h4 className="font-bold bg-blue-100 p-1 mb-2"> Bilty Details</h4>
+                  <h4 className="font-bold bg-blue-100 p-1 mb-2">📋 Bilty Details</h4>
                   <p><strong>LR No:</strong> {challan.lr_no}</p>
                   <p><strong>Bilty Date:</strong> {challan.bilty_date ? new Date(challan.bilty_date).toLocaleDateString('en-IN') : 'N/A'}</p>
                   <p><strong>Consignor:</strong> {challan.consignor_name || 'N/A'}</p>
@@ -222,7 +222,7 @@ export default function GadiChallan() {
                   <p><strong>Packages:</strong> {challan.packages || 'N/A'}</p>
                 </div>
                 <div className="border p-3 rounded">
-                  <h4 className="font-bold bg-gray-100 p-1 mb-2"> Broker</h4>
+                  <h4 className="font-bold bg-gray-100 p-1 mb-2">🤝 Broker</h4>
                   <p><strong>Name:</strong> {challan.broker_name || 'N/A'}</p>
                   <p><strong>Mobile:</strong> {challan.broker_mobile || 'N/A'}</p>
                   <p><strong>Commission:</strong> ₹{parseFloat(challan.broker_commission || 0).toFixed(2)}</p>
@@ -243,7 +243,7 @@ export default function GadiChallan() {
 
               <div className="mt-6 flex justify-between text-sm border-t-2 pt-3">
                 <div>
-                  <p><strong>Issued By:</strong> {challan.issued_by || 'Admin'}</p>
+                  <p><strong>Issued By:</strong> Admin</p>
                   <p className="text-xs text-gray-500">{new Date(challan.created_at).toLocaleString('en-IN')}</p>
                 </div>
                 <div className="text-right">
