@@ -18,7 +18,7 @@ export default function TrackBilty() {
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const response = await fetch(`${apiUrl}/api/consignments/track/${lrNo.trim()}`)
+      const response = await fetch(`${apiUrl}/api/consignments/track?lr_no=${encodeURIComponent(lrNo.trim())}`)
       const data = await response.json()
       
       if (!response.ok) {
