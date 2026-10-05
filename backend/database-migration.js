@@ -45,6 +45,38 @@ async function runMigrations() {
     `);
     console.log('✅ Gate passes table created');
 
+        // Gadi Challan (Vehicle Freight Receipt) Table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS gadi_challans (
+        id SERIAL PRIMARY KEY,
+        challan_no VARCHAR(50) UNIQUE NOT NULL,
+        lr_no VARCHAR(50),
+        vehicle_no VARCHAR(20),
+        driver_name VARCHAR(100),
+        driver_mobile VARCHAR(15),
+        driver_license VARCHAR(30),
+        owner_name VARCHAR(100),
+        owner_mobile VARCHAR(15),
+        broker_name VARCHAR(100),
+        broker_mobile VARCHAR(15),
+        broker_commission DECIMAL(10,2) DEFAULT 0,
+        from_place VARCHAR(100),
+        to_place VARCHAR(100),
+        material_desc TEXT,
+        weight VARCHAR(20),
+        freight_amount DECIMAL(10,2) DEFAULT 0,
+        advance_paid DECIMAL(10,2) DEFAULT 0,
+        balance_due DECIMAL(10,2) DEFAULT 0,
+        toll_expense DECIMAL(10,2) DEFAULT 0,
+        diesel_expense DECIMAL(10,2) DEFAULT 0,
+        other_expense DECIMAL(10,2) DEFAULT 0,
+        tds_deduction DECIMAL(10,2) DEFAULT 0,
+        net_payable DECIMAL(10,2) DEFAULT 0,
+        issue_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Gadi challans table created');
     console.log('✅ All migrations completed successfully!');
   } catch (err) {
     console.error('❌ Migration error:', err.message);
