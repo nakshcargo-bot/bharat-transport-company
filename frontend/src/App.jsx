@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import Consignments from './pages/Consignments'
 import Bills from './pages/Bills'
