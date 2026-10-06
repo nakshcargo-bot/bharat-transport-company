@@ -142,17 +142,15 @@ app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ FIXED: PUBLIC TRACKING API (Returns ALL fields needed for Gadi Challan auto-fill)
+// ✅ FIXED: PUBLIC TRACKING API (Uses SELECT * to avoid missing column errors)
 app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
     if (!lr_no) return res.status(400).json({ error: 'LR number is required' });
     
+    // Use SELECT * to get all available columns safely
     const result = await pool.query(
-      `SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, 
-              status, grand_total, driver_name, driver_mobile, lorry_no, eway_bill_no, 
-              weight, packages, material_desc
-       FROM consignments WHERE lr_no = $1`, 
+      `SELECT * FROM consignments WHERE lr_no = $1`, 
       [lr_no]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
@@ -225,7 +223,7 @@ app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ FIXED: GADI CHALLAN API (28 Parameters matching 28 columns exactly)
+// GADI CHALLAN API
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const {
