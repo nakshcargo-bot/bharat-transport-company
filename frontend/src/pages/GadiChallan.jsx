@@ -19,7 +19,7 @@ export default function GadiChallan() {
     setFormData({...formData, [e.target.name]: e.target.value})
   }
 
-  // ✅ FIXED: Auto-fetch and map ALL bilty details correctly
+  // ✅ FIXED: Robust Auto-fetch that handles missing columns gracefully
   const handleLRChange = async (e) => {
     const lr_no = e.target.value
     setFormData(prev => ({ ...prev, lr_no }))
@@ -36,14 +36,15 @@ export default function GadiChallan() {
             ...prev,
             lr_no: data.lr_no,
             bilty_date: data.lr_date || '',
-            from_place: data.from_name || '',
-            to_place: data.to_name || '',
+            from_place: data.from_name || data.from_place || '',
+            to_place: data.to_name || data.to_place || '',
             consignor_name: data.consignor_name || '',
             consignee_name: data.consignee_name || '',
-            material_desc: data.material_desc || '',
-            weight: data.weight || '',
-            packages: data.packages || '',
-            vehicle_no: data.lorry_no || prev.vehicle_no // Auto-fill vehicle if available
+            // Try multiple possible column names for weight/packages/material
+            material_desc: data.material_desc || data.goods || data.commodity || '',
+            weight: data.weight || data.gross_weight || data.total_weight || data.actual_weight || '',
+            packages: data.packages || data.no_of_packages || data.pkgs || '',
+            vehicle_no: data.lorry_no || data.vehicle_no || prev.vehicle_no
           }))
         }
       } catch (err) {
@@ -100,7 +101,7 @@ export default function GadiChallan() {
             <form onSubmit={handleSubmit} className="space-y-6">
               
               <div className="border-2 border-red-200 bg-red-50 p-4 rounded">
-                <h3 className="font-bold text-gray-700 mb-2">🔍 Bilty/LR Details (Auto-Fill)</h3>
+                <h3 className="font-bold text-gray-700 mb-2"> Bilty/LR Details (Auto-Fill)</h3>
                 <div className="grid md:grid-cols-2 gap-3">
                   <div className="relative">
                     <input name="lr_no" placeholder="Enter LR Number (e.g., BTC/26/0001)" value={formData.lr_no} onChange={handleLRChange} className="border p-2 rounded w-full" required />
@@ -155,7 +156,7 @@ export default function GadiChallan() {
                 <div className="grid md:grid-cols-3 gap-3">
                   <input name="broker_name" placeholder="Broker Name" value={formData.broker_name} onChange={handleChange} className="border p-2 rounded" />
                   <input name="broker_mobile" placeholder="Broker Mobile" value={formData.broker_mobile} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="broker_commission" type="number" placeholder="Commission (₹)" value={formData.broker_commission} onChange={handleChange} className="border p-2 rounded" />
+                  <input name="broker_commission" type="number" placeholder="Commission ()" value={formData.broker_commission} onChange={handleChange} className="border p-2 rounded" />
                 </div>
               </div>
 
