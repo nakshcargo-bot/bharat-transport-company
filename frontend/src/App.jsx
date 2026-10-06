@@ -7,7 +7,7 @@ import Customers from './pages/Customers'
 import GatePass from './pages/GatePass'
 import GadiChallan from './pages/GadiChallan'
 import Reports from './pages/Reports'
-import TrackBilty from './pages/TrackBilty'
+import TrackBilty from './pages/TrackBilty' 
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
