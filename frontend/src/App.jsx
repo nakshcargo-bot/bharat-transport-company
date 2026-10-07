@@ -11,7 +11,10 @@ const GadiChallan = lazy(() => import('./pages/GadiChallan'))
 const Reports = lazy(() => import('./pages/Reports'))
 const TrackBilty = lazy(() => import('./pages/TrackBilty'))
 const Login = lazy(() => import('./pages/Login'))
-const BiltyPrint = lazy(() => import('./pages/BiltyPrint')) // ✅ Added BiltyPrint
+const BiltyPrint = lazy(() => import('./pages/BiltyPrint'))
+const MR = lazy(() => import('./pages/MR'))
+const MRCreate = lazy(() => import('./pages/MRCreate'))
+const MRPrint = lazy(() => import('./pages/MRPrint'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -21,7 +24,7 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2>⏳ Loading...</h2>
+      <h2>Loading...</h2>
     </div>
   )
 }
@@ -36,7 +39,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/login" element={<Login onLogin={() => setIsLoggedIn(true)} />} />
           <Route path="/track" element={<TrackBilty />} />
-          <Route path="/bilty-print" element={<BiltyPrint />} /> {/* ✅ Added Print Route */}
+          <Route path="/bilty-print" element={<BiltyPrint />} />
+          <Route path="/mr/print" element={<MRPrint />} />
           
           {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -47,6 +51,8 @@ function App() {
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+          <Route path="/mr" element={<PrivateRoute><MR /></PrivateRoute>} />
+          <Route path="/mr/create" element={<PrivateRoute><MRCreate /></PrivateRoute>} />
           
           {/* Catch-all Route (Must be last) */}
           <Route path="*" element={
