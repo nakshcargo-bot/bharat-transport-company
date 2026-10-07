@@ -125,39 +125,16 @@ app.get('/api/customers', authMiddleware, async (req, res) => {
 app.post('/api/customers', authMiddleware, async (req, res) => {
   try { res.json(await smartInsert('customers', req.body)); } catch (err) { res.status(500).json({ error: err.message }); }
 });
-app.get('/api/customers/:id', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM customers WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-app.put('/api/customers/:id', authMiddleware, async (req, res) => {
-  try { res.json(await smartUpdate('customers', req.body, req.params.id)); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('UPDATE customers SET is_active = FALSE WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
-// ✅ FIXED: PUBLIC TRACKING API (Uses SELECT * to avoid missing column errors)
+// PUBLIC TRACKING API
 app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
     if (!lr_no) return res.status(400).json({ error: 'LR number is required' });
-    
-    // Use SELECT * to get all available columns safely
-    const result = await pool.query(
-      `SELECT * FROM consignments WHERE lr_no = $1`, 
-      [lr_no]
-    );
+    const result = await pool.query(`SELECT * FROM consignments WHERE lr_no = $1`, [lr_no]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
     res.json(result.rows[0]);
-  } catch (err) { 
-    res.status(500).json({ error: err.message }); 
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/consignments', authMiddleware, async (req, res) => {
@@ -166,13 +143,7 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-app.get('/api/consignments/:lr_no', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM consignments WHERE lr_no = $1', [req.params.lr_no]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
+
 app.post('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
@@ -186,14 +157,9 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try { res.json(await smartUpdate('consignments', req.body, req.params.id)); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query("UPDATE consignments SET status = 'Cancelled' WHERE id = $1", [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GATE PASS APIs
@@ -216,6 +182,7 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
     res.json(row.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM gate_passes ORDER BY id DESC LIMIT 100');
@@ -226,21 +193,12 @@ app.get('/api/gate-pass', authMiddleware, async (req, res) => {
 // GADI CHALLAN API
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
-    const {
-      lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
-      owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
-      from_place, to_place, material_desc, weight, packages,
-      bilty_date, consignor_name, consignee_name,
-      freight_amount, advance_paid, toll_expense, diesel_expense,
-      other_expense, tds_deduction, issue_date
-    } = req.body;
-
+    const { lr_no, vehicle_no, driver_name, driver_mobile, driver_license, owner_name, owner_mobile, broker_name, broker_mobile, broker_commission, from_place, to_place, material_desc, weight, packages, bilty_date, consignor_name, consignee_name, freight_amount, advance_paid, toll_expense, diesel_expense, other_expense, tds_deduction, issue_date } = req.body;
     const freight = parseFloat(freight_amount || 0);
     const advance = parseFloat(advance_paid || 0);
     const tds = parseFloat(tds_deduction || 0);
     const balance = freight - advance;
     const net_payable = freight - advance - tds;
-
     const year = String(new Date().getFullYear()).slice(-2);
     const result = await pool.query(`SELECT challan_no FROM gadi_challans WHERE challan_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`GC/${year}/%`]);
     let nextSerial = 1;
@@ -249,23 +207,9 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
       if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
     const challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
-    
     const row = await pool.query(
-      `INSERT INTO gadi_challans 
-       (challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
-        owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
-        from_place, to_place, material_desc, weight, packages,
-        bilty_date, consignor_name, consignee_name,
-        freight_amount, advance_paid, balance_due, toll_expense, diesel_expense,
-        other_expense, tds_deduction, net_payable, issue_date) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) 
-       RETURNING *`,
-      [challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license,
-       owner_name, owner_mobile, broker_name, broker_mobile, broker_commission,
-       from_place, to_place, material_desc, weight, packages,
-       bilty_date, consignor_name, consignee_name,
-       freight, advance, balance, toll_expense, diesel_expense,
-       other_expense, tds, net_payable, issue_date]
+      `INSERT INTO gadi_challans (challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license, owner_name, owner_mobile, broker_name, broker_mobile, broker_commission, from_place, to_place, material_desc, weight, packages, bilty_date, consignor_name, consignee_name, freight_amount, advance_paid, balance_due, toll_expense, diesel_expense, other_expense, tds_deduction, net_payable, issue_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28) RETURNING *`,
+      [challan_no, lr_no, vehicle_no, driver_name, driver_mobile, driver_license, owner_name, owner_mobile, broker_name, broker_mobile, broker_commission, from_place, to_place, material_desc, weight, packages, bilty_date, consignor_name, consignee_name, freight, advance, balance, toll_expense, diesel_expense, other_expense, tds, net_payable, issue_date]
     );
     res.json(row.rows[0]);
   } catch (err) {
@@ -311,6 +255,135 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==========================================
+// ✅ FIXED: PARTIES (CUSTOMERS) APIs (PostgreSQL)
+// ==========================================
+app.get('/api/parties', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM parties ORDER BY party_name ASC`);
+    res.json({ data: result.rows, count: result.rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/parties', authMiddleware, async (req, res) => {
+  try {
+    const { party_code, party_name, address, gst_no, email, phone } = req.body;
+    if (!party_code || !party_name) {
+      return res.status(400).json({ error: 'Party Code and Name are required' });
+    }
+    const query = `
+      INSERT INTO parties (party_code, party_name, address, gst_no, email, phone)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT(party_code) DO UPDATE SET
+      party_name = EXCLUDED.party_name,
+      address = EXCLUDED.address,
+      gst_no = EXCLUDED.gst_no,
+      email = EXCLUDED.email,
+      phone = EXCLUDED.phone
+      RETURNING *
+    `;
+    const result = await pool.query(query, [party_code, party_name, address || '', gst_no || '', email || '', phone || '']);
+    res.json({ success: true, data: result.rows[0], message: 'Party saved/updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// ✅ FIXED: MR (MONEY RECEIPT) APIs (PostgreSQL)
+// ==========================================
+app.post('/api/mr', authMiddleware, async (req, res) => {
+  try {
+    const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
+    
+    let finalMRNo = mr_no;
+    if (!finalMRNo || finalMRNo === 'Auto-generated') {
+      const year = new Date().getFullYear().toString().slice(-2);
+      const lastMR = await pool.query(`SELECT mr_no FROM money_receipts WHERE mr_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`MR/${year}/%`]);
+      let nextNum = 1;
+      if (lastMR.rows.length > 0 && lastMR.rows[0].mr_no) {
+        const parts = lastMR.rows[0].mr_no.split('/');
+        const lastNum = parseInt(parts[2] || '0');
+        nextNum = lastNum + 1;
+      }
+      finalMRNo = `MR/${year}/${String(nextNum).padStart(4, '0')}`;
+    }
+    
+    const finalDate = mr_date || new Date().toISOString().split('T')[0];
+    const finalAmount = parseFloat(amount || 0);
+    const finalIsAdvance = is_advance ? true : false;
+    
+    const query = `
+      INSERT INTO money_receipts 
+      (mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *
+    `;
+    
+    const result = await pool.query(query, [
+      finalMRNo, finalDate, party_type, party_name, 
+      bilty_id || null, bilty_lr_no || null, bill_id || null, bill_no || null, 
+      finalAmount, payment_mode || 'Cash', finalIsAdvance, remarks || ''
+    ]);
+    
+    if (bilty_id) {
+      await pool.query(`UPDATE consignments SET payment_status = 'Paid', mr_no = $1 WHERE id = $2`, [finalMRNo, bilty_id]);
+    }
+    if (bill_id) {
+      await pool.query(`UPDATE bill_book SET payment_status = 'Paid', mr_no = $1 WHERE id = $2`, [finalMRNo, bill_id]);
+    }
+    
+    res.json({ success: true, mr_no: finalMRNo, data: result.rows[0], message: 'MR created successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/mr', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM money_receipts ORDER BY created_at DESC`);
+    res.json({ data: result.rows, count: result.rows.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/mr/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM money_receipts WHERE id = $1`, [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'MR not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/mr/:id', authMiddleware, async (req, res) => {
+  try {
+    const { mr_date, party_type, party_name, amount, payment_mode, is_advance, remarks } = req.body;
+    await pool.query(`UPDATE money_receipts SET mr_date=$1, party_type=$2, party_name=$3, amount=$4, payment_mode=$5, is_advance=$6, remarks=$7 WHERE id=$8`,
+      [mr_date, party_type, party_name, amount, payment_mode, is_advance, remarks, req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/mr/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM money_receipts WHERE id = $1`, [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Setup Admin & Migrations
 async function ensureAdminUser() {
   try {
     const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -322,8 +395,8 @@ async function ensureAdminUser() {
     }
   } catch (err) { console.error('⚠️ Could not setup admin user:', err.message); }
 }
-ensureAdminUser();
 
+ensureAdminUser();
 runMigrations().then(() => { console.log('✅ Database migrations completed'); });
 
 app.listen(PORT, HOST, () => {
@@ -331,142 +404,3 @@ app.listen(PORT, HOST, () => {
 });
 
 module.exports = app;
-
-// ============ MR (MONEY RECEIPT) TABLE ============
-await db.run(`CREATE TABLE IF NOT EXISTS money_receipts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  mr_no TEXT UNIQUE NOT NULL,
-  mr_date TEXT NOT NULL,
-  party_type TEXT NOT NULL,
-  party_name TEXT NOT NULL,
-  bilty_id INTEGER,
-  bilty_lr_no TEXT,
-  bill_id INTEGER,
-  bill_no TEXT,
-  amount REAL NOT NULL,
-  payment_mode TEXT DEFAULT 'Cash',
-  is_advance INTEGER DEFAULT 0,
-  remarks TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (bilty_id) REFERENCES consignments(id),
-  FOREIGN KEY (bill_id) REFERENCES bills(id)
-)`);
-
-console.log('✓ Money Receipts table created');
-
-// ============ MR (MONEY RECEIPT) APIs ============
-
-// Generate MR Number
-function generateMRNo() {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const random = Math.floor(Math.random() * 9000) + 1000;
-  return `MR/${year}/${random}`;
-}
-
-// Create MR
-// Create MR with Auto Number (MR/26/0001 format)
-app.post('/api/mr', async (req, res) => {
-  try {
-    const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
-    
-    // Auto-generate MR number in MR/YY/XXXX format
-    let finalMRNo = mr_no;
-    if (!finalMRNo || finalMRNo === 'Auto-generated') {
-      const year = new Date().getFullYear().toString().slice(-2);
-      const lastMR = await db.get(`SELECT mr_no FROM money_receipts WHERE mr_no LIKE 'MR/${year}/%' ORDER BY id DESC LIMIT 1`);
-      let nextNum = 1;
-      if (lastMR && lastMR.mr_no) {
-        const parts = lastMR.mr_no.split('/');
-        const lastNum = parseInt(parts[2] || '0');
-        nextNum = lastNum + 1;
-      }
-      finalMRNo = `MR/${year}/${String(nextNum).padStart(4, '0')}`;
-    }
-    
-    const finalDate = mr_date || new Date().toISOString().split('T')[0];
-    const finalAmount = parseFloat(amount || 0);
-    const finalIsAdvance = is_advance ? 1 : 0;
-    
-    const stmt = await db.prepare(`INSERT INTO money_receipts 
-      (mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    
-    await stmt.run(finalMRNo, finalDate, party_type, party_name, bilty_id || null, bilty_lr_no || null, bill_id || null, bill_no || null, finalAmount, payment_mode || 'Cash', finalIsAdvance, remarks || '');
-    await stmt.finalize();
-    
-    if (bilty_id) {
-      await db.run(`UPDATE consignments SET payment_status = 'Paid', mr_no = ? WHERE id = ?`, [finalMRNo, bilty_id]);
-    }
-    
-    if (bill_id) {
-      await db.run(`UPDATE bills SET payment_status = 'Paid', mr_no = ? WHERE id = ?`, [finalMRNo, bill_id]);
-    }
-    
-    res.json({ success: true, mr_no: finalMRNo, message: 'MR created successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-// Get All MRs
-app.get('/api/mr', async (req, res) => {
-  try {
-    const mrs = await db.all(`SELECT * FROM money_receipts ORDER BY created_at DESC`);
-    res.json({ data: mrs, count: mrs.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get Single MR
-app.get('/api/mr/:id', async (req, res) => {
-  try {
-    const mr = await db.get(`SELECT * FROM money_receipts WHERE id = ?`, [req.params.id]);
-    if (!mr) return res.status(404).json({ error: 'MR not found' });
-    res.json(mr);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update MR
-app.put('/api/mr/:id', async (req, res) => {
-  try {
-    const { mr_date, party_type, party_name, amount, payment_mode, is_advance, remarks } = req.body;
-    await db.run(`UPDATE money_receipts SET mr_date=?, party_type=?, party_name=?, amount=?, payment_mode=?, is_advance=?, remarks=? WHERE id=?`,
-      [mr_date, party_type, party_name, amount, payment_mode, is_advance ? 1 : 0, remarks, req.params.id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Delete MR
-app.delete('/api/mr/:id', async (req, res) => {
-  try {
-    await db.run(`DELETE FROM money_receipts WHERE id = ?`, [req.params.id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get MRs by Bilty
-app.get('/api/mr/bilty/:biltyId', async (req, res) => {
-  try {
-    const mrs = await db.all(`SELECT * FROM money_receipts WHERE bilty_id = ?`, [req.params.biltyId]);
-    res.json({ data: mrs });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get MRs by Bill
-app.get('/api/mr/bill/:billId', async (req, res) => {
-  try {
-    const mrs = await db.all(`SELECT * FROM money_receipts WHERE bill_id = ?`, [req.params.billId]);
-    res.json({ data: mrs });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
