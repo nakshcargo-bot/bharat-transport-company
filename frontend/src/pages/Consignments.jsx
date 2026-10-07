@@ -115,6 +115,7 @@ export default function Consignments({ isNew }) {
           <h1 className="font-bold text-lg">📋 Bilty List ({bilties.length})</h1>
           <div className="flex gap-2">
             <button onClick={() => setShowForm(true)} className="bg-white text-red-700 px-4 py-1 rounded font-bold text-sm">+ New Bilty</button>
+            <button onClick={() => navigate('/mr')} className="bg-yellow-500 text-white px-4 py-1 rounded font-bold text-sm">💰 Money Receipts</button>
             <button onClick={() => navigate('/')} className="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm">← Dashboard</button>
           </div>
         </div>
@@ -141,15 +142,19 @@ export default function Consignments({ isNew }) {
                     <td className="p-3 text-sm">{b.lr_date}</td>
                     <td className="p-3 text-sm">{b.from_name} → {b.to_name}</td>
                     <td className="p-3 text-sm">{b.consignor_name}</td>
-                    <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
-                    <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span></td>
+                    <td className="p-3 font-bold">{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
                     <td className="p-3">
-                      <button 
-                        onClick={() => navigate('/bilty-print', { state: { bilty: b } })}
-                        className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-700 flex items-center gap-1 transition"
-                      >
-                        🖨️ Print
-                      </button>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span>
+                    </td>
+                    <td className="p-3">
+                      {b.mr_no ? (
+                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1">✅ Paid: {b.mr_no}</div>
+                      ) : (
+                        <button onClick={() => navigate(`/mr/create?biltyId=${b.id}`)} className="bg-green-600 text-white px-2 py-1 rounded text-xs mb-1 hover:bg-green-700 w-full">💰 Create MR</button>
+                      )}
+                      <div className="flex gap-1">
+                        <button onClick={() => navigate('/bilty-print', { state: { bilty: b } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700">🖨️ Print</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
