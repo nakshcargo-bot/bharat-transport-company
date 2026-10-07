@@ -30,7 +30,7 @@ export default function BiltyPrint() {
     return convert(n) + ' Only'
   }
 
-  const freight = Math.round(parseFloat(bilty.freight || 0))
+  const freight = Math.round(parseFloat(bilty.freight || bilty.grand_total || 0))
   const aoc = parseFloat(bilty.aoc_percent || 0)
   const aocAmount = Math.round((freight * aoc) / 100)
   const eov = Math.round(parseFloat(bilty.eov_charges || 0))
@@ -49,129 +49,117 @@ export default function BiltyPrint() {
       <style>{`
         @page {
           size: A4 portrait;
-          margin: 0;
+          margin: 8mm;
         }
         @media print {
-          body {
-            margin: 0 !important;
-            padding: 0 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .bilty-container {
-            width: 210mm !important;
-            height: 297mm !important;
-            padding: 5mm !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-          }
+          body { margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .no-print { display: none !important; }
+          .bilty-container { width: 194mm !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
         }
         .bilty-container {
-          width: 210mm;
-          min-height: 297mm;
-          margin: 0 auto;
-          padding: 5mm;
+          width: 194mm;
+          margin: 10px auto;
           font-family: Arial, sans-serif;
-          font-size: 10px;
+          font-size: 9px;
           background: white;
+          line-height: 1.3;
         }
         .main-table {
           width: 100%;
           border-collapse: collapse;
-          border: 2px solid #000;
+          border: 1.5px solid #000;
         }
         .main-table td, .main-table th {
           border: 1px solid #000;
-          padding: 2px 4px;
+          padding: 3px 4px;
           vertical-align: top;
         }
         .header-company {
-          color: #d00000;
-          font-size: 24px;
+          color: #cc0000;
+          font-size: 26px;
           font-weight: bold;
           text-align: center;
           letter-spacing: 1px;
-          padding: 5px 0;
+          margin: 0;
         }
         .header-office {
           font-size: 10px;
           text-align: center;
-          line-height: 1.4;
+          margin: 2px 0;
         }
         .header-pan-gst {
-          font-size: 9px;
+          font-size: 10px;
           text-align: right;
           font-weight: bold;
-          padding: 2px 5px;
+          margin-top: 5px;
         }
-        .red-text { color: #d00000; font-weight: bold; }
-        .red-bold { color: #d00000; font-weight: bold; font-size: 12px; }
+        .red-bold { color: #cc0000; font-weight: bold; }
         .section-title {
           font-weight: bold;
           font-size: 10px;
           text-align: center;
           text-transform: uppercase;
         }
-        .label {
-          font-size: 9px;
-          font-weight: bold;
-        }
-        .value {
-          font-size: 10px;
+        .label { font-size: 9px; font-weight: bold; }
+        .notice-text {
+          font-size: 7.5px;
+          color: #cc0000;
+          line-height: 1.4;
+          text-align: justify;
         }
         .logo-box {
-          width: 70px;
-          height: 70px;
-          border: 2px solid #d00000;
+          width: 80px;
+          height: 80px;
+          border: 2px solid #cc0000;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #d00000;
-          font-weight: bold;
-          font-size: 16px;
           margin: 5px auto;
+          position: relative;
         }
-        .notice-text {
-          font-size: 7px;
-          color: #d00000;
-          line-height: 1.3;
-          text-align: justify;
+        .logo-box svg {
+          position: absolute;
+          top: 5px;
+          left: 5px;
+          width: 70px;
+          height: 70px;
         }
-        .charge-row td {
+        .logo-text {
+          color: #cc0000;
+          font-weight: bold;
+          font-size: 20px;
+          z-index: 1;
+        }
+        .grand-total-row {
+          background: #f0f0f0;
+          font-weight: bold;
+        }
+        .payment-note {
+          color: #cc0000;
+          font-size: 9px;
+          font-style: italic;
+        }
+        .editable {
+          min-height: 14px;
+        }
+        .charges-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .charges-table td {
+          border: 1px solid #000;
           padding: 2px 4px;
           font-size: 9px;
         }
-        .grand-total {
-          background: #f5f5f5;
-          font-weight: bold;
-          font-size: 11px;
-        }
-        .footer-sign {
+        .amount-cell {
           text-align: right;
-          padding-top: 30px;
-        }
-        .payment-note {
-          color: #d00000;
-          font-size: 9px;
-          font-style: italic;
-          line-height: 1.4;
-        }
-        .editable {
-          min-height: 16px;
-          border-bottom: 1px dotted #999;
-        }
-        .amount-col {
-          text-align: right;
-          width: 80px;
           padding-right: 5px;
+          min-width: 50px;
         }
       `}</style>
 
-      <div className="no-print" style={{ padding: '20px', textAlign: 'center', background: '#f0f0f0', position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000 }}>
-        <button onClick={() => window.print()} style={{ padding: '10px 20px', fontSize: '16px', marginRight: '10px', background: '#d00000', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+      <div className="no-print" style={{ padding: '15px', textAlign: 'center', background: '#f0f0f0', position: 'sticky', top: 0, zIndex: 1000 }}>
+        <button onClick={() => window.print()} style={{ padding: '10px 20px', fontSize: '16px', marginRight: '10px', background: '#cc0000', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
           🖨️ Print Bilty
         </button>
         <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', fontSize: '16px', background: '#666', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
@@ -183,85 +171,85 @@ export default function BiltyPrint() {
         <table className="main-table">
           {/* Row 1: Logo + Company Header */}
           <tr>
-            <td rowSpan={2} style={{ width: '12%', textAlign: 'center', verticalAlign: 'middle', padding: '5px' }}>
+            <td rowSpan={2} style={{ width: '13%', textAlign: 'center', verticalAlign: 'middle', padding: '5px' }}>
               <div className="logo-box">
-                <div>
-                  <div style={{ fontSize: '30px', lineHeight: '1' }}>🇮🇳</div>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold' }}>BTC</div>
-                </div>
+                <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M50 5 L55 15 L60 12 L62 20 L70 18 L68 28 L78 30 L72 38 L82 42 L75 50 L85 55 L78 62 L88 68 L80 75 L88 82 L78 88 L85 95 L75 100 L80 108 L70 110 L72 118 L60 115 L58 120 L50 118 L42 120 L40 115 L28 118 L30 110 L20 108 L25 100 L15 95 L22 88 L12 82 L20 75 L12 68 L22 62 L15 55 L25 50 L18 42 L28 38 L22 30 L32 28 L30 18 L38 20 L40 12 L45 15 Z" fill="none" stroke="#cc0000" strokeWidth="2"/>
+                </svg>
+                <span className="logo-text">BTC</span>
               </div>
             </td>
             <td colSpan={6} style={{ textAlign: 'center', padding: '8px 5px' }}>
-              <div className="header-company">BHARAT TRANSPORT COMPANY</div>
+              <h1 className="header-company">BHARAT TRANSPORT COMPANY</h1>
               <div className="header-office">
                 Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan, 331023
               </div>
               <div className="header-office">
                 Email: bharattrsnportcompany@gmail.com
               </div>
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={6} className="header-pan-gst">
-              PAN No.: CMRPP0955N &nbsp;&nbsp;&nbsp;GST No.: 08CMRPP0955N1Z5
+              <div className="header-pan-gst">
+                PAN No.: <b>CMRPP0955N</b> &nbsp;&nbsp; GST No.: <b>08CMRPP0955N1Z5</b>
+              </div>
             </td>
           </tr>
 
           {/* Row 2: Schedule + Consignor Copy + Caution */}
           <tr>
             <td rowSpan={2} style={{ fontSize: '8px', padding: '4px', verticalAlign: 'top' }}>
-              <div className="section-title" style={{ marginBottom: '3px' }}>SCHEDULE OF DELAY COLLECTION CHARGE</div>
-              <div>
-                Delay collection charge after.......... days from today@6/- per day Quintal on charged weight.
+              <div className="section-title" style={{ marginBottom: '4px' }}>SCHEDULE OF DELAY COLLECTION CHARGE</div>
+              <div style={{ fontSize: '8px' }}>
+                Delay collection charge after......... days from today@6/- per day Quintal on charged weight.
               </div>
             </td>
-            <td colSpan={3} className="red-bold" style={{ textAlign: 'center', fontSize: '13px', padding: '6px' }}>
-              CONSIGNOR COPY
+            <td colSpan={3} style={{ textAlign: 'center', padding: '6px' }}>
+              <div className="red-bold" style={{ fontSize: '14px' }}>CONSIGNOR COPY</div>
             </td>
             <td colSpan={3} rowSpan={2} style={{ fontSize: '8px', padding: '4px', verticalAlign: 'top' }}>
               <div><b>CAUTION:</b> This consignment will not be detained, diverted, re-routed or re-booked without Consignee Bank's written permission will be delivered at the destination</div>
-              <div style={{ marginTop: '8px' }}>
+              <div style={{ marginTop: '10px' }}>
                 <div className="label">Address of Issuing office</div>
-                <div className="editable" style={{ minHeight: '25px', marginTop: '2px' }}>{bilty.issuing_office || ''}</div>
+                <div className="editable" style={{ borderBottom: '1px dotted #000', minHeight: '20px', marginTop: '2px' }}>{bilty.issuing_office || ''}</div>
               </div>
             </td>
           </tr>
           <tr>
-            <td colSpan={3} className="section-title" style={{ padding: '4px' }}>OWNER RISK</td>
+            <td colSpan={3} style={{ textAlign: 'center', padding: '4px' }}>
+              <div className="section-title">OWNER RISK</div>
+            </td>
           </tr>
 
           {/* Row 3: Notice + Insurance + Consignment Note No */}
           <tr>
             <td rowSpan={2} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div className="red-bold" style={{ textAlign: 'center', marginBottom: '4px', fontSize: '11px' }}>NOTICE</div>
+              <div className="red-bold" style={{ textAlign: 'center', marginBottom: '4px', fontSize: '12px' }}>NOTICE</div>
               <div className="notice-text">
                 The Consignment covered by this Lorry receipt shall be stored at the destination under the control of the Transport Operator and shall be delivered to or to the order of the Consignee Bank whose name's mentioned in the Lorry receipt. It will be under no circumstances be delivered to anyone without the written authority from the Consignee Bank or its order, endorsed on the Consignee Copy or on a separate letter of Authority.
               </div>
             </td>
             <td rowSpan={2} colSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="section-title" style={{ marginBottom: '3px' }}>INSURANCE</div>
-              <div style={{ marginBottom: '4px' }}>
+              <div className="section-title" style={{ marginBottom: '4px' }}>INSURANCE</div>
+              <div style={{ marginBottom: '6px', fontSize: '9px' }}>
                 The consignor has stated that he has insured/not insured the consignment.
               </div>
               <div style={{ fontSize: '9px' }}>
-                <div><span className="label">Company:</span> <span className="editable">{bilty.insurance_company || ''}</span></div>
-                <div><span className="label">Policy No.:</span> <span className="editable">{bilty.policy_no || ''}</span></div>
-                <div><span className="label">Date:</span> <span className="editable">{bilty.insurance_date || ''}</span></div>
-                <div><span className="label">Amount:</span> <span className="editable">{bilty.insurance_amount || ''}</span></div>
+                <div><b>Company:</b> <span className="editable">{bilty.insurance_company || ''}</span></div>
+                <div><b>Policy No.:</b> <span className="editable">{bilty.policy_no || ''}</span></div>
+                <div><b>Date:</b> <span className="editable">{bilty.insurance_date || ''}</span></div>
+                <div><b>Amount:</b> <span className="editable">{bilty.insurance_amount || ''}</span></div>
               </div>
             </td>
             <td colSpan={3} style={{ textAlign: 'center', padding: '8px', verticalAlign: 'top' }}>
-              <div className="red-bold" style={{ fontSize: '14px', marginBottom: '8px' }}>CONSIGNMENT NOTE NO.</div>
-              <div className="editable" style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'center', minHeight: '25px', marginBottom: '5px' }}>
-                {bilty.lr_no || 'BTC/26/0001'}
+              <div className="red-bold" style={{ fontSize: '15px', marginBottom: '10px' }}>CONSIGNMENT NOTE NO.</div>
+              <div className="editable" style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center', minHeight: '30px', marginBottom: '5px', borderBottom: '1px dotted #000' }}>
+                {bilty.lr_no || 'BTC/26/0008'}
               </div>
             </td>
           </tr>
           <tr>
             <td colSpan={3} style={{ padding: '4px' }}>
               <div className="label">Date</div>
-              <div className="editable" style={{ minHeight: '20px', fontWeight: 'bold', marginTop: '2px' }}>
-                {bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : '23/9/2026'}
+              <div className="editable" style={{ minHeight: '20px', fontWeight: 'bold', marginTop: '2px', borderBottom: '1px dotted #000' }}>
+                {bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : '24/9/2026'}
               </div>
             </td>
           </tr>
@@ -269,81 +257,102 @@ export default function BiltyPrint() {
           {/* Row 4: Consignor + From/To */}
           <tr>
             <td colSpan={4} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div className="label">Consignor's Full Name & Address:</div>
-              <div className="editable" style={{ minHeight: '35px', marginTop: '2px' }}>{bilty.consignor_name || 'Shree Traders'}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '9px' }}>
-                <div><span className="label">Invoice No.</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.invoice_no || '25'}</span></div>
-                <div><span className="label">Date</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.invoice_date || ''}</span></div>
-                <div><span className="label">GST No.</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.consignor_gst || ''}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="label">Consignor's Full Name & Address:</div>
+                <div className="label">Customer Code:</div>
               </div>
-            </td>
-            <td colSpan={1} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="label">Customer Code:</div>
-              <div className="editable" style={{ minHeight: '18px', marginTop: '2px' }}>{bilty.consignor_code || ''}</div>
+              <div className="editable" style={{ minHeight: '30px', marginTop: '2px' }}>{bilty.consignor_name || 'Electromech Infraprojects Pvt Ltd'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '9px' }}>
+                <div><b>Invoice No.</b> <span className="editable">{bilty.invoice_no || '25'}</span></div>
+                <div><b>Date</b> <span className="editable">{bilty.invoice_date || '2026-09-24T00:00:00.000Z'}</span></div>
+                <div><b>GST No.</b> <span className="editable">{bilty.consignor_gst || '27AABCE1234A1Z5'}</span></div>
+              </div>
             </td>
             <td colSpan={1} rowSpan={2} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
               <div className="label">From Code & Name:</div>
               <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.from_name || 'Delhi'}</div>
-              <div className="label" style={{ marginTop: '8px' }}>To Code & Name:</div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.to_name || 'Delhi'}</div>
+              <div className="label" style={{ marginTop: '10px' }}>To Code & Name:</div>
+              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.to_name || 'Jaipur'}</div>
+            </td>
+            <td colSpan={2} rowSpan={2} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
+              <div><b>Delivery Type:</b> <b>{bilty.delivery_type || 'DOOR DELIVERY'}</b></div>
+              <div><b>Unloading Party Mob. No:</b> <span className="editable">{bilty.unloading_mob || ''}</span></div>
+              <div><b>Delivery Godown Address</b></div>
+              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.delivery_address || ''}</div>
             </td>
           </tr>
 
-          {/* Row 5: Consignee + Delivery Details */}
+          {/* Row 5: Consignee + Lorry Details */}
           <tr>
             <td colSpan={4} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div className="label">Consignee/Bank's Full Name & Address:</div>
-              <div className="editable" style={{ minHeight: '35px', marginTop: '2px' }}>{bilty.consignee_name || 'Vedant Sales Corporation'}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="label">Consignee/Bank's Full Name & Address:</div>
+                <div className="label">Customer Code:</div>
+              </div>
+              <div className="editable" style={{ minHeight: '30px', marginTop: '2px' }}>{bilty.consignee_name || 'Vedant Sales Corporation'}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '9px' }}>
-                <div><span className="label">Purchase Order No.</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.po_no || ''}</span></div>
-                <div><span className="label">Date</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.po_date || ''}</span></div>
-                <div><span className="label">GST No.</span> <span className="editable" style={{ marginLeft: '3px' }}>{bilty.consignee_gst || '27AVGPG9399R1ZJ'}</span></div>
+                <div><b>Purchase Order No.</b> <span className="editable">{bilty.po_no || ''}</span></div>
+                <div><b>Date</b> <span className="editable">{bilty.po_date || ''}</span></div>
+                <div><b>GST No.</b> <span className="editable">{bilty.consignee_gst || ''}</span></div>
               </div>
             </td>
-            <td colSpan={1} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="label">Customer Code:</div>
-              <div className="editable" style={{ minHeight: '18px', marginTop: '2px' }}>{bilty.consignee_code || ''}</div>
+            <td colSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
+              <div><b>Lorry No.</b> <span className="editable">{bilty.lorry_no || ''}</span></div>
+              <div><b>Phone No.</b> <span className="editable">{bilty.driver_phone || ''}</span></div>
+              <div><b>Unloading by Consignee/Pickup Address</b></div>
+              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.pickup_address || ''}</div>
             </td>
           </tr>
 
-          {/* Row 6: Delivery + Lorry Details */}
-          <tr>
-            <td colSpan={3} rowSpan={2} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div><span className="label">Delivery Type:</span> <b>{bilty.delivery_type || 'DOOR DELIVERY'}</b></div>
-              <div><span className="label">Unloading Party Mob. No:</span> <span className="editable">{bilty.unloading_mob || ''}</span></div>
-              <div><span className="label">Delivery Godown Address:</span></div>
-              <div className="editable" style={{ minHeight: '25px', marginTop: '2px' }}>{bilty.delivery_address || ''}</div>
-            </td>
-            <td colSpan={3} style={{ padding: '4px', fontSize: '9px' }}>
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <div><span className="label">Lorry No.</span> <span className="editable">{bilty.lorry_no || ''}</span></div>
-                <div><span className="label">Phone No.</span> <span className="editable">{bilty.driver_phone || ''}</span></div>
-              </div>
-              <div style={{ marginTop: '5px' }}>
-                <span className="label">Unloading by Consignee/Pickup Address:</span> <span className="editable">{bilty.pickup_address || ''}</span>
-              </div>
-            </td>
-          </tr>
-
-          {/* Row 7: Main Table Headers */}
-          <tr className="section-title" style={{ fontSize: '9px' }}>
+          {/* Row 6: Main Table Headers */}
+          <tr style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '9px' }}>
             <th>No. of Packages</th>
             <th>Method of Packing</th>
             <th>HSN Code</th>
             <th>Actual Wt. in Kgs.</th>
             <th>Charged Wt. in Kgs.</th>
             <th>Rate<br/>Fixed</th>
-            <th style={{ width: '15%' }}>CHARGES</th>
-            <th>Amount<br/>Rs.</th>
+            <th rowSpan={2} style={{ width: '18%' }}>CHARGES</th>
+            <th colSpan={2}>Amount</th>
+          </tr>
+          <tr style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '9px' }}>
+            <th colSpan={6}></th>
+            <th>Rs.</th>
+            <th>Ps.</th>
           </tr>
 
-          {/* Row 8-18: Charges Table - सिर्फ Rs. column */}
+          {/* Row 7-17: Main Data + Charges */}
           <tr>
-            <td rowSpan={11} colSpan={3} style={{ padding: '4px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div className="label" style={{ marginBottom: '3px' }}>Description (Said to contain)</div>
-              <div className="editable" style={{ minHeight: '30px', marginBottom: '5px' }}>{bilty.description || '93'}</div>
-              
-              <div className="label" style={{ marginBottom: '3px', marginTop: '8px' }}>Dimension Of Consignment (if Bulky/ODC)</div>
+            <td colSpan={3} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
+              <div className="label" style={{ textAlign: 'center', marginBottom: '3px' }}>Description (Said to contain)</div>
+              <div className="editable" style={{ minHeight: '25px', borderBottom: '1px solid #000' }}>{bilty.material_desc || bilty.description || '93'}</div>
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center', fontSize: '10px' }}>
+              {bilty.packages || bilty.no_of_packages || ''}
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
+              {bilty.method_of_packing || ''}
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
+              {bilty.hsn_code || ''}
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
+              {bilty.weight || bilty.actual_weight || ''}
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
+              {bilty.charged_weight || ''}
+            </td>
+            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
+              {bilty.rate || ''}
+            </td>
+            <td style={{ padding: '3px', fontSize: '9px' }}>FREIGHT</td>
+            <td className="amount-cell">{freight}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td colSpan={3} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
+              <div className="label" style={{ textAlign: 'center', marginBottom: '3px' }}>Dimension Of Consignment (if Bulky/ODC)</div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8px' }}>
                 <tr>
                   <th style={{ border: '1px solid #000', padding: '2px' }}>Length</th>
@@ -360,130 +369,132 @@ export default function BiltyPrint() {
                   <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.total_cft || ''}</td>
                 </tr>
               </table>
+            </td>
+            <td style={{ padding: '3px', fontSize: '9px' }}>A.O.C. %</td>
+            <td className="amount-cell">{aocAmount}</td>
+            <td className="amount-cell">0</td>
+          </tr>
 
+          <tr>
+            <td colSpan={3} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
+              <div className="label" style={{ marginBottom: '3px' }}>Private Marks</div>
+              <div className="editable" style={{ minHeight: '35px', borderBottom: '1px solid #000' }}>{bilty.private_marks || ''}</div>
               <div style={{ marginTop: '8px' }}>
-                <div className="label">Private Marks</div>
-                <div className="editable" style={{ minHeight: '40px', marginTop: '2px' }}>{bilty.private_marks || ''}</div>
-              </div>
-
-              <div style={{ marginTop: '8px', fontSize: '9px' }}>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <div><span className="label">Distance</span> <span className="editable">{bilty.distance || ''}</span></div>
                   <div><span className="label">Kms.</span></div>
                 </div>
               </div>
+            </td>
+            <td style={{ padding: '3px', fontSize: '9px' }}>EOV CHARGES</td>
+            <td className="amount-cell">{eov}</td>
+            <td className="amount-cell">0</td>
+          </tr>
 
-              <div style={{ marginTop: '8px', fontSize: '9px' }}>
-                <div><span className="label">E WAY BILL No.:</span> <span className="editable">{bilty.eway_bill_no || ''}</span></div>
-                <div style={{ marginTop: '3px' }}><span className="label">Valid upto</span> <span className="editable">{bilty.eway_valid || ''}</span></div>
+          <tr>
+            <td rowSpan={6} colSpan={3} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
+              <div style={{ fontSize: '9px' }}>
+                <div>In case of Paid Consignment/Advance Payment Specify</div>
+                <div style={{ marginTop: '5px' }}><b>M.R.No.:</b> <span className="editable">{bilty.mr_no || ''}</span></div>
+                <div><b>Date:</b> <span className="editable">{bilty.mr_date || ''}</span></div>
+                <div><b>Amount:</b> <span className="editable">{bilty.mr_amount || ''}</span></div>
+                <div style={{ marginTop: '8px' }}><b>LOAD TYPE</b></div>
+                <div><b>{bilty.load_type || 'FULL LOAD'}</b></div>
               </div>
             </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.no_of_packages || ''}</div>
+            <td style={{ padding: '3px', fontSize: '9px' }}>COVER CHARGES</td>
+            <td className="amount-cell">{cover}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: '3px', fontSize: '9px' }}>MATERIAL MGMT CH</td>
+            <td className="amount-cell">{materialMgmt}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: '3px', fontSize: '9px' }}>COLLECTION CHARGES</td>
+            <td className="amount-cell">{collection}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: '3px', fontSize: '9px' }}>DOOR DLY CHARGES</td>
+            <td className="amount-cell">{doorDly}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: '3px', fontSize: '9px' }}>WITH PASS/CC ATTACH CH.</td>
+            <td className="amount-cell">{passAttach}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: '3px', fontSize: '9px' }}>ENROUTE CHARGES</td>
+            <td className="amount-cell">{enroute}</td>
+            <td className="amount-cell">0</td>
+          </tr>
+
+          <tr>
+            <td colSpan={6} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div><b>E WAY BILL No.:</b> <span className="editable">{bilty.eway_bill_no || ''}</span></div>
+                <div><b>Valid upto</b> <span className="editable">{bilty.eway_valid || ''}</span></div>
+              </div>
             </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.method_of_packing || ''}</div>
-            </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.hsn_code || ''}</div>
-            </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.actual_weight || ''}</div>
-            </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.charged_weight || ''}</div>
-            </td>
-            <td rowSpan={11} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div>{bilty.rate || ''}</div>
-            </td>
-            <td style={{ padding: '2px', fontSize: '9px' }}>
-              <div>FREIGHT</div>
-            </td>
-            <td className="amount-col">{freight}</td>
+            <td style={{ padding: '3px', fontSize: '9px' }}>STATISTICAL CHARGES</td>
+            <td className="amount-cell">{statistical}</td>
+            <td className="amount-cell">0</td>
           </tr>
 
           <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>A.O.C. %</td>
-            <td className="amount-col">{aocAmount}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>EOV CHARGES</td>
-            <td className="amount-col">{eov}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>COVER CHARGES</td>
-            <td className="amount-col">{cover}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>MATERIAL MGMT CH</td>
-            <td className="amount-col">{materialMgmt}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>COLLECTION CHARGES</td>
-            <td className="amount-col">{collection}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>DOOR DLY CHARGES</td>
-            <td className="amount-col">{doorDly}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>WITH PASS/CC ATTACH CH.</td>
-            <td className="amount-col">{passAttach}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>ENROUTE CHARGES</td>
-            <td className="amount-col">{enroute}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>STATISTICAL CHARGES</td>
-            <td className="amount-col">{statistical}</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '2px', fontSize: '9px' }}>MISC. CHARGES</td>
-            <td className="amount-col">{misc}</td>
+            <td style={{ padding: '3px', fontSize: '9px' }}>MISC. CHARGES</td>
+            <td className="amount-cell">{misc}</td>
+            <td className="amount-cell">0</td>
           </tr>
 
           {/* Grand Total Row */}
-          <tr className="grand-total">
+          <tr className="grand-total-row">
             <td colSpan={7} style={{ padding: '4px', textAlign: 'right', fontSize: '11px' }}>
               <b>GRAND TOTAL</b>
             </td>
-            <td className="amount-col" style={{ fontSize: '11px', fontWeight: 'bold' }}>{grandTotal}</td>
+            <td className="amount-cell" style={{ fontSize: '11px', fontWeight: 'bold' }}>{grandTotal}</td>
+            <td className="amount-cell" style={{ fontSize: '11px', fontWeight: 'bold' }}>0</td>
           </tr>
 
           {/* Amount in Words */}
           <tr>
-            <td colSpan={8} style={{ padding: '4px', fontSize: '10px' }}>
-              <span className="label">To Pay/Paid/TBB Amount Rs. (in words) TBB: </span>
-              <b>{numberToWords(grandTotal)}</b>
+            <td colSpan={9} style={{ padding: '4px', fontSize: '10px' }}>
+              <b>To Pay/Paid/TBB Amount Rs. (in words) TBB</b>
             </td>
           </tr>
 
-          {/* Declared Value + Basis + GST */}
+          {/* Declared Value + Basis */}
           <tr>
-            <td colSpan={5} rowSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div><span className="label">Declared value of goods: Rs.</span> <span className="editable">{bilty.declared_value || ''}</span></div>
+            <td colSpan={6} rowSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
+              <div><b>Declared value of goods: Rs.</b> <span className="editable">{bilty.declared_value || ''}</span></div>
               <div style={{ marginTop: '8px' }}>
-                <span className="label">Basis of Booking: (1) To Pay (3) Paid (2) To be Billed at with M/s</span>
+                <b>Basis of Booking: (1) To Pay (3) Paid (2) To be Billed at with M/s</b>
               </div>
               <div className="editable" style={{ minHeight: '20px', marginTop: '3px' }}>{bilty.basis_booking || ''}</div>
             </td>
-            <td colSpan={3} rowSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="label">GST Through: CONSIGNOR/CONSIGNEE/ NBT.C:</div>
-              <div className="editable" style={{ minHeight: '25px', marginTop: '2px' }}>{bilty.gst_through || ''}</div>
+            <td colSpan={3} style={{ padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold' }}>
+              GRAND TOTAL
             </td>
           </tr>
-          <tr></tr>
-          <tr></tr>
+          <tr>
+            <td colSpan={3} style={{ padding: '4px', fontSize: '11px', textAlign: 'center', fontWeight: 'bold' }}>
+              {grandTotal}
+            </td>
+          </tr>
+          <tr>
+            <td colSpan={3} style={{ padding: '4px' }}>
+              <div className="label">GST Through: CONSIGNOR/CONSIGNEE/ <b>NBT.C:</b></div>
+              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.gst_through || ''}</div>
+            </td>
+          </tr>
 
           {/* Footer: Payment Note + Signature */}
           <tr>
@@ -492,8 +503,8 @@ export default function BiltyPrint() {
                 • Payment should be made only through A/c Payee Cheque / D.D. /in favour of
               </div>
             </td>
-            <td colSpan={2} className="footer-sign" style={{ padding: '6px', verticalAlign: 'bottom' }}>
-              <div className="red-bold" style={{ fontSize: '13px', marginBottom: '35px' }}>Bharat Transport Company</div>
+            <td colSpan={3} style={{ padding: '6px', verticalAlign: 'bottom', textAlign: 'right' }}>
+              <div className="red-bold" style={{ fontSize: '14px', marginBottom: '40px' }}>Bharat Transport Company</div>
               <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '9px', textAlign: 'center' }}>
                 Signature of Booking Official
               </div>
