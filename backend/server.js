@@ -331,3 +331,129 @@ app.listen(PORT, HOST, () => {
 });
 
 module.exports = app;
+
+// ============ MR (MONEY RECEIPT) TABLE ============
+await db.run(`CREATE TABLE IF NOT EXISTS money_receipts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mr_no TEXT UNIQUE NOT NULL,
+  mr_date TEXT NOT NULL,
+  party_type TEXT NOT NULL,
+  party_name TEXT NOT NULL,
+  bilty_id INTEGER,
+  bilty_lr_no TEXT,
+  bill_id INTEGER,
+  bill_no TEXT,
+  amount REAL NOT NULL,
+  payment_mode TEXT DEFAULT 'Cash',
+  is_advance INTEGER DEFAULT 0,
+  remarks TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (bilty_id) REFERENCES consignments(id),
+  FOREIGN KEY (bill_id) REFERENCES bills(id)
+)`);
+
+console.log('✓ Money Receipts table created');
+
+// ============ MR (MONEY RECEIPT) APIs ============
+
+// Generate MR Number
+function generateMRNo() {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const random = Math.floor(Math.random() * 9000) + 1000;
+  return `MR/${year}/${random}`;
+}
+
+// Create MR
+app.post('/api/mr', async (req, res) => {
+  try {
+    const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
+    
+    const finalMRNo = mr_no || generateMRNo();
+    const finalDate = mr_date || new Date().toISOString().split('T')[0];
+    const finalAmount = parseFloat(amount || 0);
+    const finalIsAdvance = is_advance ? 1 : 0;
+    
+    const stmt = await db.prepare(`INSERT INTO money_receipts 
+      (mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    
+    await stmt.run(finalMRNo, finalDate, party_type, party_name, bilty_id || null, bilty_lr_no || null, bill_id || null, bill_no || null, finalAmount, payment_mode || 'Cash', finalIsAdvance, remarks || '');
+    await stmt.finalize();
+    
+    if (bilty_id) {
+      await db.run(`UPDATE consignments SET payment_status = 'Paid', mr_no = ? WHERE id = ?`, [finalMRNo, bilty_id]);
+    }
+    
+    if (bill_id) {
+      await db.run(`UPDATE bills SET payment_status = 'Paid', mr_no = ? WHERE id = ?`, [finalMRNo, bill_id]);
+    }
+    
+    res.json({ success: true, mr_no: finalMRNo, message: 'MR created successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get All MRs
+app.get('/api/mr', async (req, res) => {
+  try {
+    const mrs = await db.all(`SELECT * FROM money_receipts ORDER BY created_at DESC`);
+    res.json({ data: mrs, count: mrs.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Single MR
+app.get('/api/mr/:id', async (req, res) => {
+  try {
+    const mr = await db.get(`SELECT * FROM money_receipts WHERE id = ?`, [req.params.id]);
+    if (!mr) return res.status(404).json({ error: 'MR not found' });
+    res.json(mr);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update MR
+app.put('/api/mr/:id', async (req, res) => {
+  try {
+    const { mr_date, party_type, party_name, amount, payment_mode, is_advance, remarks } = req.body;
+    await db.run(`UPDATE money_receipts SET mr_date=?, party_type=?, party_name=?, amount=?, payment_mode=?, is_advance=?, remarks=? WHERE id=?`,
+      [mr_date, party_type, party_name, amount, payment_mode, is_advance ? 1 : 0, remarks, req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete MR
+app.delete('/api/mr/:id', async (req, res) => {
+  try {
+    await db.run(`DELETE FROM money_receipts WHERE id = ?`, [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get MRs by Bilty
+app.get('/api/mr/bilty/:biltyId', async (req, res) => {
+  try {
+    const mrs = await db.all(`SELECT * FROM money_receipts WHERE bilty_id = ?`, [req.params.biltyId]);
+    res.json({ data: mrs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get MRs by Bill
+app.get('/api/mr/bill/:billId', async (req, res) => {
+  try {
+    const mrs = await db.all(`SELECT * FROM money_receipts WHERE bill_id = ?`, [req.params.billId]);
+    res.json({ data: mrs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
