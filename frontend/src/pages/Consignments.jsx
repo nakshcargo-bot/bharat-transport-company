@@ -22,7 +22,6 @@ export default function Consignments({ isNew }) {
     insurance_company: '', policy_no: '', insurance_amount: '',
     freight: '', aoc_percent: '', material_mgmt_ch: '', collection_charges: '', door_dly_charges: '', misc_charges: '', grand_total: '',
     status: 'Booked',
-    // MR Details (required if PAID)
     mr_party_name: '', mr_amount: '', mr_payment_mode: 'Cash', mr_remarks: ''
   })
   const [submitting, setSubmitting] = useState(false)
@@ -34,6 +33,7 @@ export default function Consignments({ isNew }) {
     } else {
       fetchParties()
       fetchNextLRNo()
+      fetchNextRVNo()
     }
   }, [showForm])
 
@@ -81,7 +81,31 @@ export default function Consignments({ isNew }) {
     }
   }
 
-  // Auto-generate next party code
+  // ✅ RV Auto Serial
+  const fetchNextRVNo = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
+      const data = await res.json()
+      const year = String(new Date().getFullYear()).slice(-2)
+      let maxRV = 0
+      if (data.data) {
+        data.data.forEach(b => {
+          if (b.rv_no && b.rv_no.includes(`RV/${year}/`)) {
+            const parts = b.rv_no.split('/')
+            const num = parseInt(parts[2])
+            if (!isNaN(num) && num > maxRV) maxRV = num
+          }
+        })
+      }
+      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/${String(maxRV + 1).padStart(4, '0')}`, rv_dt: new Date().toISOString().split('T')[0] }))
+    } catch (err) {
+      const year = String(new Date().getFullYear()).slice(-2)
+      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/0001`, rv_dt: new Date().toISOString().split('T')[0] }))
+    }
+  }
+
   const getNextPartyCode = (existingCodes) => {
     let maxNum = 0
     existingCodes.forEach(code => {
@@ -116,7 +140,6 @@ export default function Consignments({ isNew }) {
         }))
       }
     } else if (code) {
-      // Manual code entered - keep it
       if (type === 'consignor') {
         setFormData(prev => ({ ...prev, consignor_code: code }))
       } else {
@@ -130,12 +153,10 @@ export default function Consignments({ isNew }) {
     const newData = { ...formData, [name]: type === 'checkbox' ? checked : value }
     setFormData(newData)
 
-    // Auto-calculate grand total
     if (['freight', 'aoc_percent', 'material_mgmt_ch', 'collection_charges', 'door_dly_charges', 'misc_charges'].includes(name)) {
       setTimeout(() => calculateTotal(newData), 0)
     }
 
-    // When PAID is selected, auto-fill MR party name and amount
     if (name === 'basis_booking' && value === 'PAID') {
       setFormData(prev => ({
         ...prev,
@@ -145,7 +166,6 @@ export default function Consignments({ isNew }) {
       }))
     }
 
-    // Clear error when MR fields filled
     if (['mr_party_name', 'mr_amount', 'mr_payment_mode'].includes(name)) {
       setMrError('')
     }
@@ -160,14 +180,13 @@ export default function Consignments({ isNew }) {
     const doorDly = parseFloat(currentData.door_dly_charges || 0)
     const other = parseFloat(currentData.misc_charges || 0)
     const total = freight + aocAmt + handling + collect + doorDly + other
-    setFormData(prev => ({ ...prev, grand_total: total.toFixed(2) }))
+    setFormData(prev => ({ ...prev, grand_total: total.toFixed(2), rv_am: total.toFixed(2) }))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setMrError('')
 
-    // VALIDATION: If PAID is selected, MR details are mandatory
     if (formData.basis_booking === 'PAID') {
       if (!formData.mr_party_name || !formData.mr_amount || !formData.mr_payment_mode) {
         setMrError('⚠️ PAID selected है - MR Party Name, Amount और Payment Mode भरना जरूरी है!')
@@ -181,24 +200,25 @@ export default function Consignments({ isNew }) {
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
 
-      // Auto-generate party codes if not provided
       let finalConsignorCode = formData.consignor_code
       let finalConsigneeCode = formData.consignee_code
 
       if (formData.consignor_name && !finalConsignorCode) {
         const existingCodes = parties.map(p => p.party_code)
         finalConsignorCode = getNextPartyCode(existingCodes)
-        setFormData(prev => ({ ...prev, consignor_code: finalConsignorCode }))
       }
       if (formData.consignee_name && !finalConsigneeCode) {
         const existingCodes = parties.map(p => p.party_code)
         finalConsigneeCode = getNextPartyCode(existingCodes)
-        setFormData(prev => ({ ...prev, consignee_code: finalConsigneeCode }))
       }
 
-      const biltyData = { ...formData, consignor_code: finalConsignorCode, consignee_code: finalConsigneeCode }
+      const biltyData = { 
+        ...formData, 
+        consignor_code: finalConsignorCode, 
+        consignee_code: finalConsigneeCode,
+        payment_status: formData.basis_booking === 'PAID' ? 'Paid' : 'Unpaid'
+      }
 
-      // 1. Save Bilty
       const res = await fetch(`${apiUrl}/api/consignments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -208,7 +228,6 @@ export default function Consignments({ isNew }) {
       if (res.ok) {
         const savedBilty = await res.json()
 
-        // 2. Save Parties
         if (finalConsignorCode && formData.consignor_name) {
           await fetch(`${apiUrl}/api/parties`, {
             method: 'POST',
@@ -236,8 +255,7 @@ export default function Consignments({ isNew }) {
           })
         }
 
-        // 3. Create MR if PAID or checkbox checked
-        if (formData.basis_booking === 'PAID' || formData.create_mr) {
+        if (formData.basis_booking === 'PAID') {
           const mrAmount = formData.mr_amount || formData.grand_total
           if (mrAmount && parseFloat(mrAmount) > 0) {
             await fetch(`${apiUrl}/api/mr`, {
@@ -257,7 +275,7 @@ export default function Consignments({ isNew }) {
           }
         }
 
-        alert('✅ Bilty saved successfully!' + (formData.basis_booking === 'PAID' ? '\n💰 MR also created (PAID basis)!' : ''))
+        alert('✅ Bilty saved successfully!' + (formData.basis_booking === 'PAID' ? '\n💰 MR also created!' : ''))
         setShowForm(false)
         navigate('/consignments')
       } else {
@@ -286,7 +304,6 @@ export default function Consignments({ isNew }) {
         <div className="max-w-6xl mx-auto p-6">
           <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-6 space-y-6">
 
-            {/* Basic Details */}
             <div className="border-b pb-4">
               <h3 className="font-bold text-gray-800 mb-3 text-lg">🚛 Basic Details</h3>
               <div className="grid md:grid-cols-4 gap-4">
@@ -309,9 +326,8 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Consignor */}
             <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
-              <h3 className="font-bold text-blue-900 mb-3"> CONSIGNOR (Sender)</h3>
+              <h3 className="font-bold text-blue-900 mb-3">📦 CONSIGNOR (Sender)</h3>
               <div className="grid md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm font-bold text-gray-700">Party Code</label>
@@ -319,8 +335,8 @@ export default function Consignments({ isNew }) {
                     <option value="">-- Select Existing Party --</option>
                     {parties.map(p => (<option key={p.id} value={p.party_code}>{p.party_code} - {p.party_name}</option>))}
                   </select>
-                  <input name="consignor_code" value={formData.consignor_code} onChange={handleChange} placeholder="Or type new code (auto: P001, P002...)" className="w-full border p-2 rounded" />
-                  <p className="text-xs text-gray-500 mt-1">💡 खाली छोड़ दो तो auto code (P001) बन जाएगा</p>
+                  <input name="consignor_code" value={formData.consignor_code} onChange={handleChange} placeholder="Or type new code (auto: P001)" className="w-full border p-2 rounded" />
+                  <p className="text-xs text-gray-500 mt-1">💡 खाली छोड़ दो तो auto code बनेगा</p>
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-sm font-bold text-gray-700">Party Name *</label>
@@ -349,7 +365,6 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Consignee */}
             <div className="border-2 border-red-200 rounded-lg p-4 bg-red-50">
               <h3 className="font-bold text-red-900 mb-3">🎯 CONSIGNEE (Receiver)</h3>
               <div className="grid md:grid-cols-4 gap-4">
@@ -383,7 +398,6 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Transport & Goods */}
             <div className="border-b pb-4">
               <h3 className="font-bold text-gray-800 mb-3 text-lg">📦 Goods & Transport Details</h3>
               <div className="grid md:grid-cols-4 gap-4 mb-4">
@@ -397,7 +411,7 @@ export default function Consignments({ isNew }) {
                 <div><label className="text-sm font-bold text-gray-700">E-Way Bill No.</label><input name="eway_bill_no" value={formData.eway_bill_no} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
               </div>
               <div className="grid md:grid-cols-5 gap-4">
-                <div><label className="text-sm font-bold text-gray-700">Packages</label><input name="packages" value={formData.packages} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
+                <div><label className="text-sm font-bold text-gray-700">Packages *</label><input name="packages" value={formData.packages} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" required /></div>
                 <div><label className="text-sm font-bold text-gray-700">Method</label><input name="method_of_packing" value={formData.method_of_packing} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">HSN Code</label><input name="hsn_code" value={formData.hsn_code} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Actual Wt. (kg)</label><input name="actual_weight" value={formData.actual_weight} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
@@ -409,7 +423,6 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Dimensions & Valuation */}
             <div className="grid md:grid-cols-2 gap-6 border-b pb-4">
               <div>
                 <h3 className="font-bold text-gray-800 mb-3">📏 Dimensions (L x W x H = CFT)</h3>
@@ -447,14 +460,23 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Receipt Voucher & Insurance */}
+            {/* ✅ RV Auto Serial */}
             <div className="grid md:grid-cols-2 gap-6 border-b pb-4">
-              <div>
-                <h3 className="font-bold text-gray-800 mb-3">🧾 Receipt Voucher</h3>
+              <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                <h3 className="font-bold text-indigo-900 mb-3"> Receipt Voucher (Auto Serial)</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  <div><label className="text-xs font-bold">RV No.</label><input name="rv_no" value={formData.rv_no} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
-                  <div><label className="text-xs font-bold">RV Date</label><input name="rv_dt" value={formData.rv_dt} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
-                  <div><label className="text-xs font-bold">RV Amt</label><input name="rv_am" value={formData.rv_am} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
+                  <div>
+                    <label className="text-xs font-bold">RV No. (Auto)</label>
+                    <input name="rv_no" value={formData.rv_no} onChange={handleChange} className="w-full border-2 border-indigo-400 p-2 rounded mt-1 font-bold text-indigo-800" readOnly />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold">RV Date</label>
+                    <input name="rv_dt" type="date" value={formData.rv_dt} onChange={handleChange} className="w-full border p-2 rounded mt-1" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold">RV Amt (Auto)</label>
+                    <input name="rv_am" value={formData.rv_am} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" readOnly />
+                  </div>
                 </div>
               </div>
               <div>
@@ -467,24 +489,23 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* Charges */}
             <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-              <h3 className="font-bold text-gray-800 mb-3 text-lg">💵 Charges Breakdown</h3>
+              <h3 className="font-bold text-gray-800 mb-3 text-lg">💵 Charges Breakdown (Auto Calculate)</h3>
               <div className="grid md:grid-cols-6 gap-4">
-                <div><label className="text-sm font-bold text-gray-700">Freight</label><input name="freight" type="number" value={formData.freight} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
-                <div><label className="text-sm font-bold text-gray-700">A.O.C (%)</label><input name="aoc_percent" type="number" value={formData.aoc_percent} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
+                <div><label className="text-sm font-bold text-gray-700">Freight *</label><input name="freight" type="number" value={formData.freight} onChange={handleChange} className="w-full border p-2 rounded mt-1" required /></div>
+                <div><label className="text-sm font-bold text-gray-700">A.O.C (%)</label><input name="aoc_percent" type="number" step="0.01" value={formData.aoc_percent} onChange={handleChange} className="w-full border p-2 rounded mt-1" placeholder="e.g., 2" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Handling</label><input name="material_mgmt_ch" type="number" value={formData.material_mgmt_ch} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Collection</label><input name="collection_charges" type="number" value={formData.collection_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Door Dly</label><input name="door_dly_charges" type="number" value={formData.door_dly_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Other/Misc</label><input name="misc_charges" type="number" value={formData.misc_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
               </div>
-              <div className="mt-4 flex items-center gap-4">
+              <div className="mt-4 flex items-center gap-4 flex-wrap">
                 <label className="text-lg font-bold text-gray-800">Grand Total (₹):</label>
-                <input name="grand_total" type="number" value={formData.grand_total} onChange={handleChange} className="text-2xl font-bold text-green-700 border-2 border-green-500 p-2 rounded w-48" required />
+                <input name="grand_total" type="number" step="0.01" value={formData.grand_total} onChange={handleChange} className="text-2xl font-bold text-green-700 border-2 border-green-500 p-2 rounded w-48" required />
+                <span className="text-sm text-gray-600">(Auto-calculated from above charges)</span>
               </div>
             </div>
 
-            {/* MR Details - Mandatory when PAID */}
             {isPaid && (
               <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
                 <h3 className="font-bold text-green-900 mb-3 text-lg">💰 MR Details (PAID Basis - Mandatory)</h3>
@@ -511,22 +532,17 @@ export default function Consignments({ isNew }) {
               </div>
             )}
 
-            {/* Error Message */}
             {mrError && (
               <div className="bg-red-100 border-2 border-red-500 text-red-800 p-4 rounded-lg font-bold text-center">
                 {mrError}
               </div>
             )}
 
-            {/* Submit */}
             <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" name="create_mr" checked={formData.create_mr} onChange={handleChange} className="w-6 h-6 text-red-700 rounded" />
-                <div>
-                  <span className="font-bold text-lg text-yellow-900">💰 Also create separate MR</span>
-                  <p className="text-sm text-yellow-800">PAID basis में यह auto-checked हो जाता है</p>
-                </div>
-              </label>
+              <div className="text-yellow-900">
+                <span className="font-bold text-lg"> Summary:</span>
+                <p className="text-sm">LR: <b>{formData.lr_no || 'Auto'}</b> | RV: <b>{formData.rv_no || 'Auto'}</b> | Total: <b>₹{formData.grand_total || '0'}</b></p>
+              </div>
               <button type="submit" disabled={submitting} className="bg-red-700 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-red-800 disabled:bg-gray-400 shadow-lg min-w-[200px]">
                 {submitting ? 'Saving...' : '✅ Save Bilty'}
               </button>
@@ -538,12 +554,11 @@ export default function Consignments({ isNew }) {
     )
   }
 
-  // List View
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-red-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="font-bold text-lg"> Bilty List ({bilties.length})</h1>
+          <h1 className="font-bold text-lg">📋 Bilty List ({bilties.length})</h1>
           <div className="flex gap-2">
             <button onClick={() => setShowForm(true)} className="bg-white text-red-700 px-4 py-1 rounded font-bold text-sm">+ New Bilty</button>
             <button onClick={() => navigate('/mr')} className="bg-yellow-500 text-white px-4 py-1 rounded font-bold text-sm">💰 Money Receipts</button>
@@ -575,14 +590,18 @@ export default function Consignments({ isNew }) {
                     <td className="p-3 text-sm">{b.consignor_name}</td>
                     <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
                     <td className="p-3">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span>
+                      {b.basis_booking === 'PAID' || b.payment_status === 'Paid' ? (
+                        <span className="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700">✅ PAID {b.mr_no && `(${b.mr_no})`}</span>
+                      ) : (
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span>
+                      )}
                     </td>
                     <td className="p-3">
                       {b.mr_no ? (
-                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center">✅ Paid: {b.mr_no}</div>
-                      ) : (
+                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center">MR: {b.mr_no}</div>
+                      ) : (b.basis_booking !== 'PAID' && (
                         <button onClick={() => navigate(`/mr/create?biltyId=${b.id}`)} className="bg-green-600 text-white px-2 py-1 rounded text-xs mb-1 hover:bg-green-700 w-full font-bold">💰 Create MR</button>
-                      )}
+                      ))}
                       <div className="flex gap-1">
                         <button onClick={() => navigate('/bilty-print', { state: { bilty: b } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 flex-1">🖨️ Print</button>
                       </div>
