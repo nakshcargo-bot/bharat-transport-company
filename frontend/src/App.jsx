@@ -11,6 +11,7 @@ const GadiChallan = lazy(() => import('./pages/GadiChallan'))
 const Reports = lazy(() => import('./pages/Reports'))
 const TrackBilty = lazy(() => import('./pages/TrackBilty'))
 const Login = lazy(() => import('./pages/Login'))
+const BiltyPrint = lazy(() => import('./pages/BiltyPrint')) // ✅ Added BiltyPrint
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -32,8 +33,12 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login onLogin={() => setIsLoggedIn(true)} />} />
           <Route path="/track" element={<TrackBilty />} />
+          <Route path="/bilty-print" element={<BiltyPrint />} /> {/* ✅ Added Print Route */}
+          
+          {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
@@ -42,7 +47,14 @@ function App() {
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-          <Route path="*" element={<div style={{padding:'50px',textAlign:'center'}}><h1>404 - Page Not Found</h1><a href="/">Go Home</a></div>} />
+          
+          {/* Catch-all Route (Must be last) */}
+          <Route path="*" element={
+            <div style={{padding:'50px',textAlign:'center'}}>
+              <h1>404 - Page Not Found</h1>
+              <a href="/">Go Home</a>
+            </div>
+          } />
         </Routes>
       </Suspense>
     </BrowserRouter>
