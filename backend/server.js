@@ -364,11 +364,25 @@ function generateMRNo() {
 }
 
 // Create MR
+// Create MR with Auto Number (MR/26/0001 format)
 app.post('/api/mr', async (req, res) => {
   try {
     const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
     
-    const finalMRNo = mr_no || generateMRNo();
+    // Auto-generate MR number in MR/YY/XXXX format
+    let finalMRNo = mr_no;
+    if (!finalMRNo || finalMRNo === 'Auto-generated') {
+      const year = new Date().getFullYear().toString().slice(-2);
+      const lastMR = await db.get(`SELECT mr_no FROM money_receipts WHERE mr_no LIKE 'MR/${year}/%' ORDER BY id DESC LIMIT 1`);
+      let nextNum = 1;
+      if (lastMR && lastMR.mr_no) {
+        const parts = lastMR.mr_no.split('/');
+        const lastNum = parseInt(parts[2] || '0');
+        nextNum = lastNum + 1;
+      }
+      finalMRNo = `MR/${year}/${String(nextNum).padStart(4, '0')}`;
+    }
+    
     const finalDate = mr_date || new Date().toISOString().split('T')[0];
     const finalAmount = parseFloat(amount || 0);
     const finalIsAdvance = is_advance ? 1 : 0;
@@ -394,7 +408,6 @@ app.post('/api/mr', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 // Get All MRs
 app.get('/api/mr', async (req, res) => {
   try {
