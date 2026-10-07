@@ -30,21 +30,63 @@ export default function BiltyPrint() {
     { label: "HO COPY", id: "HO_COPY", theme: "ho-theme" }
   ]
 
-  // ✅ FIX: Charges calculation
-  const freight = parseFloat(bilty.freight || 0)
-  const aocPercent = parseFloat(bilty.aoc_percent || 0)
-  const aocAmount = (freight * aocPercent) / 100
-  const handling = parseFloat(bilty.material_mgmt_ch || 0)
-  const collect = parseFloat(bilty.collection_charges || 0)
-  const doorDly = parseFloat(bilty.door_dly_charges || 0)
-  const other = parseFloat(bilty.misc_charges || 0)
-  const calculatedTotal = freight + aocAmount + handling + collect + doorDly + other
-  const displayTotal = (bilty.grand_total && parseFloat(bilty.grand_total) > 0) 
-    ? parseFloat(bilty.grand_total).toLocaleString('en-IN') + "/-" 
-    : (calculatedTotal > 0 ? calculatedTotal.toLocaleString('en-IN') + "/-" : "0/-")
+  // ✅ FIX: Date formatter - ISO string ko readable format me convert kare
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return dateStr
+      const day = String(d.getDate()).padStart(2, '0')
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      return `${day}-${month}-${year}`
+    } catch (e) {
+      return dateStr
+    }
+  }
+
+  // ✅ FIX: Number formatter
+  const formatNum = (val) => {
+    if (val === undefined || val === null || val === '') return ''
+    const num = parseFloat(val)
+    if (isNaN(num)) return val
+    return num.toLocaleString('en-IN')
+  }
+
+  // ✅ FIX: EXACT values from database - no calculation, no modification
+  const freight = bilty.freight || 0
+  const aocPercent = bilty.aoc_percent || 0
+  const aocAmount = bilty.aoc_amount || ((parseFloat(bilty.freight || 0) * parseFloat(bilty.aoc_percent || 0)) / 100)
+  const handling = bilty.material_mgmt_ch || bilty.handling_charges || 0
+  const collect = bilty.collection_charges || 0
+  const doorDly = bilty.door_dly_charges || 0
+  const other = bilty.misc_charges || bilty.other_charges || 0
+  const grandTotal = bilty.grand_total || (parseFloat(freight || 0) + parseFloat(aocAmount || 0) + parseFloat(handling || 0) + parseFloat(collect || 0) + parseFloat(doorDly || 0) + parseFloat(other || 0))
+
+  const displayTotal = formatNum(grandTotal) + (grandTotal ? "/-" : "")
 
   const isPaid = bilty.basis_booking === 'PAID' || bilty.payment_status === 'Paid'
   const mrNo = bilty.mr_no || ''
+
+  // ✅ FIX: Pkgs - check all possible field names
+  const pkgs = bilty.packages || bilty.no_of_packages || bilty.pkgs || bilty.no_of_pkgs || ''
+  const method = bilty.method_of_packing || bilty.packing_method || bilty.packing || ''
+  const hsn = bilty.hsn_code || bilty.hsn || ''
+  const actualWt = bilty.actual_weight || bilty.weight || bilty.act_wt || ''
+  const chargedWt = bilty.charged_weight || bilty.chg_wt || ''
+
+  // ✅ FIX: Description - check all possible field names
+  const description = bilty.material_desc || bilty.description || bilty.material_description || bilty.goods_desc || ''
+
+  // ✅ FIX: Receipt Voucher
+  const rvNo = bilty.rv_no || bilty.receipt_voucher_no || bilty.rv_number || ''
+  const rvDt = bilty.rv_dt || bilty.rv_date || bilty.receipt_voucher_date || ''
+  const rvAmt = bilty.rv_am || bilty.rv_amount || bilty.receipt_voucher_amount || ''
+
+  // ✅ FIX: Insurance
+  const insuranceCo = bilty.insurance_company || bilty.insurance_co || bilty.insurer || ''
+  const policyNo = bilty.policy_no || bilty.insurance_policy || ''
+  const insuranceAmt = bilty.insurance_amount || bilty.insurance_amt || ''
 
   const autoResize = (el) => {
     if (!el) return
@@ -83,35 +125,37 @@ export default function BiltyPrint() {
           overflow: hidden;
         }
 
-        /* ✅ WATERMARK */
-        .bilty-container::before {
-          content: 'BHARAT TRANSPORT COMPANY';
+        /* ✅ FIX: Multiple small repeating watermarks across entire paper */
+        .watermark-layer {
           position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%) rotate(-35deg);
-          font-size: 55px;
-          font-weight: 900;
-          color: rgba(180, 0, 0, 0.06);
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
           pointer-events: none;
           z-index: 0;
-          white-space: nowrap;
-          letter-spacing: 8px;
+          overflow: hidden;
+          opacity: 0.04;
         }
-        .bilty-container > * {
-          position: relative;
-          z-index: 1;
+        .watermark-text {
+          position: absolute;
+          font-size: 14px;
+          font-weight: 900;
+          color: #000;
+          white-space: nowrap;
+          transform: rotate(-35deg);
+          letter-spacing: 1px;
         }
         
-        .header { text-align: center; border-bottom: 1.5px solid #000; padding: 5px 0; background-color: var(--bg-accent); }
+        .header { text-align: center; border-bottom: 1.5px solid #000; padding: 5px 0; background-color: var(--bg-accent); position: relative; z-index: 1; }
         .header h1 { margin: 0; font-size: 24px; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px; word-wrap: break-word; }
         .header p { margin: 2px 0; font-size: 11px; font-weight: bold; word-wrap: break-word; }
         
-        .top-labels { text-align: center; margin: 5px 0; }
+        .top-labels { text-align: center; margin: 5px 0; position: relative; z-index: 1; }
         .risk-label { border: 1px solid #000; padding: 2px 20px; font-weight: bold; display: inline-block; text-transform: uppercase; background: var(--bg-accent) !important; font-size: 11px; color: var(--primary-color); }
         .copy-label { border: 2px solid var(--primary-color); padding: 2px 25px; font-weight: bold; display: inline-block; text-transform: uppercase; font-size: 14px; color: var(--primary-color); min-width: 200px; background: rgba(255,255,255,0.8); margin-left: 10px; }
         
-        .top-grid { display: flex; border-bottom: 1.5px solid #000; }
+        .top-grid { display: flex; border-bottom: 1.5px solid #000; position: relative; z-index: 1; }
         .left-party { width: 58%; border-right: 1.5px solid #000; padding: 5px; }
         .right-route { width: 42%; padding: 5px; background: rgba(250,250,250,0.4); }
         
@@ -140,11 +184,11 @@ export default function BiltyPrint() {
         .field-group label { font-weight: bold; font-size: 11px; width: 90px; flex-shrink: 0; }
         .field-group input { flex: 1; min-width: 0; }
         
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 3px; table-layout: fixed; }
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 3px; position: relative; z-index: 1; table-layout: fixed; }
         .item-table th, .item-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; background: rgba(255,255,255,0.3); word-wrap: break-word; overflow-wrap: break-word; }
         th { background: var(--bg-accent) !important; color: var(--primary-color); }
         
-        .middle-container { display: flex; border-top: 1.5px solid #000; margin-top: 5px; }
+        .middle-container { display: flex; border-top: 1.5px solid #000; margin-top: 5px; position: relative; z-index: 1; }
         .middle-col-left { width: 42%; border-right: 1.5px solid #000; padding: 5px; }
         .middle-col-center { width: 28%; border-right: 1.5px solid #000; padding: 5px; }
         .middle-col-right { width: 30%; padding: 5px; background: rgba(252,252,252,0.4); }
@@ -161,9 +205,8 @@ export default function BiltyPrint() {
         .charge-row span { min-width: 70px; text-align: right; font-weight: bold; border-bottom: 1px solid #999; font-size: 12px; padding: 0 4px; }
         
         .stamp-box-right { border: 1px solid #000; margin-top: 10px; text-align: center; padding: 8px; background: rgba(255,255,255,0.7); }
-        .footer-terms { margin-top: 5px; padding-top: 5px; font-size: 10px; line-height: 1.2; border-top: 1px solid #000; word-wrap: break-word; }
+        .footer-terms { margin-top: 5px; padding-top: 5px; font-size: 10px; line-height: 1.2; border-top: 1px solid #000; position: relative; z-index: 1; word-wrap: break-word; }
 
-        /* ✅ PAID BILTY BADGE */
         .paid-badge {
           border: 2px solid #16a34a;
           background: #f0fdf4;
@@ -174,6 +217,8 @@ export default function BiltyPrint() {
           justify-content: space-between;
           align-items: center;
           font-size: 12px;
+          position: relative;
+          z-index: 1;
         }
         .paid-badge strong { color: #16a34a; font-size: 14px; }
         
@@ -201,7 +246,25 @@ export default function BiltyPrint() {
         {copies.map(copy => (
           <div key={copy.id} className={`bilty-container ${copy.theme} ${!visibleCopies[copy.id] ? 'hidden-print' : ''}`}>
             
-            {/* ✅ WATERMARK automatically via CSS ::before */}
+            {/* ✅ FIX: Multiple small repeating watermarks */}
+            <div className="watermark-layer">
+              {Array.from({ length: 80 }).map((_, i) => {
+                const row = Math.floor(i / 8)
+                const col = i % 8
+                return (
+                  <div
+                    key={i}
+                    className="watermark-text"
+                    style={{
+                      top: `${row * 12 + 5}%`,
+                      left: `${col * 12 + 2}%`,
+                    }}
+                  >
+                    BHARAT TRANSPORT COMPANY
+                  </div>
+                )
+              })}
+            </div>
 
             <div className="header">
               <h1>BHARAT TRANSPORT COMPANY</h1>
@@ -213,7 +276,6 @@ export default function BiltyPrint() {
               <div className="copy-label">{copy.label}</div>
             </div>
 
-            {/* ✅ PAID BILTY MR DISPLAY */}
             {isPaid && mrNo && (
               <div className="paid-badge">
                 <div>
@@ -223,7 +285,7 @@ export default function BiltyPrint() {
                 <div style={{textAlign: 'right'}}>
                   <div style={{fontSize: '10px'}}>MR No:</div>
                   <div style={{fontWeight: 'bold', fontSize: '14px', color: '#16a34a'}}>{mrNo}</div>
-                  <div style={{fontSize: '10px'}}>Amount: ₹{parseFloat(bilty.grand_total || 0).toLocaleString('en-IN')}</div>
+                  <div style={{fontSize: '10px'}}>Amount: ₹{formatNum(bilty.grand_total)}</div>
                 </div>
               </div>
             )}
@@ -243,7 +305,7 @@ export default function BiltyPrint() {
                     </div>
                     <div style={{display: 'flex', alignItems: 'center', width: '100px'}}>
                       <span style={{fontSize: '10px', fontWeight: 'bold'}}>Date:</span> 
-                      <input type="text" className="readonly-input" value={bilty.invoice_date || ''} style={{marginLeft: '5px'}} readOnly />
+                      <input type="text" className="readonly-input" value={formatDate(bilty.invoice_date)} style={{marginLeft: '5px'}} readOnly />
                     </div>
                   </div>
                 </div>
@@ -264,11 +326,11 @@ export default function BiltyPrint() {
                   <label style={{color: 'var(--primary-color)', fontWeight: 'bold', fontSize: '11px'}}>CONSIGNMENT NO:</label><br />
                   <input type="text" className="readonly-input" value={bilty.lr_no || '0001'} style={{fontWeight: 'bold', fontSize: '20px', border:'none', textAlign:'center', width: '100%'}} readOnly />
                 </div>
-                <div className="field-group"><label>DATE:</label><input type="text" className="readonly-input" value={bilty.lr_date || ''} style={{width: '120px'}} readOnly /></div>
+                <div className="field-group"><label>DATE:</label><input type="text" className="readonly-input" value={formatDate(bilty.lr_date)} style={{width: '120px'}} readOnly /></div>
                 <div className="field-group"><label>FROM:</label><input type="text" className="readonly-input" value={bilty.from_name || ''} readOnly /></div>
                 <div className="field-group"><label>TO:</label><input type="text" className="readonly-input" value={bilty.to_name || ''} readOnly /></div>
                 <div className="field-group"><label>LORRY NO:</label><input type="text" className="readonly-input" value={bilty.lorry_no || ''} style={{fontWeight: 'bold', textTransform:'uppercase', color:'var(--primary-color)'}} readOnly /></div>
-                <div className="field-group"><label>DRIVER PH:</label><input type="text" className="readonly-input" value={bilty.driver_mobile || ''} readOnly /></div>
+                <div className="field-group"><label>DRIVER PH:</label><input type="text" className="readonly-input" value={bilty.driver_mobile || bilty.driver_phone || ''} readOnly /></div>
                 <div className="field-group" style={{marginTop: '5px', border: '1.5px solid var(--primary-color)', padding: '4px', background: 'rgba(255,255,255,0.7)'}}>
                   <label style={{color: 'var(--primary-color)', width: '100px', fontWeight:'bold', fontSize:'10px'}}>DELIVERY TYPE:</label>
                   <input type="text" className="readonly-input" value={bilty.delivery_type || 'GODOWN / DOOR'} style={{fontWeight: 'bold', fontSize:'11px'}} readOnly />
@@ -288,12 +350,11 @@ export default function BiltyPrint() {
               </thead>
               <tbody>
                 <tr>
-                  {/* ✅ FIX: Pkgs field - check both names */}
-                  <td><input type="text" className="readonly-input" value={bilty.packages || bilty.no_of_packages || bilty.pkgs || ''} style={{textAlign:'center', fontWeight: 'bold'}} readOnly /></td>
-                  <td><input type="text" className="readonly-input" value={bilty.method_of_packing || bilty.packing_method || ''} style={{textAlign:'center'}} readOnly /></td>
-                  <td><input type="text" className="readonly-input" value={bilty.hsn_code || ''} style={{textAlign:'center'}} readOnly /></td>
-                  <td><input type="text" className="readonly-input" value={bilty.actual_weight || bilty.weight || ''} style={{textAlign:'center'}} readOnly /></td>
-                  <td><input type="text" className="readonly-input" value={bilty.charged_weight || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={pkgs} style={{textAlign:'center', fontWeight: 'bold'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={method} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={hsn} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={actualWt} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={chargedWt} style={{textAlign:'center'}} readOnly /></td>
                 </tr>
               </tbody>
             </table>
@@ -302,7 +363,7 @@ export default function BiltyPrint() {
               <div className="middle-col-left">
                 <div className="box-style">
                   <label>DESCRIPTION</label>
-                  <textarea className="readonly-input auto-expand" value={bilty.material_desc || bilty.description || ''} style={{minHeight:'35px'}} readOnly rows="2"></textarea>
+                  <textarea className="readonly-input auto-expand" value={description} style={{minHeight:'35px'}} readOnly rows="2"></textarea>
                 </div>
                 <div className="box-style">
                   <label>E-WAY BILL NO.</label>
@@ -352,38 +413,38 @@ export default function BiltyPrint() {
                 <div className="box-style">
                   <label>RECEIPT VOUCHER</label>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> 
-                    No: <input type="text" className="readonly-input auto-expand" value={bilty.rv_no || ''} style={{width:'60%', borderBottom:'1px solid #000', fontWeight: 'bold'}} readOnly /> 
+                    No: <input type="text" className="readonly-input auto-expand" value={rvNo} style={{width:'60%', borderBottom:'1px solid #000', fontWeight: 'bold'}} readOnly /> 
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> 
-                    Dt: <input type="text" className="readonly-input" value={bilty.rv_dt || bilty.lr_date || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
+                    Dt: <input type="text" className="readonly-input" value={formatDate(rvDt)} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> 
-                    Amt: <input type="text" className="readonly-input" value={bilty.rv_am || displayTotal} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
+                    Amt: <input type="text" className="readonly-input" value={rvAmt || displayTotal} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
                   </div>
                 </div>
                 <div className="box-style">
                   <label>INSURANCE</label>
                   <p style={{fontSize:'8px', fontWeight:'bold', color:'#555', marginBottom:'4px'}}>INSURED / NOT INSURED BY CONSIGNOR.</p>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> 
-                    CO: <input type="text" className="readonly-input auto-expand" value={bilty.insurance_company || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
+                    CO: <input type="text" className="readonly-input auto-expand" value={insuranceCo} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> 
-                    POL: <input type="text" className="readonly-input auto-expand" value={bilty.policy_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
+                    POL: <input type="text" className="readonly-input auto-expand" value={policyNo} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
                   </div>
                   <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> 
-                    AMT: <input type="text" className="readonly-input" value={bilty.insurance_amount || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
+                    AMT: <input type="text" className="readonly-input" value={insuranceAmt} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> 
                   </div>
                 </div>
               </div>
 
               <div className="middle-col-right">
-                {/* ✅ FIX: Charges with proper calculation */}
-                <div className="charge-row"><label>Freight:</label> <span>{freight > 0 ? freight.toLocaleString('en-IN') : '-'}</span></div>
-                <div className="charge-row"><label>A.O.C ({aocPercent}%):</label> <span>{aocAmount > 0 ? aocAmount.toFixed(2) : '-'}</span></div>
-                <div className="charge-row"><label>Handling:</label> <span>{handling > 0 ? handling.toLocaleString('en-IN') : '-'}</span></div>
-                <div className="charge-row"><label>Collect:</label> <span>{collect > 0 ? collect.toLocaleString('en-IN') : '-'}</span></div>
-                <div className="charge-row"><label>Door Del:</label> <span>{doorDly > 0 ? doorDly.toLocaleString('en-IN') : '-'}</span></div>
-                <div className="charge-row"><label>Other:</label> <span>{other > 0 ? other.toLocaleString('en-IN') : '-'}</span></div>
+                {/* ✅ FIX: Show EXACT values from database - no calculation */}
+                <div className="charge-row"><label>Freight:</label> <span>{freight ? formatNum(freight) : '-'}</span></div>
+                <div className="charge-row"><label>A.O.C ({aocPercent}%):</label> <span>{aocAmount ? formatNum(aocAmount) : '-'}</span></div>
+                <div className="charge-row"><label>Handling:</label> <span>{handling ? formatNum(handling) : '-'}</span></div>
+                <div className="charge-row"><label>Collect:</label> <span>{collect ? formatNum(collect) : '-'}</span></div>
+                <div className="charge-row"><label>Door Del:</label> <span>{doorDly ? formatNum(doorDly) : '-'}</span></div>
+                <div className="charge-row"><label>Other:</label> <span>{other ? formatNum(other) : '-'}</span></div>
                 <hr style={{border: '1px solid #000', margin: '4px 0'}} />
                 <div className="charge-row" style={{fontSize: '15px', color: 'var(--primary-color)', fontWeight: '900', borderTop: '2px solid #000', paddingTop: '4px'}}>
                   <span>TOTAL:</span> <span style={{minWidth: '70px', textAlign: 'right'}}>{displayTotal}</span>
