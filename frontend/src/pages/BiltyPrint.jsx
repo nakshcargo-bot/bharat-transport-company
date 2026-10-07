@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function BiltyPrint() {
@@ -7,510 +7,301 @@ export default function BiltyPrint() {
   const printRef = useRef()
   const bilty = location.state?.bilty || {}
 
+  const [visibleCopies, setVisibleCopies] = useState({
+    CONSIGNOR_COPY: true,
+    CONSIGNEE_COPY: true,
+    LORRY_COPY: true,
+    HO_COPY: true
+  })
+
   useEffect(() => {
     const timer = setTimeout(() => {
       window.print()
-    }, 500)
+    }, 800)
     return () => clearTimeout(timer)
   }, [])
 
-  const numberToWords = (num) => {
-    const n = Math.floor(parseFloat(num || 0))
-    if (n === 0) return 'Zero'
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-    const convert = (n) => {
-      if (n < 20) return ones[n]
-      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
-      if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + convert(n % 100) : '')
-      if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '')
-      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '')
-      return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '')
-    }
-    return convert(n) + ' Only'
+  const toggleCopy = (copyId) => {
+    setVisibleCopies(prev => ({ ...prev, [copyId]: !prev[copyId] }))
   }
 
-  const freight = Math.round(parseFloat(bilty.freight || bilty.grand_total || 0))
-  const aoc = parseFloat(bilty.aoc_percent || 0)
-  const aocAmount = Math.round((freight * aoc) / 100)
-  const eov = Math.round(parseFloat(bilty.eov_charges || 0))
-  const cover = Math.round(parseFloat(bilty.cover_charges || 0))
-  const materialMgmt = Math.round(parseFloat(bilty.material_mgmt_ch || 0))
-  const collection = Math.round(parseFloat(bilty.collection_charges || 0))
-  const doorDly = Math.round(parseFloat(bilty.door_dly_charges || 0))
-  const passAttach = Math.round(parseFloat(bilty.pass_attach_ch || 0))
-  const enroute = Math.round(parseFloat(bilty.enroute_charges || 0))
-  const statistical = Math.round(parseFloat(bilty.statistical_charges || 0))
-  const misc = Math.round(parseFloat(bilty.misc_charges || 0))
-  const grandTotal = freight + aocAmount + eov + cover + materialMgmt + collection + doorDly + passAttach + enroute + statistical + misc
+  const copies = [
+    { label: "CONSIGNOR COPY", id: "CONSIGNOR_COPY", theme: "consignor-theme" },
+    { label: "CONSIGNEE COPY", id: "CONSIGNEE_COPY", theme: "consignee-theme" },
+    { label: "LORRY COPY", id: "LORRY_COPY", theme: "lorry-theme" },
+    { label: "HO COPY", id: "HO_COPY", theme: "ho-theme" }
+  ]
+
+  const totalAmount = parseFloat(bilty.grand_total || bilty.freight || 0)
+  const displayTotal = totalAmount > 0 ? totalAmount.toLocaleString('en-IN') + "/-" : "0/-"
 
   return (
     <>
       <style>{`
-        @page {
-          size: A4 portrait;
-          margin: 8mm;
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f0f0; padding: 0; margin: 0; }
+        :root { --primary-color: #000; --bg-accent: #f8f9ff; }
+        .consignor-theme { --primary-color: #0d47a1; --bg-accent: #e3f2fd; }
+        .consignee-theme { --primary-color: #b71c1c; --bg-accent: #ffebee; }
+        .lorry-theme { --primary-color: #1b5e20; --bg-accent: #e8f5e9; }
+        .ho-theme { --primary-color: #e65100; --bg-accent: #fff3e0; }
+
+        .print-controls {
+          background: #fff; padding: 15px; text-align: center; border-bottom: 2px solid #333;
+          position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        .option-group { display: inline-block; margin: 0 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
+        .btn-action {
+          padding: 8px 15px; margin: 5px; border: none; border-radius: 4px;
+          cursor: pointer; font-weight: bold; color: white;
+        }
+        .btn-print { background-color: #333; }
+        .btn-view { background-color: #0d47a1; }
+
+        .bilty-container { 
+          width: 190mm; min-height: 250mm; background: #fff; 
+          margin: 10px auto; border: 2px solid #000; padding: 4mm; position: relative;
+          page-break-after: always; box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .header { text-align: center; border-bottom: 1.5px solid #000; padding: 5px 0; background-color: var(--bg-accent); position: relative; z-index: 2; }
+        .header h1 { margin: 0; font-size: 24px; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px; }
+        .header p { margin: 2px 0; font-size: 11px; font-weight: bold; }
+        
+        .top-labels { text-align: center; margin: 5px 0; position: relative; z-index: 2; }
+        .risk-label { border: 1px solid #000; padding: 2px 20px; font-weight: bold; display: inline-block; text-transform: uppercase; background: var(--bg-accent) !important; font-size: 11px; color: var(--primary-color); }
+        .copy-label { border: 2px solid var(--primary-color); padding: 2px 25px; font-weight: bold; display: inline-block; text-transform: uppercase; font-size: 14px; color: var(--primary-color); min-width: 200px; background: rgba(255,255,255,0.8); }
+        
+        .top-grid { display: flex; border-bottom: 1.5px solid #000; position: relative; z-index: 2; }
+        .left-party { width: 58%; border-right: 1.5px solid #000; padding: 5px; }
+        .right-route { width: 42%; padding: 5px; background: rgba(250,250,250,0.4); }
+        
+        .party-box { border: 1px solid #000; padding: 5px; margin-bottom: 5px; border-radius: 3px; background: rgba(255,255,255,0.6); }
+        .party-title { font-weight: bold; font-size: 10px; text-decoration: underline; display: block; margin-bottom: 2px; color: var(--primary-color); }
+        
+        .readonly-input { 
+          border: none; border-bottom: 1px dotted #666; padding: 2px; 
+          outline: none; font-size: 12px; background: transparent; 
+          font-family: inherit; width: 100%; font-weight: 600; color: #000;
+        }
+        .name-input { font-size: 15px; font-weight: bold; width: 85% !important; text-transform: uppercase; }
+        .address-textarea { font-size: 11px; width: 100%; margin-top: 2px; resize: none; overflow: hidden; min-height: 16px; line-height: 1.3; border: none; background: transparent; }
+        
+        .consignment-box { border: 1.5px solid var(--primary-color); padding: 4px; background: rgba(255,255,255,0.7); text-align: center; margin-bottom: 5px; }
+        .field-group { display: flex; align-items: center; margin-bottom: 3px; }
+        .field-group label { font-weight: bold; font-size: 11px; width: 90px; }
+        
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 3px; position: relative; z-index: 2; }
+        .item-table th, .item-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; background: rgba(255,255,255,0.3); }
+        th { background: var(--bg-accent) !important; color: var(--primary-color); opacity: 0.9; }
+        
+        .middle-container { display: flex; border-top: 1.5px solid #000; margin-top: 5px; position: relative; z-index: 2; }
+        .middle-col-left { width: 42%; border-right: 1.5px solid #000; padding: 5px; }
+        .middle-col-center { width: 28%; border-right: 1.5px solid #000; padding: 5px; }
+        .middle-col-right { width: 30%; padding: 5px; background: rgba(252,252,252,0.4); }
+        
+        .box-style { border: 1px solid #000; padding: 10px 5px 5px 5px; margin-bottom: 8px; position: relative; background: rgba(255,255,255,0.6); }
+        .box-style label { position: absolute; top: -8px; left: 8px; background: rgba(255,255,255,1); padding: 0 4px; font-weight: bold; font-size: 9px; text-transform: uppercase; color: var(--primary-color); }
+        
+        .booking-basis-container { border: 1.5px solid var(--primary-color); padding: 8px 5px; margin-top: 5px; background: rgba(255,255,255,0.7); }
+        .booking-basis-container strong { font-size: 11px; display: block; margin-bottom: 8px; text-decoration: underline; color: var(--primary-color); }
+        .basis-row-new { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; margin-top: 8px; border-top: 1px dashed #666; padding-top: 8px; color: var(--primary-color); }
+        
+        .charge-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; font-weight: bold; }
+        .charge-row span { width: 75px; text-align: right; font-weight: bold; border-bottom: 1px solid #999; font-size: 12px; }
+        
+        .stamp-box-right { border: 1px solid #000; margin-top: 10px; text-align: center; padding: 8px; background: rgba(255,255,255,0.7); }
+        .footer-terms { margin-top: 5px; padding-top: 5px; font-size: 10px; line-height: 1.2; border-top: 1px solid #000; position: relative; z-index: 2; }
+        
         @media print {
-          body { margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .no-print { display: none !important; }
-          .bilty-container { width: 194mm !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
-        }
-        .bilty-container {
-          width: 194mm;
-          margin: 10px auto;
-          font-family: Arial, sans-serif;
-          font-size: 9px;
-          background: white;
-          line-height: 1.3;
-        }
-        .main-table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1.5px solid #000;
-        }
-        .main-table td, .main-table th {
-          border: 1px solid #000;
-          padding: 3px 4px;
-          vertical-align: top;
-        }
-        .header-company {
-          color: #cc0000;
-          font-size: 26px;
-          font-weight: bold;
-          text-align: center;
-          letter-spacing: 1px;
-          margin: 0;
-        }
-        .header-office {
-          font-size: 10px;
-          text-align: center;
-          margin: 2px 0;
-        }
-        .header-pan-gst {
-          font-size: 10px;
-          text-align: right;
-          font-weight: bold;
-          margin-top: 5px;
-        }
-        .red-bold { color: #cc0000; font-weight: bold; }
-        .section-title {
-          font-weight: bold;
-          font-size: 10px;
-          text-align: center;
-          text-transform: uppercase;
-        }
-        .label { font-size: 9px; font-weight: bold; }
-        .notice-text {
-          font-size: 7.5px;
-          color: #cc0000;
-          line-height: 1.4;
-          text-align: justify;
-        }
-        .logo-box {
-          width: 80px;
-          height: 80px;
-          border: 2px solid #cc0000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 5px auto;
-          position: relative;
-        }
-        .logo-box svg {
-          position: absolute;
-          top: 5px;
-          left: 5px;
-          width: 70px;
-          height: 70px;
-        }
-        .logo-text {
-          color: #cc0000;
-          font-weight: bold;
-          font-size: 20px;
-          z-index: 1;
-        }
-        .grand-total-row {
-          background: #f0f0f0;
-          font-weight: bold;
-        }
-        .payment-note {
-          color: #cc0000;
-          font-size: 9px;
-          font-style: italic;
-        }
-        .editable {
-          min-height: 14px;
-        }
-        .charges-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .charges-table td {
-          border: 1px solid #000;
-          padding: 2px 4px;
-          font-size: 9px;
-        }
-        .amount-cell {
-          text-align: right;
-          padding-right: 5px;
-          min-width: 50px;
+          body { background: #fff; }
+          .print-controls, .btn-action { display: none !important; }
+          .bilty-container { margin: 0; border: 2px solid #000; width: 100%; box-shadow: none; min-height: auto; page-break-after: always; }
+          .hidden-print { display: none !important; }
         }
       `}</style>
 
-      <div className="no-print" style={{ padding: '15px', textAlign: 'center', background: '#f0f0f0', position: 'sticky', top: 0, zIndex: 1000 }}>
-        <button onClick={() => window.print()} style={{ padding: '10px 20px', fontSize: '16px', marginRight: '10px', background: '#cc0000', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          🖨️ Print Bilty
-        </button>
-        <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', fontSize: '16px', background: '#666', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          ← Back
-        </button>
+      <div className="print-controls">
+        <div style={{marginBottom: '10px'}}>
+          {copies.map(copy => (
+            <label key={copy.id} className="option-group">
+              <input 
+                type="checkbox" 
+                checked={visibleCopies[copy.id]} 
+                onChange={() => toggleCopy(copy.id)} 
+              /> {copy.label.replace('_COPY', '')}
+            </label>
+          ))}
+        </div>
+        <button className="btn-action btn-print" onClick={() => window.print()}>🖨️ PRINT</button>
+        <button className="btn-action btn-view" onClick={() => navigate(-1)}>← BACK TO LIST</button>
       </div>
 
-      <div className="bilty-container" ref={printRef}>
-        <table className="main-table">
-          {/* Row 1: Logo + Company Header */}
-          <tr>
-            <td rowSpan={2} style={{ width: '13%', textAlign: 'center', verticalAlign: 'middle', padding: '5px' }}>
-              <div className="logo-box">
-                <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M50 5 L55 15 L60 12 L62 20 L70 18 L68 28 L78 30 L72 38 L82 42 L75 50 L85 55 L78 62 L88 68 L80 75 L88 82 L78 88 L85 95 L75 100 L80 108 L70 110 L72 118 L60 115 L58 120 L50 118 L42 120 L40 115 L28 118 L30 110 L20 108 L25 100 L15 95 L22 88 L12 82 L20 75 L12 68 L22 62 L15 55 L25 50 L18 42 L28 38 L22 30 L32 28 L30 18 L38 20 L40 12 L45 15 Z" fill="none" stroke="#cc0000" strokeWidth="2"/>
-                </svg>
-                <span className="logo-text">BTC</span>
-              </div>
-            </td>
-            <td colSpan={6} style={{ textAlign: 'center', padding: '8px 5px' }}>
-              <h1 className="header-company">BHARAT TRANSPORT COMPANY</h1>
-              <div className="header-office">
-                Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan, 331023
-              </div>
-              <div className="header-office">
-                Email: bharattrsnportcompany@gmail.com
-              </div>
-              <div className="header-pan-gst">
-                PAN No.: <b>CMRPP0955N</b> &nbsp;&nbsp; GST No.: <b>08CMRPP0955N1Z5</b>
-              </div>
-            </td>
-          </tr>
-
-          {/* Row 2: Schedule + Consignor Copy + Caution */}
-          <tr>
-            <td rowSpan={2} style={{ fontSize: '8px', padding: '4px', verticalAlign: 'top' }}>
-              <div className="section-title" style={{ marginBottom: '4px' }}>SCHEDULE OF DELAY COLLECTION CHARGE</div>
-              <div style={{ fontSize: '8px' }}>
-                Delay collection charge after......... days from today@6/- per day Quintal on charged weight.
-              </div>
-            </td>
-            <td colSpan={3} style={{ textAlign: 'center', padding: '6px' }}>
-              <div className="red-bold" style={{ fontSize: '14px' }}>CONSIGNOR COPY</div>
-            </td>
-            <td colSpan={3} rowSpan={2} style={{ fontSize: '8px', padding: '4px', verticalAlign: 'top' }}>
-              <div><b>CAUTION:</b> This consignment will not be detained, diverted, re-routed or re-booked without Consignee Bank's written permission will be delivered at the destination</div>
-              <div style={{ marginTop: '10px' }}>
-                <div className="label">Address of Issuing office</div>
-                <div className="editable" style={{ borderBottom: '1px dotted #000', minHeight: '20px', marginTop: '2px' }}>{bilty.issuing_office || ''}</div>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ textAlign: 'center', padding: '4px' }}>
-              <div className="section-title">OWNER RISK</div>
-            </td>
-          </tr>
-
-          {/* Row 3: Notice + Insurance + Consignment Note No */}
-          <tr>
-            <td rowSpan={2} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div className="red-bold" style={{ textAlign: 'center', marginBottom: '4px', fontSize: '12px' }}>NOTICE</div>
-              <div className="notice-text">
-                The Consignment covered by this Lorry receipt shall be stored at the destination under the control of the Transport Operator and shall be delivered to or to the order of the Consignee Bank whose name's mentioned in the Lorry receipt. It will be under no circumstances be delivered to anyone without the written authority from the Consignee Bank or its order, endorsed on the Consignee Copy or on a separate letter of Authority.
-              </div>
-            </td>
-            <td rowSpan={2} colSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="section-title" style={{ marginBottom: '4px' }}>INSURANCE</div>
-              <div style={{ marginBottom: '6px', fontSize: '9px' }}>
-                The consignor has stated that he has insured/not insured the consignment.
-              </div>
-              <div style={{ fontSize: '9px' }}>
-                <div><b>Company:</b> <span className="editable">{bilty.insurance_company || ''}</span></div>
-                <div><b>Policy No.:</b> <span className="editable">{bilty.policy_no || ''}</span></div>
-                <div><b>Date:</b> <span className="editable">{bilty.insurance_date || ''}</span></div>
-                <div><b>Amount:</b> <span className="editable">{bilty.insurance_amount || ''}</span></div>
-              </div>
-            </td>
-            <td colSpan={3} style={{ textAlign: 'center', padding: '8px', verticalAlign: 'top' }}>
-              <div className="red-bold" style={{ fontSize: '15px', marginBottom: '10px' }}>CONSIGNMENT NOTE NO.</div>
-              <div className="editable" style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center', minHeight: '30px', marginBottom: '5px', borderBottom: '1px dotted #000' }}>
-                {bilty.lr_no || 'BTC/26/0008'}
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ padding: '4px' }}>
-              <div className="label">Date</div>
-              <div className="editable" style={{ minHeight: '20px', fontWeight: 'bold', marginTop: '2px', borderBottom: '1px dotted #000' }}>
-                {bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : '24/9/2026'}
-              </div>
-            </td>
-          </tr>
-
-          {/* Row 4: Consignor + From/To */}
-          <tr>
-            <td colSpan={4} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div className="label">Consignor's Full Name & Address:</div>
-                <div className="label">Customer Code:</div>
-              </div>
-              <div className="editable" style={{ minHeight: '30px', marginTop: '2px' }}>{bilty.consignor_name || 'Electromech Infraprojects Pvt Ltd'}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '9px' }}>
-                <div><b>Invoice No.</b> <span className="editable">{bilty.invoice_no || '25'}</span></div>
-                <div><b>Date</b> <span className="editable">{bilty.invoice_date || '2026-09-24T00:00:00.000Z'}</span></div>
-                <div><b>GST No.</b> <span className="editable">{bilty.consignor_gst || '27AABCE1234A1Z5'}</span></div>
-              </div>
-            </td>
-            <td colSpan={1} rowSpan={2} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div className="label">From Code & Name:</div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.from_name || 'Delhi'}</div>
-              <div className="label" style={{ marginTop: '10px' }}>To Code & Name:</div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.to_name || 'Jaipur'}</div>
-            </td>
-            <td colSpan={2} rowSpan={2} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div><b>Delivery Type:</b> <b>{bilty.delivery_type || 'DOOR DELIVERY'}</b></div>
-              <div><b>Unloading Party Mob. No:</b> <span className="editable">{bilty.unloading_mob || ''}</span></div>
-              <div><b>Delivery Godown Address</b></div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.delivery_address || ''}</div>
-            </td>
-          </tr>
-
-          {/* Row 5: Consignee + Lorry Details */}
-          <tr>
-            <td colSpan={4} style={{ padding: '4px', verticalAlign: 'top' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div className="label">Consignee/Bank's Full Name & Address:</div>
-                <div className="label">Customer Code:</div>
-              </div>
-              <div className="editable" style={{ minHeight: '30px', marginTop: '2px' }}>{bilty.consignee_name || 'Vedant Sales Corporation'}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '9px' }}>
-                <div><b>Purchase Order No.</b> <span className="editable">{bilty.po_no || ''}</span></div>
-                <div><b>Date</b> <span className="editable">{bilty.po_date || ''}</span></div>
-                <div><b>GST No.</b> <span className="editable">{bilty.consignee_gst || ''}</span></div>
-              </div>
-            </td>
-            <td colSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div><b>Lorry No.</b> <span className="editable">{bilty.lorry_no || ''}</span></div>
-              <div><b>Phone No.</b> <span className="editable">{bilty.driver_phone || ''}</span></div>
-              <div><b>Unloading by Consignee/Pickup Address</b></div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.pickup_address || ''}</div>
-            </td>
-          </tr>
-
-          {/* Row 6: Main Table Headers */}
-          <tr style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '9px' }}>
-            <th>No. of Packages</th>
-            <th>Method of Packing</th>
-            <th>HSN Code</th>
-            <th>Actual Wt. in Kgs.</th>
-            <th>Charged Wt. in Kgs.</th>
-            <th>Rate<br/>Fixed</th>
-            <th rowSpan={2} style={{ width: '18%' }}>CHARGES</th>
-            <th colSpan={2}>Amount</th>
-          </tr>
-          <tr style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '9px' }}>
-            <th colSpan={6}></th>
-            <th>Rs.</th>
-            <th>Ps.</th>
-          </tr>
-
-          {/* Row 7-17: Main Data + Charges */}
-          <tr>
-            <td colSpan={3} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div className="label" style={{ textAlign: 'center', marginBottom: '3px' }}>Description (Said to contain)</div>
-              <div className="editable" style={{ minHeight: '25px', borderBottom: '1px solid #000' }}>{bilty.material_desc || bilty.description || '93'}</div>
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center', fontSize: '10px' }}>
-              {bilty.packages || bilty.no_of_packages || ''}
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
-              {bilty.method_of_packing || ''}
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
-              {bilty.hsn_code || ''}
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
-              {bilty.weight || bilty.actual_weight || ''}
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
-              {bilty.charged_weight || ''}
-            </td>
-            <td rowSpan={11} style={{ padding: '3px', textAlign: 'center' }}>
-              {bilty.rate || ''}
-            </td>
-            <td style={{ padding: '3px', fontSize: '9px' }}>FREIGHT</td>
-            <td className="amount-cell">{freight}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td colSpan={3} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div className="label" style={{ textAlign: 'center', marginBottom: '3px' }}>Dimension Of Consignment (if Bulky/ODC)</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8px' }}>
-                <tr>
-                  <th style={{ border: '1px solid #000', padding: '2px' }}>Length</th>
-                  <th style={{ border: '1px solid #000', padding: '2px' }}>Width</th>
-                  <th style={{ border: '1px solid #000', padding: '2px' }}>Height</th>
-                  <th style={{ border: '1px solid #000', padding: '2px' }}>No. Of Pkgs.</th>
-                  <th style={{ border: '1px solid #000', padding: '2px' }}>Total CFT/CMT</th>
-                </tr>
-                <tr>
-                  <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.length || '0.00'}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.width || '0.00'}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.height || '0.00'}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.dimension_pkgs || ''}</td>
-                  <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center' }}>{bilty.total_cft || ''}</td>
-                </tr>
-              </table>
-            </td>
-            <td style={{ padding: '3px', fontSize: '9px' }}>A.O.C. %</td>
-            <td className="amount-cell">{aocAmount}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td colSpan={3} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div className="label" style={{ marginBottom: '3px' }}>Private Marks</div>
-              <div className="editable" style={{ minHeight: '35px', borderBottom: '1px solid #000' }}>{bilty.private_marks || ''}</div>
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div><span className="label">Distance</span> <span className="editable">{bilty.distance || ''}</span></div>
-                  <div><span className="label">Kms.</span></div>
+      <div ref={printRef}>
+        {copies.map(copy => (
+          <div key={copy.id} className={`bilty-container ${copy.theme} ${!visibleCopies[copy.id] ? 'hidden-print' : ''}`}>
+            <div className="header">
+              <h1>BHARAT TRANSPORT COMPANY</h1>
+              <p>Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan 331023</p>
+              <p>GST NO: 08CMRPP0955N1Z5 | PAN NO: CMRPP0955N</p>
+            </div>
+            <div className="top-labels">
+              <div className="risk-label">Goods Carried At Owner's Risk</div><br />
+              <div className="copy-label">{copy.label}</div>
+            </div>
+            <div className="top-grid">
+              <div className="left-party">
+                <div className="party-box">
+                  <span className="party-title">CONSIGNOR:</span>
+                  <span className="ms-text">M/s.</span> 
+                  <input type="text" className="readonly-input name-input" value={bilty.consignor_name || ''} readOnly />
+                  <textarea className="address-textarea" value={bilty.consignor_address || ''} readOnly></textarea>
+                  <input type="text" className="readonly-input" value={bilty.consignor_gst || ''} placeholder="GST No" style={{marginTop:'2px', fontSize:'10px'}} readOnly />
+                  <div style={{display: 'flex', gap: '15px', marginTop: '4px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', flexGrow: 1}}>
+                      <span style={{fontSize: '10px', fontWeight: 'bold'}}>Inv No:</span> 
+                      <input type="text" className="readonly-input" value={bilty.invoice_no || ''} style={{width: '100%', marginLeft: '5px', borderBottom: '1px dotted #000'}} readOnly />
+                    </div>
+                    <div style={{display: 'flex', alignItems: 'center', width: '100px'}}>
+                      <span style={{fontSize: '10px', fontWeight: 'bold'}}>Date:</span> 
+                      <input type="text" className="readonly-input" value={bilty.invoice_date || ''} style={{width: '100%', marginLeft: '5px', borderBottom: '1px dotted #000'}} readOnly />
+                    </div>
+                  </div>
+                </div>
+                <div className="party-box">
+                  <span className="party-title">CONSIGNEE:</span>
+                  <span className="ms-text">M/s.</span> 
+                  <input type="text" className="readonly-input name-input" value={bilty.consignee_name || ''} readOnly />
+                  <textarea className="address-textarea" value={bilty.consignee_address || ''} readOnly></textarea>
+                  <input type="text" className="readonly-input" value={bilty.consignee_gst || ''} placeholder="GST No" style={{marginTop:'2px', fontSize:'10px'}} readOnly />
+                  <div style={{marginTop: '4px'}}>
+                    <span style={{fontSize: '10px', fontWeight: 'bold'}}>P.O. NO:</span> 
+                    <input type="text" className="readonly-input" value={bilty.po_no || ''} style={{width: '120px'}} readOnly />
+                  </div>
                 </div>
               </div>
-            </td>
-            <td style={{ padding: '3px', fontSize: '9px' }}>EOV CHARGES</td>
-            <td className="amount-cell">{eov}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td rowSpan={6} colSpan={3} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div style={{ fontSize: '9px' }}>
-                <div>In case of Paid Consignment/Advance Payment Specify</div>
-                <div style={{ marginTop: '5px' }}><b>M.R.No.:</b> <span className="editable">{bilty.mr_no || ''}</span></div>
-                <div><b>Date:</b> <span className="editable">{bilty.mr_date || ''}</span></div>
-                <div><b>Amount:</b> <span className="editable">{bilty.mr_amount || ''}</span></div>
-                <div style={{ marginTop: '8px' }}><b>LOAD TYPE</b></div>
-                <div><b>{bilty.load_type || 'FULL LOAD'}</b></div>
+              <div className="right-route">
+                <div className="consignment-box">
+                  <label style={{color: 'var(--primary-color)', fontWeight: 'bold', fontSize: '11px'}}>CONSIGNMENT NO:</label><br />
+                  <input type="text" className="readonly-input" value={bilty.lr_no || '0001'} style={{fontWeight: 'bold', fontSize: '20px', border:'none', textAlign:'center', width: '100%'}} readOnly />
+                </div>
+                <div className="field-group"><label>DATE:</label><input type="text" className="readonly-input" value={bilty.lr_date || ''} style={{width: '120px'}} readOnly /></div>
+                <div className="field-group"><label>FROM:</label><input type="text" className="readonly-input" value={bilty.from_name || ''} readOnly /></div>
+                <div className="field-group"><label>TO:</label><input type="text" className="readonly-input" value={bilty.to_name || ''} readOnly /></div>
+                <div className="field-group"><label>LORRY NO:</label><input type="text" className="readonly-input" value={bilty.lorry_no || ''} style={{fontWeight: 'bold', textTransform:'uppercase', color:'var(--primary-color)'}} readOnly /></div>
+                <div className="field-group"><label>DRIVER PH:</label><input type="text" className="readonly-input" value={bilty.driver_mobile || ''} readOnly /></div>
+                <div className="field-group" style={{marginTop: '5px', border: '1.5px solid var(--primary-color)', padding: '4px', background: 'rgba(255,255,255,0.7)'}}>
+                  <label style={{color: 'var(--primary-color)', width: '100px', fontWeight:'bold', fontSize:'10px'}}>DELIVERY TYPE:</label>
+                  <input type="text" className="readonly-input" value={bilty.delivery_type || 'GODOWN / DOOR'} style={{fontWeight: 'bold', fontSize:'11px'}} readOnly />
+                </div>
               </div>
-            </td>
-            <td style={{ padding: '3px', fontSize: '9px' }}>COVER CHARGES</td>
-            <td className="amount-cell">{cover}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>MATERIAL MGMT CH</td>
-            <td className="amount-cell">{materialMgmt}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>COLLECTION CHARGES</td>
-            <td className="amount-cell">{collection}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>DOOR DLY CHARGES</td>
-            <td className="amount-cell">{doorDly}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>WITH PASS/CC ATTACH CH.</td>
-            <td className="amount-cell">{passAttach}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>ENROUTE CHARGES</td>
-            <td className="amount-cell">{enroute}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td colSpan={6} rowSpan={2} style={{ padding: '3px', verticalAlign: 'top', fontSize: '9px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div><b>E WAY BILL No.:</b> <span className="editable">{bilty.eway_bill_no || ''}</span></div>
-                <div><b>Valid upto</b> <span className="editable">{bilty.eway_valid || ''}</span></div>
-              </div>
-            </td>
-            <td style={{ padding: '3px', fontSize: '9px' }}>STATISTICAL CHARGES</td>
-            <td className="amount-cell">{statistical}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          <tr>
-            <td style={{ padding: '3px', fontSize: '9px' }}>MISC. CHARGES</td>
-            <td className="amount-cell">{misc}</td>
-            <td className="amount-cell">0</td>
-          </tr>
-
-          {/* Grand Total Row */}
-          <tr className="grand-total-row">
-            <td colSpan={7} style={{ padding: '4px', textAlign: 'right', fontSize: '11px' }}>
-              <b>GRAND TOTAL</b>
-            </td>
-            <td className="amount-cell" style={{ fontSize: '11px', fontWeight: 'bold' }}>{grandTotal}</td>
-            <td className="amount-cell" style={{ fontSize: '11px', fontWeight: 'bold' }}>0</td>
-          </tr>
-
-          {/* Amount in Words */}
-          <tr>
-            <td colSpan={9} style={{ padding: '4px', fontSize: '10px' }}>
-              <b>To Pay/Paid/TBB Amount Rs. (in words) TBB</b>
-            </td>
-          </tr>
-
-          {/* Declared Value + Basis */}
-          <tr>
-            <td colSpan={6} rowSpan={3} style={{ padding: '4px', fontSize: '9px', verticalAlign: 'top' }}>
-              <div><b>Declared value of goods: Rs.</b> <span className="editable">{bilty.declared_value || ''}</span></div>
-              <div style={{ marginTop: '8px' }}>
-                <b>Basis of Booking: (1) To Pay (3) Paid (2) To be Billed at with M/s</b>
-              </div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '3px' }}>{bilty.basis_booking || ''}</div>
-            </td>
-            <td colSpan={3} style={{ padding: '4px', fontSize: '9px', textAlign: 'center', fontWeight: 'bold' }}>
-              GRAND TOTAL
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ padding: '4px', fontSize: '11px', textAlign: 'center', fontWeight: 'bold' }}>
-              {grandTotal}
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ padding: '4px' }}>
-              <div className="label">GST Through: CONSIGNOR/CONSIGNEE/ <b>NBT.C:</b></div>
-              <div className="editable" style={{ minHeight: '20px', marginTop: '2px' }}>{bilty.gst_through || ''}</div>
-            </td>
-          </tr>
-
-          {/* Footer: Payment Note + Signature */}
-          <tr>
-            <td colSpan={6} style={{ padding: '6px', verticalAlign: 'bottom', fontSize: '9px' }}>
-              <div className="payment-note">
-                • Payment should be made only through A/c Payee Cheque / D.D. /in favour of
-              </div>
-            </td>
-            <td colSpan={3} style={{ padding: '6px', verticalAlign: 'bottom', textAlign: 'right' }}>
-              <div className="red-bold" style={{ fontSize: '14px', marginBottom: '40px' }}>Bharat Transport Company</div>
-              <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '9px', textAlign: 'center' }}>
-                Signature of Booking Official
-              </div>
-            </td>
-          </tr>
-        </table>
+            </div>
+            <table className="item-table">
+              <thead>
+                <tr><th width="10%">Pkgs</th><th width="25%">Method</th><th width="15%">HSN</th><th width="25%">Act Wt.</th><th width="25%">Chg Wt.</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><input type="text" className="readonly-input" value={bilty.packages || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={bilty.method_of_packing || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={bilty.hsn_code || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={bilty.weight || bilty.actual_weight || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={bilty.charged_weight || ''} style={{textAlign:'center'}} readOnly /></td>
+                </tr>
+              </tbody>
+              <tbody>
+                <tr>
+                  <td colSpan="5" style={{border: 'none', padding: '0'}}>
+                    <div className="middle-container">
+                      <div className="middle-col-left">
+                        <div className="box-style">
+                          <label>DESCRIPTION</label>
+                          <textarea className="readonly-input" value={bilty.material_desc || bilty.description || ''} style={{height:'35px'}} readOnly></textarea>
+                        </div>
+                        <div className="box-style">
+                          <label>E-WAY BILL NO.</label>
+                          <input type="text" className="readonly-input" value={bilty.eway_bill_no || ''} style={{fontWeight: 'bold'}} readOnly />
+                        </div>
+                        <div style={{border: '1px solid #000', marginBottom:'8px'}}>
+                          <div style={{background: 'var(--bg-accent)', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '2px'}}>DIMENSIONS (L x W x H = CFT)</div>
+                          <table style={{width: '100%'}}>
+                            <tbody>
+                              <tr>
+                                <td><input type="text" className="readonly-input" value={bilty.length || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                                <td><input type="text" className="readonly-input" value={bilty.width || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                                <td><input type="text" className="readonly-input" value={bilty.height || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                                <td><input type="text" className="readonly-input" value={bilty.total_cft || ''} style={{textAlign:'center', fontWeight:'bold', fontSize:'10px'}} readOnly /></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="box-style">
+                          <label>VALUATION</label>
+                          <div style={{fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center'}}>
+                            Value Rs: 
+                            <input type="text" className="readonly-input" value={bilty.declared_value || ''} style={{width: '60%', fontSize: '14px', fontWeight: '900', marginLeft: '5px', borderBottom: '1px solid #000'}} readOnly />
+                          </div>
+                        </div>
+                        <div className="booking-basis-container">
+                          <strong>BASIS OF BOOKING:</strong>
+                          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                            <span style={{fontSize: '10px', fontWeight: 'bold'}}>Bill M/s:</span>
+                            <input type="text" className="readonly-input" value={bilty.basis_booking || bilty.consignor_name || ''} placeholder="Party Name..." style={{flexGrow: 1, borderBottom: '1px solid #000'}} readOnly />
+                          </div>
+                          <div className="basis-row-new">
+                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                              <input type="radio" name={`basis_${copy.id}`} checked={(bilty.payment_status || 'TO PAY') === 'TO PAY'} readOnly /> TO PAY
+                            </label>
+                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                              <input type="radio" name={`basis_${copy.id}`} checked={bilty.payment_status === 'PAID'} readOnly /> PAID
+                            </label>
+                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                              <input type="radio" name={`basis_${copy.id}`} checked={bilty.payment_status === 'TO BB'} readOnly /> TO BB
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="middle-col-center">
+                        <div className="box-style">
+                          <label>RECEIPT VOUCHER</label>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> No: <input type="text" className="readonly-input" value={bilty.mr_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> Dt: <input type="text" className="readonly-input" value={bilty.lr_date || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> Amt: <input type="text" className="readonly-input" value={displayTotal} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                        </div>
+                        <div className="box-style">
+                          <label>INSURANCE</label>
+                          <p style={{fontSize:'8px', fontWeight:'bold', color:'#555', marginBottom:'4px'}}>INSURED / NOT INSURED BY CONSIGNOR.</p>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> CO: <input type="text" className="readonly-input" value={bilty.insurance_company || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> POL: <input type="text" className="readonly-input" value={bilty.policy_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> AMT: <input type="text" className="readonly-input" value={bilty.insurance_amount || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                        </div>
+                      </div>
+                      <div className="middle-col-right">
+                        <div className="charge-row"><label>Freight:</label> <span>{bilty.freight || totalAmount}</span></div>
+                        <div className="charge-row"><label>A.O.C:</label> <span>{bilty.aoc_percent || 0}</span></div>
+                        <div className="charge-row"><label>Handling:</label> <span>{bilty.material_mgmt_ch || 0}</span></div>
+                        <div className="charge-row"><label>Collect:</label> <span>{bilty.collection_charges || 0}</span></div>
+                        <div className="charge-row"><label>Door Del:</label> <span>{bilty.door_dly_charges || 0}</span></div>
+                        <div className="charge-row"><label>Other:</label> <span>{bilty.misc_charges || 0}</span></div>
+                        <hr style={{border: '1px solid #000', margin: '2px 0'}} />
+                        <div className="charge-row" style={{fontSize: '15px', color: 'var(--primary-color)', fontWeight: '900'}}>
+                          <span>TOTAL:</span> <span style={{minWidth: '70px', textAlign: 'right'}}>{displayTotal}</span>
+                        </div>
+                        <div className="stamp-box-right">
+                          <strong style={{fontSize: '10px', color:'var(--primary-color)'}}>For BHARAT TRANSPORT COMPANY</strong><br /><br />
+                          <p style={{borderTop: '1px solid #000', margin:0, paddingTop: '4px', fontSize: '10px', fontWeight:'bold'}}>Signature</p>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="footer-terms">
+              • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
+            </div>
+          </div>
+        ))}
       </div>
     </>
   )
