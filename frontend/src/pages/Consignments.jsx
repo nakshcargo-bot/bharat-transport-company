@@ -131,6 +131,7 @@ export default function Consignments({ isNew }) {
                   <th className="p-3 text-left text-sm font-bold">Consignor</th>
                   <th className="p-3 text-left text-sm font-bold">Amount</th>
                   <th className="p-3 text-left text-sm font-bold">Status</th>
+                  <th className="p-3 text-left text-sm font-bold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,6 +143,14 @@ export default function Consignments({ isNew }) {
                     <td className="p-3 text-sm">{b.consignor_name}</td>
                     <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
                     <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span></td>
+                    <td className="p-3">
+                      <button 
+                        onClick={() => navigate('/bilty-print', { state: { bilty: b } })}
+                        className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-700 flex items-center gap-1 transition"
+                      >
+                        🖨️ Print
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
