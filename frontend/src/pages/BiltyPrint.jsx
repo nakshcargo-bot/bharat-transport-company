@@ -15,9 +15,7 @@ export default function BiltyPrint() {
   })
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      window.print()
-    }, 800)
+    const timer = setTimeout(() => { window.print() }, 800)
     return () => clearTimeout(timer)
   }, [])
 
@@ -35,6 +33,17 @@ export default function BiltyPrint() {
   const totalAmount = parseFloat(bilty.grand_total || bilty.freight || 0)
   const displayTotal = totalAmount > 0 ? totalAmount.toLocaleString('en-IN') + "/-" : "0/-"
 
+  // Auto-resize helper
+  const autoResize = (el) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }
+
+  useEffect(() => {
+    document.querySelectorAll('.auto-expand').forEach(el => autoResize(el))
+  }, [bilty])
+
   return (
     <>
       <style>{`
@@ -51,10 +60,7 @@ export default function BiltyPrint() {
           position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .option-group { display: inline-block; margin: 0 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
-        .btn-action {
-          padding: 8px 15px; margin: 5px; border: none; border-radius: 4px;
-          cursor: pointer; font-weight: bold; color: white;
-        }
+        .btn-action { padding: 8px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; }
         .btn-print { background-color: #333; }
         .btn-view { background-color: #0d47a1; }
 
@@ -65,8 +71,8 @@ export default function BiltyPrint() {
         }
         
         .header { text-align: center; border-bottom: 1.5px solid #000; padding: 5px 0; background-color: var(--bg-accent); position: relative; z-index: 2; }
-        .header h1 { margin: 0; font-size: 24px; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px; }
-        .header p { margin: 2px 0; font-size: 11px; font-weight: bold; }
+        .header h1 { margin: 0; font-size: 24px; color: var(--primary-color); text-transform: uppercase; letter-spacing: 1px; word-wrap: break-word; }
+        .header p { margin: 2px 0; font-size: 11px; font-weight: bold; word-wrap: break-word; }
         
         .top-labels { text-align: center; margin: 5px 0; position: relative; z-index: 2; }
         .risk-label { border: 1px solid #000; padding: 2px 20px; font-weight: bold; display: inline-block; text-transform: uppercase; background: var(--bg-accent) !important; font-size: 11px; color: var(--primary-color); }
@@ -76,23 +82,34 @@ export default function BiltyPrint() {
         .left-party { width: 58%; border-right: 1.5px solid #000; padding: 5px; }
         .right-route { width: 42%; padding: 5px; background: rgba(250,250,250,0.4); }
         
-        .party-box { border: 1px solid #000; padding: 5px; margin-bottom: 5px; border-radius: 3px; background: rgba(255,255,255,0.6); }
+        .party-box { border: 1px solid #000; padding: 5px; margin-bottom: 5px; border-radius: 3px; background: rgba(255,255,255,0.6); overflow: hidden; }
         .party-title { font-weight: bold; font-size: 10px; text-decoration: underline; display: block; margin-bottom: 2px; color: var(--primary-color); }
         
         .readonly-input { 
           border: none; border-bottom: 1px dotted #666; padding: 2px; 
           outline: none; font-size: 12px; background: transparent; 
           font-family: inherit; width: 100%; font-weight: 600; color: #000;
+          overflow: hidden; text-overflow: ellipsis;
         }
-        .name-input { font-size: 15px; font-weight: bold; width: 85% !important; text-transform: uppercase; }
-        .address-textarea { font-size: 11px; width: 100%; margin-top: 2px; resize: none; overflow: hidden; min-height: 16px; line-height: 1.3; border: none; background: transparent; }
+        .name-input { 
+          font-size: 14px; font-weight: bold; width: 100% !important; 
+          text-transform: uppercase; white-space: normal; word-wrap: break-word; 
+          overflow-wrap: break-word; min-height: 18px;
+        }
+        .address-textarea { 
+          font-size: 11px; width: 100%; margin-top: 2px; 
+          resize: none; overflow: hidden; min-height: 16px; line-height: 1.3; 
+          border: none; background: transparent; white-space: pre-wrap; 
+          word-wrap: break-word; overflow-wrap: break-word;
+        }
         
         .consignment-box { border: 1.5px solid var(--primary-color); padding: 4px; background: rgba(255,255,255,0.7); text-align: center; margin-bottom: 5px; }
         .field-group { display: flex; align-items: center; margin-bottom: 3px; }
-        .field-group label { font-weight: bold; font-size: 11px; width: 90px; }
+        .field-group label { font-weight: bold; font-size: 11px; width: 90px; flex-shrink: 0; }
+        .field-group input { flex: 1; min-width: 0; }
         
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 3px; position: relative; z-index: 2; }
-        .item-table th, .item-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; background: rgba(255,255,255,0.3); }
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 3px; position: relative; z-index: 2; table-layout: fixed; }
+        .item-table th, .item-table td { border: 1px solid #000; padding: 4px; text-align: center; font-size: 11px; background: rgba(255,255,255,0.3); word-wrap: break-word; overflow-wrap: break-word; }
         th { background: var(--bg-accent) !important; color: var(--primary-color); opacity: 0.9; }
         
         .middle-container { display: flex; border-top: 1.5px solid #000; margin-top: 5px; position: relative; z-index: 2; }
@@ -102,6 +119,7 @@ export default function BiltyPrint() {
         
         .box-style { border: 1px solid #000; padding: 10px 5px 5px 5px; margin-bottom: 8px; position: relative; background: rgba(255,255,255,0.6); }
         .box-style label { position: absolute; top: -8px; left: 8px; background: rgba(255,255,255,1); padding: 0 4px; font-weight: bold; font-size: 9px; text-transform: uppercase; color: var(--primary-color); }
+        .box-style textarea, .box-style input { width: 100%; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }
         
         .booking-basis-container { border: 1.5px solid var(--primary-color); padding: 8px 5px; margin-top: 5px; background: rgba(255,255,255,0.7); }
         .booking-basis-container strong { font-size: 11px; display: block; margin-bottom: 8px; text-decoration: underline; color: var(--primary-color); }
@@ -111,12 +129,12 @@ export default function BiltyPrint() {
         .charge-row span { width: 75px; text-align: right; font-weight: bold; border-bottom: 1px solid #999; font-size: 12px; }
         
         .stamp-box-right { border: 1px solid #000; margin-top: 10px; text-align: center; padding: 8px; background: rgba(255,255,255,0.7); }
-        .footer-terms { margin-top: 5px; padding-top: 5px; font-size: 10px; line-height: 1.2; border-top: 1px solid #000; position: relative; z-index: 2; }
+        .footer-terms { margin-top: 5px; padding-top: 5px; font-size: 10px; line-height: 1.2; border-top: 1px solid #000; position: relative; z-index: 2; word-wrap: break-word; }
         
         @media print {
           body { background: #fff; }
           .print-controls, .btn-action { display: none !important; }
-          .bilty-container { margin: 0; border: 2px solid #000; width: 100%; box-shadow: none; min-height: auto; page-break-after: always; }
+          .bilty-container { margin: 0; border: 2px solid #000; width: 100%; box-shadow: none; min-height: auto; page-break-after: always; padding: 3mm; }
           .hidden-print { display: none !important; }
         }
       `}</style>
@@ -125,16 +143,12 @@ export default function BiltyPrint() {
         <div style={{marginBottom: '10px'}}>
           {copies.map(copy => (
             <label key={copy.id} className="option-group">
-              <input 
-                type="checkbox" 
-                checked={visibleCopies[copy.id]} 
-                onChange={() => toggleCopy(copy.id)} 
-              /> {copy.label.replace('_COPY', '')}
+              <input type="checkbox" checked={visibleCopies[copy.id]} onChange={() => toggleCopy(copy.id)} /> {copy.label.replace('_COPY', '')}
             </label>
           ))}
         </div>
         <button className="btn-action btn-print" onClick={() => window.print()}>🖨️ PRINT</button>
-        <button className="btn-action btn-view" onClick={() => navigate(-1)}>← BACK TO LIST</button>
+        <button className="btn-action btn-view" onClick={() => navigate(-1)}>← BACK</button>
       </div>
 
       <div ref={printRef}>
@@ -154,10 +168,10 @@ export default function BiltyPrint() {
                 <div className="party-box">
                   <span className="party-title">CONSIGNOR:</span>
                   <span className="ms-text">M/s.</span> 
-                  <input type="text" className="readonly-input name-input" value={bilty.consignor_name || ''} readOnly />
-                  <textarea className="address-textarea" value={bilty.consignor_address || ''} readOnly></textarea>
+                  <input type="text" className="readonly-input name-input auto-expand" value={bilty.consignor_name || ''} readOnly />
+                  <textarea className="address-textarea auto-expand" value={bilty.consignor_address || ''} readOnly rows="1"></textarea>
                   <input type="text" className="readonly-input" value={bilty.consignor_gst || ''} placeholder="GST No" style={{marginTop:'2px', fontSize:'10px'}} readOnly />
-                  <div style={{display: 'flex', gap: '15px', marginTop: '4px'}}>
+                  <div style={{display: 'flex', gap: '15px', marginTop: '4px', flexWrap: 'wrap'}}>
                     <div style={{display: 'flex', alignItems: 'center', flexGrow: 1}}>
                       <span style={{fontSize: '10px', fontWeight: 'bold'}}>Inv No:</span> 
                       <input type="text" className="readonly-input" value={bilty.invoice_no || ''} style={{width: '100%', marginLeft: '5px', borderBottom: '1px dotted #000'}} readOnly />
@@ -171,8 +185,8 @@ export default function BiltyPrint() {
                 <div className="party-box">
                   <span className="party-title">CONSIGNEE:</span>
                   <span className="ms-text">M/s.</span> 
-                  <input type="text" className="readonly-input name-input" value={bilty.consignee_name || ''} readOnly />
-                  <textarea className="address-textarea" value={bilty.consignee_address || ''} readOnly></textarea>
+                  <input type="text" className="readonly-input name-input auto-expand" value={bilty.consignee_name || ''} readOnly />
+                  <textarea className="address-textarea auto-expand" value={bilty.consignee_address || ''} readOnly rows="1"></textarea>
                   <input type="text" className="readonly-input" value={bilty.consignee_gst || ''} placeholder="GST No" style={{marginTop:'2px', fontSize:'10px'}} readOnly />
                   <div style={{marginTop: '4px'}}>
                     <span style={{fontSize: '10px', fontWeight: 'bold'}}>P.O. NO:</span> 
@@ -205,98 +219,92 @@ export default function BiltyPrint() {
                   <td><input type="text" className="readonly-input" value={bilty.packages || ''} style={{textAlign:'center'}} readOnly /></td>
                   <td><input type="text" className="readonly-input" value={bilty.method_of_packing || ''} style={{textAlign:'center'}} readOnly /></td>
                   <td><input type="text" className="readonly-input" value={bilty.hsn_code || ''} style={{textAlign:'center'}} readOnly /></td>
-                  <td><input type="text" className="readonly-input" value={bilty.weight || bilty.actual_weight || ''} style={{textAlign:'center'}} readOnly /></td>
+                  <td><input type="text" className="readonly-input" value={bilty.actual_weight || bilty.weight || ''} style={{textAlign:'center'}} readOnly /></td>
                   <td><input type="text" className="readonly-input" value={bilty.charged_weight || ''} style={{textAlign:'center'}} readOnly /></td>
                 </tr>
               </tbody>
-              <tbody>
-                <tr>
-                  <td colSpan="5" style={{border: 'none', padding: '0'}}>
-                    <div className="middle-container">
-                      <div className="middle-col-left">
-                        <div className="box-style">
-                          <label>DESCRIPTION</label>
-                          <textarea className="readonly-input" value={bilty.material_desc || bilty.description || ''} style={{height:'35px'}} readOnly></textarea>
-                        </div>
-                        <div className="box-style">
-                          <label>E-WAY BILL NO.</label>
-                          <input type="text" className="readonly-input" value={bilty.eway_bill_no || ''} style={{fontWeight: 'bold'}} readOnly />
-                        </div>
-                        <div style={{border: '1px solid #000', marginBottom:'8px'}}>
-                          <div style={{background: 'var(--bg-accent)', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '2px'}}>DIMENSIONS (L x W x H = CFT)</div>
-                          <table style={{width: '100%'}}>
-                            <tbody>
-                              <tr>
-                                <td><input type="text" className="readonly-input" value={bilty.length || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
-                                <td><input type="text" className="readonly-input" value={bilty.width || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
-                                <td><input type="text" className="readonly-input" value={bilty.height || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
-                                <td><input type="text" className="readonly-input" value={bilty.total_cft || ''} style={{textAlign:'center', fontWeight:'bold', fontSize:'10px'}} readOnly /></td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="box-style">
-                          <label>VALUATION</label>
-                          <div style={{fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center'}}>
-                            Value Rs: 
-                            <input type="text" className="readonly-input" value={bilty.declared_value || ''} style={{width: '60%', fontSize: '14px', fontWeight: '900', marginLeft: '5px', borderBottom: '1px solid #000'}} readOnly />
-                          </div>
-                        </div>
-                        <div className="booking-basis-container">
-                          <strong>BASIS OF BOOKING:</strong>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                            <span style={{fontSize: '10px', fontWeight: 'bold'}}>Bill M/s:</span>
-                            <input type="text" className="readonly-input" value={bilty.basis_booking || bilty.consignor_name || ''} placeholder="Party Name..." style={{flexGrow: 1, borderBottom: '1px solid #000'}} readOnly />
-                          </div>
-                          <div className="basis-row-new">
-                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
-                              <input type="radio" name={`basis_${copy.id}`} checked={(bilty.payment_status || 'TO PAY') === 'TO PAY'} readOnly /> TO PAY
-                            </label>
-                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
-                              <input type="radio" name={`basis_${copy.id}`} checked={bilty.payment_status === 'PAID'} readOnly /> PAID
-                            </label>
-                            <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
-                              <input type="radio" name={`basis_${copy.id}`} checked={bilty.payment_status === 'TO BB'} readOnly /> TO BB
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="middle-col-center">
-                        <div className="box-style">
-                          <label>RECEIPT VOUCHER</label>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> No: <input type="text" className="readonly-input" value={bilty.mr_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> Dt: <input type="text" className="readonly-input" value={bilty.lr_date || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> Amt: <input type="text" className="readonly-input" value={displayTotal} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                        </div>
-                        <div className="box-style">
-                          <label>INSURANCE</label>
-                          <p style={{fontSize:'8px', fontWeight:'bold', color:'#555', marginBottom:'4px'}}>INSURED / NOT INSURED BY CONSIGNOR.</p>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> CO: <input type="text" className="readonly-input" value={bilty.insurance_company || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> POL: <input type="text" className="readonly-input" value={bilty.policy_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                          <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> AMT: <input type="text" className="readonly-input" value={bilty.insurance_amount || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
-                        </div>
-                      </div>
-                      <div className="middle-col-right">
-                        <div className="charge-row"><label>Freight:</label> <span>{bilty.freight || totalAmount}</span></div>
-                        <div className="charge-row"><label>A.O.C:</label> <span>{bilty.aoc_percent || 0}</span></div>
-                        <div className="charge-row"><label>Handling:</label> <span>{bilty.material_mgmt_ch || 0}</span></div>
-                        <div className="charge-row"><label>Collect:</label> <span>{bilty.collection_charges || 0}</span></div>
-                        <div className="charge-row"><label>Door Del:</label> <span>{bilty.door_dly_charges || 0}</span></div>
-                        <div className="charge-row"><label>Other:</label> <span>{bilty.misc_charges || 0}</span></div>
-                        <hr style={{border: '1px solid #000', margin: '2px 0'}} />
-                        <div className="charge-row" style={{fontSize: '15px', color: 'var(--primary-color)', fontWeight: '900'}}>
-                          <span>TOTAL:</span> <span style={{minWidth: '70px', textAlign: 'right'}}>{displayTotal}</span>
-                        </div>
-                        <div className="stamp-box-right">
-                          <strong style={{fontSize: '10px', color:'var(--primary-color)'}}>For BHARAT TRANSPORT COMPANY</strong><br /><br />
-                          <p style={{borderTop: '1px solid #000', margin:0, paddingTop: '4px', fontSize: '10px', fontWeight:'bold'}}>Signature</p>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
             </table>
+            <div className="middle-container">
+              <div className="middle-col-left">
+                <div className="box-style">
+                  <label>DESCRIPTION</label>
+                  <textarea className="readonly-input auto-expand" value={bilty.material_desc || bilty.description || ''} style={{minHeight:'35px'}} readOnly rows="2"></textarea>
+                </div>
+                <div className="box-style">
+                  <label>E-WAY BILL NO.</label>
+                  <input type="text" className="readonly-input auto-expand" value={bilty.eway_bill_no || ''} style={{fontWeight: 'bold'}} readOnly />
+                </div>
+                <div style={{border: '1px solid #000', marginBottom:'8px'}}>
+                  <div style={{background: 'var(--bg-accent)', textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '2px'}}>DIMENSIONS (L x W x H = CFT)</div>
+                  <table style={{width: '100%'}}>
+                    <tbody>
+                      <tr>
+                        <td><input type="text" className="readonly-input" value={bilty.length || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                        <td><input type="text" className="readonly-input" value={bilty.width || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                        <td><input type="text" className="readonly-input" value={bilty.height || '0.00'} style={{textAlign:'center', fontSize:'10px'}} readOnly /></td>
+                        <td><input type="text" className="readonly-input" value={bilty.total_cft || ''} style={{textAlign:'center', fontWeight:'bold', fontSize:'10px'}} readOnly /></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="box-style">
+                  <label>VALUATION</label>
+                  <div style={{fontSize: '11px', fontWeight: 'bold', display: 'flex', alignItems: 'center'}}>
+                    Value Rs: 
+                    <input type="text" className="readonly-input" value={bilty.declared_value || ''} style={{width: '60%', fontSize: '14px', fontWeight: '900', marginLeft: '5px', borderBottom: '1px solid #000'}} readOnly />
+                  </div>
+                </div>
+                <div className="booking-basis-container">
+                  <strong>BASIS OF BOOKING:</strong>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap'}}>
+                    <span style={{fontSize: '10px', fontWeight: 'bold'}}>Bill M/s:</span>
+                    <input type="text" className="readonly-input auto-expand" value={bilty.basis_party || bilty.consignor_name || ''} placeholder="Party Name..." style={{flexGrow: 1, borderBottom: '1px solid #000', minWidth: '100px'}} readOnly />
+                  </div>
+                  <div className="basis-row-new">
+                    <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                      <input type="radio" name={`basis_${copy.id}`} checked={(bilty.basis_booking || 'TO PAY') === 'TO PAY'} readOnly /> TO PAY
+                    </label>
+                    <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                      <input type="radio" name={`basis_${copy.id}`} checked={bilty.basis_booking === 'PAID'} readOnly /> PAID
+                    </label>
+                    <label className="basis-item" style={{display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default'}}>
+                      <input type="radio" name={`basis_${copy.id}`} checked={bilty.basis_booking === 'TO BB'} readOnly /> TO BB
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="middle-col-center">
+                <div className="box-style">
+                  <label>RECEIPT VOUCHER</label>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> No: <input type="text" className="readonly-input auto-expand" value={bilty.mr_no || bilty.rv_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> Dt: <input type="text" className="readonly-input" value={bilty.rv_dt || bilty.lr_date || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> Amt: <input type="text" className="readonly-input" value={bilty.rv_am || displayTotal} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                </div>
+                <div className="box-style">
+                  <label>INSURANCE</label>
+                  <p style={{fontSize:'8px', fontWeight:'bold', color:'#555', marginBottom:'4px'}}>INSURED / NOT INSURED BY CONSIGNOR.</p>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> CO: <input type="text" className="readonly-input auto-expand" value={bilty.insurance_company || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px', marginBottom:'2px'}}> POL: <input type="text" className="readonly-input auto-expand" value={bilty.policy_no || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:'11px'}}> AMT: <input type="text" className="readonly-input" value={bilty.insurance_amount || ''} style={{width:'60%', borderBottom:'1px solid #000'}} readOnly /> </div>
+                </div>
+              </div>
+              <div className="middle-col-right">
+                <div className="charge-row"><label>Freight:</label> <span>{bilty.freight || totalAmount}</span></div>
+                <div className="charge-row"><label>A.O.C:</label> <span>{bilty.aoc_percent || 0}</span></div>
+                <div className="charge-row"><label>Handling:</label> <span>{bilty.material_mgmt_ch || 0}</span></div>
+                <div className="charge-row"><label>Collect:</label> <span>{bilty.collection_charges || 0}</span></div>
+                <div className="charge-row"><label>Door Del:</label> <span>{bilty.door_dly_charges || 0}</span></div>
+                <div className="charge-row"><label>Other:</label> <span>{bilty.misc_charges || 0}</span></div>
+                <hr style={{border: '1px solid #000', margin: '2px 0'}} />
+                <div className="charge-row" style={{fontSize: '15px', color: 'var(--primary-color)', fontWeight: '900'}}>
+                  <span>TOTAL:</span> <span style={{minWidth: '70px', textAlign: 'right'}}>{displayTotal}</span>
+                </div>
+                <div className="stamp-box-right">
+                  <strong style={{fontSize: '10px', color:'var(--primary-color)'}}>For BHARAT TRANSPORT COMPANY</strong><br /><br />
+                  <p style={{borderTop: '1px solid #000', margin:0, paddingTop: '4px', fontSize: '10px', fontWeight:'bold'}}>Signature</p>
+                </div>
+              </div>
+            </div>
             <div className="footer-terms">
               • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
             </div>
