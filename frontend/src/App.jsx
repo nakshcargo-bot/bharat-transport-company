@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate, lazy, Suspense } from 'react-router-dom'
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useState, lazy, Suspense } from 'react'
 
 // Lazy load all pages
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -32,11 +32,8 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          {/* Public routes */}
           <Route path="/login" element={<Login onLogin={() => setIsLoggedIn(true)} />} />
           <Route path="/track" element={<TrackBilty />} />
-          
-          {/* Protected routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
@@ -45,14 +42,7 @@ function App() {
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
-          
-          {/* Catch-all - MUST be last */}
-          <Route path="*" element={
-            <div style={{ padding: '50px', textAlign: 'center' }}>
-              <h1>404 - Page Not Found</h1>
-              <a href="/">Go to Home</a>
-            </div>
-          } />
+          <Route path="*" element={<div style={{padding:'50px',textAlign:'center'}}><h1>404 - Page Not Found</h1><a href="/">Go Home</a></div>} />
         </Routes>
       </Suspense>
     </BrowserRouter>
