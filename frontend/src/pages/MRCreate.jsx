@@ -10,7 +10,7 @@ export default function MRCreate() {
   const [bilties, setBilties] = useState([])
   const [bills, setBills] = useState([])
   const [formData, setFormData] = useState({
-    mr_no: '',
+    mr_no: 'Auto-generated',
     mr_date: new Date().toISOString().split('T')[0],
     party_type: 'Consignor',
     party_name: '',
@@ -27,26 +27,47 @@ export default function MRCreate() {
 
   useEffect(() => {
     fetchData()
-    // Note: loadBiltyData/loadBillData will run after fetchData sets the lists
-    if (biltyId) setTimeout(() => loadBiltyData(biltyId), 500)
-    if (billId) setTimeout(() => loadBillData(billId), 500)
   }, [])
+
+  useEffect(() => {
+    if (bilties.length > 0 && biltyId) {
+      loadBiltyData(biltyId)
+    }
+    if (bills.length > 0 && billId) {
+      loadBillData(billId)
+    }
+  }, [bilties, bills])
 
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const [biltyRes, billRes] = await Promise.all([
-        fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${apiUrl}/api/bills`, { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => ({ json: async () => ({ data: [] }) }))
-      ])
+      
+      // Fetch bilties
+      const biltyRes = await fetch(`${apiUrl}/api/consignments`, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      })
       const biltyData = await biltyRes.json()
       setBilties(biltyData.data || [])
+
+      // Fetch bills
       try {
-        const billData = await billRes.json()
-        setBills(billData.data || [])
-      } catch (e) { setBills([]) }
-    } catch (err) { console.error(err) }
+        const billRes = await fetch(`${apiUrl}/api/bills`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        })
+        if (billRes.ok) {
+          const billData = await billRes.json()
+          setBills(billData.data || [])
+        } else {
+          setBills([])
+        }
+      } catch (e) { 
+        console.error('Bills fetch error:', e)
+        setBills([]) 
+      }
+    } catch (err) { 
+      console.error(err) 
+    }
   }
 
   const loadBiltyData = (id) => {
@@ -78,13 +99,17 @@ export default function MRCreate() {
   const handleBiltyChange = (e) => {
     const id = e.target.value
     setFormData(prev => ({ ...prev, bilty_id: id, bill_id: '', bill_no: '' }))
-    if (id) loadBiltyData(id)
+    if (id) {
+      setTimeout(() => loadBiltyData(id), 100)
+    }
   }
 
   const handleBillChange = (e) => {
     const id = e.target.value
     setFormData(prev => ({ ...prev, bill_id: id, bilty_id: '', bilty_lr_no: '' }))
-    if (id) loadBillData(id)
+    if (id) {
+      setTimeout(() => loadBillData(id), 100)
+    }
   }
 
   const handleChange = (e) => {
@@ -132,7 +157,12 @@ export default function MRCreate() {
           <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-bold text-gray-700">MR Number (Auto)</label>
-              <input name="mr_no" value={formData.mr_no} onChange={handleChange} placeholder="Auto-generated" className="w-full border p-2 rounded mt-1 bg-gray-50" />
+              <input 
+                name="mr_no" 
+                value={formData.mr_no} 
+                readOnly 
+                className="w-full border p-2 rounded mt-1 bg-gray-200 cursor-not-allowed font-bold text-gray-600" 
+              />
             </div>
             <div>
               <label className="text-sm font-bold text-gray-700">MR Date *</label>
@@ -150,7 +180,7 @@ export default function MRCreate() {
 
           {/* Link to Bilty or Bill */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-            <h3 className="font-bold text-blue-900 mb-3"> Link to Bilty / Bill (Optional)</h3>
+            <h3 className="font-bold text-blue-900 mb-3">🔗 Link to Bilty / Bill (Optional)</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-bold text-gray-700">Select Bilty</label>
@@ -160,17 +190,18 @@ export default function MRCreate() {
                     <option key={b.id} value={b.id}>{b.lr_no} - {b.consignor_name} - ₹{b.grand_total}</option>
                   ))}
                 </select>
-                {formData.bilty_lr_no && <div className="text-xs text-blue-700 mt-1">Linked: {formData.bilty_lr_no}</div>}
+                {formData.bilty_lr_no && <div className="text-xs text-blue-700 mt-1">✅ Linked: {formData.bilty_lr_no}</div>}
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700">Select Bill</label>
                 <select name="bill_id" value={formData.bill_id} onChange={handleBillChange} className="w-full border p-2 rounded mt-1">
                   <option value="">-- Select Bill --</option>
+                  {bills.length === 0 && <option disabled>No bills available</option>}
                   {bills.map(b => (
-                    <option key={b.id} value={b.id}>{b.bill_no || b.id} - {b.party_name || b.consignor_name} - ₹{b.amount || b.grand_total}</option>
+                    <option key={b.id} value={b.id}>{b.bill_no || `Bill-${b.id}`} - {b.party_name || b.consignor_name || 'Unknown'} - ₹{b.amount || b.grand_total || 0}</option>
                   ))}
                 </select>
-                {formData.bill_no && <div className="text-xs text-purple-700 mt-1">Linked: {formData.bill_no}</div>}
+                {formData.bill_no && <div className="text-xs text-purple-700 mt-1">✅ Linked: {formData.bill_no}</div>}
               </div>
             </div>
           </div>
@@ -201,7 +232,7 @@ export default function MRCreate() {
             <div className="flex items-end">
               <label className="flex items-center gap-2 cursor-pointer bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg w-full">
                 <input type="checkbox" name="is_advance" checked={formData.is_advance} onChange={handleChange} className="w-5 h-5" />
-                <span className="font-bold text-yellow-900">⚠️ This is Advance Payment</span>
+                <span className="font-bold text-yellow-900">️ This is Advance Payment</span>
               </label>
             </div>
           </div>
