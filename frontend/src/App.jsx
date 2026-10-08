@@ -18,6 +18,8 @@ const MRPrint = lazy(() => import('./pages/MRPrint'))
 const Audit = lazy(() => import('./pages/Audit'))
 const Branches = lazy(() => import('./pages/Branches'))
 const POD = lazy(() => import('./pages/POD'))
+const PODUpload = lazy(() => import('./pages/PODUpload'))
+const PODView = lazy(() => import('./pages/PODView'))
 const Drivers = lazy(() => import('./pages/Drivers'))
 const Transit = lazy(() => import('./pages/Transit'))
 const Vehicles = lazy(() => import('./pages/Vehicles'))
@@ -45,6 +47,10 @@ function App() {
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
           <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
+          
+          {/*  PUBLIC POD ROUTES (No Login Required) */}
+          <Route path="/pod-upload" element={<PODUpload />} />
+          <Route path="/pod-view" element={<PODView />} />
           
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
