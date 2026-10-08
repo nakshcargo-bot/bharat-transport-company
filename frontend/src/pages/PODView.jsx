@@ -38,12 +38,11 @@ export default function PODView() {
   }
 
   const formatCurrency = (amount) => {
-    return '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+    return '' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      {/* Header */}
       <nav className="bg-gradient-to-r from-blue-700 to-blue-900 text-white shadow-lg">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -60,9 +59,8 @@ export default function PODView() {
       </nav>
 
       <div className="max-w-4xl mx-auto p-6">
-        {/* Search Box */}
         <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">🔍 Find POD by LR Number</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4"> Find POD by LR Number</h2>
           <div className="flex gap-3">
             <input
               type="text"
@@ -82,23 +80,20 @@ export default function PODView() {
           </div>
         </form>
 
-        {/* Error Message */}
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 p-4 mb-6 rounded-lg">
             <div className="flex items-center">
-              <span className="text-2xl mr-3">❌</span>
+              <span className="text-2xl mr-3"></span>
               <p className="font-bold text-red-800">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Results */}
         {result && (
           <div className="space-y-6">
-            {/* Bilty Details */}
             {result.bilty && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2">📦 Bilty Details</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2"> Bilty Details</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
                     <div className="text-gray-500 text-xs">LR Number</div>
@@ -144,7 +139,6 @@ export default function PODView() {
               </div>
             )}
 
-            {/* POD Details */}
             {result.pod ? (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <div className="flex items-center justify-between mb-4 border-b pb-2">
@@ -176,10 +170,9 @@ export default function PODView() {
                   </div>
                 </div>
 
-                {/* POD Photo */}
                 {result.pod.photo_url && (
                   <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="font-bold text-gray-700 mb-3"> POD Photo / Signature</h4>
+                    <h4 className="font-bold text-gray-700 mb-3">📸 POD Photo / Signature</h4>
                     <img 
                       src={result.pod.photo_url} 
                       alt="POD Proof" 
@@ -200,7 +193,7 @@ export default function PODView() {
             ) : (
               <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-lg">
                 <div className="flex items-center">
-                  <span className="text-2xl mr-3"></span>
+                  <span className="text-2xl mr-3">⏳</span>
                   <div>
                     <p className="font-bold text-yellow-800">POD Not Yet Uploaded</p>
                     <p className="text-sm text-yellow-700">This bilty is still in transit or POD has not been uploaded yet.</p>
@@ -211,9 +204,8 @@ export default function PODView() {
           </div>
         )}
 
-        {/* Info Box */}
         <div className="mt-6 bg-purple-50 border-l-4 border-purple-500 p-4 rounded-lg">
-          <h4 className="font-bold text-purple-800 mb-2">ℹ️ About POD View:</h4>
+          <h4 className="font-bold text-purple-800 mb-2">️ About POD View:</h4>
           <ul className="text-sm text-purple-700 space-y-1">
             <li>• Enter your LR/Bilty number to check delivery status</li>
             <li>• View POD photo and delivery details</li>
