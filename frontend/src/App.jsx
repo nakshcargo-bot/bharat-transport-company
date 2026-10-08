@@ -7,6 +7,7 @@ const Bills = lazy(() => import('./pages/Bills'))
 const Customers = lazy(() => import('./pages/Customers'))
 const GatePass = lazy(() => import('./pages/GatePass'))
 const GadiChallan = lazy(() => import('./pages/GadiChallan'))
+const GadiChallanPrint = lazy(() => import('./pages/GadiChallanPrint'))
 const Reports = lazy(() => import('./pages/Reports'))
 const TrackBilty = lazy(() => import('./pages/TrackBilty'))
 const Login = lazy(() => import('./pages/Login'))
@@ -43,6 +44,7 @@ function App() {
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
+          <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
           
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
