@@ -1,250 +1,266 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 export default function MRCreate() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const biltyId = searchParams.get('biltyId')
-  const billId = searchParams.get('billId')
-
-  const [bilties, setBilties] = useState([])
-  const [bills, setBills] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [biltyList, setBiltyList] = useState([])
+  const [selectedBilty, setSelectedBilty] = useState(null)
+  
   const [formData, setFormData] = useState({
     mr_no: 'Auto-generated',
     mr_date: new Date().toISOString().split('T')[0],
     party_type: 'Consignor',
     party_name: '',
-    bilty_id: biltyId || '',
+    bilty_id: '',
     bilty_lr_no: '',
-    bill_id: billId || '',
-    bill_no: '',
     amount: '',
     payment_mode: 'Cash',
     is_advance: false,
     remarks: ''
   })
-  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetchData()
+    fetchBilties()
   }, [])
 
-  useEffect(() => {
-    if (bilties.length > 0 && biltyId) {
-      loadBiltyData(biltyId)
-    }
-    if (bills.length > 0 && billId) {
-      loadBillData(billId)
-    }
-  }, [bilties, bills])
-
-  const fetchData = async () => {
+  const fetchBilties = async () => {
     try {
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      
-      // Fetch bilties
-      const biltyRes = await fetch(`${apiUrl}/api/consignments`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
+      const res = await fetch(`${apiUrl}/api/consignments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
-      const biltyData = await biltyRes.json()
-      setBilties(biltyData.data || [])
-
-      // Fetch bills
-      try {
-        const billRes = await fetch(`${apiUrl}/api/bills`, { 
-          headers: { 'Authorization': `Bearer ${token}` } 
-        })
-        if (billRes.ok) {
-          const billData = await billRes.json()
-          setBills(billData.data || [])
-        } else {
-          setBills([])
-        }
-      } catch (e) { 
-        console.error('Bills fetch error:', e)
-        setBills([]) 
+      if (res.ok) {
+        const data = await res.json()
+        // Sirf Unpaid bilties dikhayenge MR ke liye
+        const unpaidBilties = (data.data || []).filter(b => b.payment_status !== 'Paid')
+        setBiltyList(unpaidBilties)
       }
-    } catch (err) { 
-      console.error(err) 
-    }
-  }
-
-  const loadBiltyData = (id) => {
-    const bilty = bilties.find(b => b.id == id)
-    if (bilty) {
-      setFormData(prev => ({
-        ...prev,
-        bilty_id: bilty.id,
-        bilty_lr_no: bilty.lr_no,
-        party_name: bilty.consignor_name || '',
-        amount: bilty.grand_total || ''
-      }))
-    }
-  }
-
-  const loadBillData = (id) => {
-    const bill = bills.find(b => b.id == id)
-    if (bill) {
-      setFormData(prev => ({
-        ...prev,
-        bill_id: bill.id,
-        bill_no: bill.bill_no || bill.id,
-        party_name: bill.party_name || bill.consignor_name || '',
-        amount: bill.amount || bill.grand_total || ''
-      }))
+    } catch (err) {
+      console.error('Error fetching bilties:', err)
     }
   }
 
   const handleBiltyChange = (e) => {
-    const id = e.target.value
-    setFormData(prev => ({ ...prev, bilty_id: id, bill_id: '', bill_no: '' }))
-    if (id) {
-      setTimeout(() => loadBiltyData(id), 100)
+    const biltyId = e.target.value
+    if (!biltyId) {
+      setSelectedBilty(null)
+      setFormData({ ...formData, bilty_id: '', bilty_lr_no: '', party_name: '', amount: '' })
+      return
     }
-  }
-
-  const handleBillChange = (e) => {
-    const id = e.target.value
-    setFormData(prev => ({ ...prev, bill_id: id, bilty_id: '', bilty_lr_no: '' }))
-    if (id) {
-      setTimeout(() => loadBillData(id), 100)
+    
+    const bilty = biltyList.find(b => b.id === parseInt(biltyId))
+    if (bilty) {
+      setSelectedBilty(bilty)
+      setFormData({
+        ...formData,
+        bilty_id: bilty.id,
+        bilty_lr_no: bilty.lr_no,
+        party_name: bilty.consignor_name || bilty.party_name || '',
+        amount: bilty.grand_total || '0'
+      })
     }
   }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? checked : value
+    })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      alert('Please enter a valid amount!')
+      return
+    }
+
     try {
+      setLoading(true)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      
+      const payload = {
+        ...formData,
+        amount: parseFloat(formData.amount),
+        is_advance: formData.is_advance || false
+      }
+
       const res = await fetch(`${apiUrl}/api/mr`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(formData)
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       })
-      const data = await res.json()
+
       if (res.ok) {
-        alert(`✅ MR Created Successfully!\nMR No: ${data.mr_no}`)
+        const result = await res.json()
+        alert(`MR Created Successfully! MR No: ${result.mr_no}`)
         navigate('/mr')
       } else {
-        alert('Error: ' + data.error)
+        const err = await res.json()
+        alert('Error: ' + (err.error || 'Failed to create MR'))
       }
     } catch (err) {
-      alert('Error: ' + err.message)
+      console.error('MR create error:', err)
+      alert('Failed to create MR')
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
+  }
+
+  const formatCurrency = (amount) => {
+    return '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
   }
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <nav className="bg-red-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="font-bold text-lg">💰 Create Money Receipt</h1>
-          <button onClick={() => navigate(-1)} className="bg-white text-red-700 px-4 py-1 rounded font-bold text-sm">← Back</button>
+      {/* Header */}
+      <nav className="bg-gradient-to-r from-purple-700 to-purple-900 text-white shadow-lg">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/mr')} className="bg-white/20 p-2 rounded-lg hover:bg-white/30">← Back</button>
+            <div>
+              <h1 className="font-bold text-xl">🧾 Create Money Receipt</h1>
+              <p className="text-xs text-purple-200">Record Payment against Bilty or Bill</p>
+            </div>
+          </div>
         </div>
       </nav>
 
       <div className="max-w-5xl mx-auto p-6">
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow p-6 space-y-4">
-          {/* MR Details */}
-          <div className="grid md:grid-cols-3 gap-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-lg p-6">
+          
+          {/* Top Row: MR Details */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 border-b pb-6">
             <div>
-              <label className="text-sm font-bold text-gray-700">MR Number (Auto)</label>
-              <input 
-                name="mr_no" 
-                value={formData.mr_no} 
-                readOnly 
-                className="w-full border p-2 rounded mt-1 bg-gray-200 cursor-not-allowed font-bold text-gray-600" 
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">MR Number</label>
+              <input type="text" value={formData.mr_no} readOnly className="w-full border rounded-lg p-2.5 bg-gray-50 text-gray-500" />
             </div>
             <div>
-              <label className="text-sm font-bold text-gray-700">MR Date *</label>
-              <input name="mr_date" type="date" value={formData.mr_date} onChange={handleChange} className="w-full border p-2 rounded mt-1" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1">MR Date *</label>
+              <input required type="date" name="mr_date" value={formData.mr_date} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500" />
             </div>
             <div>
-              <label className="text-sm font-bold text-gray-700">Party Type *</label>
-              <select name="party_type" value={formData.party_type} onChange={handleChange} className="w-full border p-2 rounded mt-1">
-                <option>Consignor</option>
-                <option>Consignee</option>
-                <option>Other</option>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Party Type *</label>
+              <select required name="party_type" value={formData.party_type} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500">
+                <option value="Consignor">Consignor (Sender)</option>
+                <option value="Consignee">Consignee (Receiver)</option>
+                <option value="Vendor">Vendor / Broker</option>
               </select>
             </div>
           </div>
 
-          {/* Link to Bilty or Bill */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-            <h3 className="font-bold text-blue-900 mb-3">🔗 Link to Bilty / Bill (Optional)</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+          {/* Bilty Selection & Details */}
+          <div className="mb-6">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+              🔗 Link to Bilty / Bill (Optional but Recommended)
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
               <div>
-                <label className="text-sm font-bold text-gray-700">Select Bilty</label>
-                <select name="bilty_id" value={formData.bilty_id} onChange={handleBiltyChange} className="w-full border p-2 rounded mt-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Bilty</label>
+                <select name="bilty_id" value={formData.bilty_id} onChange={handleBiltyChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 bg-white">
                   <option value="">-- Select Bilty --</option>
-                  {bilties.map(b => (
-                    <option key={b.id} value={b.id}>{b.lr_no} - {b.consignor_name} - ₹{b.grand_total}</option>
+                  {biltyList.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.lr_no} - {b.consignor_name} ({formatCurrency(b.grand_total)})
+                    </option>
                   ))}
                 </select>
-                {formData.bilty_lr_no && <div className="text-xs text-blue-700 mt-1">✅ Linked: {formData.bilty_lr_no}</div>}
-              </div>
-              <div>
-                <label className="text-sm font-bold text-gray-700">Select Bill</label>
-                <select name="bill_id" value={formData.bill_id} onChange={handleBillChange} className="w-full border p-2 rounded mt-1">
-                  <option value="">-- Select Bill --</option>
-                  {bills.length === 0 && <option disabled>No bills available</option>}
-                  {bills.map(b => (
-                    <option key={b.id} value={b.id}>{b.bill_no || `Bill-${b.id}`} - {b.party_name || b.consignor_name || 'Unknown'} - ₹{b.amount || b.grand_total || 0}</option>
-                  ))}
-                </select>
-                {formData.bill_no && <div className="text-xs text-purple-700 mt-1">✅ Linked: {formData.bill_no}</div>}
+                {selectedBilty && <p className="text-xs text-green-600 mt-1">✔️ Linked: {selectedBilty.lr_no}</p>}
               </div>
             </div>
+
+            {/* Auto-Filled Bilty Details Box */}
+            {selectedBilty && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                <h4 className="font-bold text-purple-800 text-sm mb-3">📦 Bilty Details (Auto-Fetched)</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-gray-500 text-xs">Branch Code</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.branch_code || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Consignor (From)</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.consignor_name || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Consignee (To)</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.consignee_name || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Material</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.material_desc || '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Packages</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.packages || '-'} Pcs</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Weight</div>
+                    <div className="font-bold text-gray-800">{selectedBilty.actual_weight || selectedBilty.charged_weight || '-'} Kg</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Freight Charges</div>
+                    <div className="font-bold text-gray-800">{formatCurrency(selectedBilty.freight)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs">Grand Total</div>
+                    <div className="font-bold text-purple-700 text-lg">{formatCurrency(selectedBilty.grand_total)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Party & Amount */}
-          <div className="grid md:grid-cols-2 gap-4">
+          {/* Payment Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 border-b pb-6">
             <div>
-              <label className="text-sm font-bold text-gray-700">Party Name *</label>
-              <input name="party_name" value={formData.party_name} onChange={handleChange} className="w-full border p-2 rounded mt-1" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Party Name *</label>
+              <input required type="text" name="party_name" value={formData.party_name} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500" placeholder="Enter party name" />
             </div>
             <div>
-              <label className="text-sm font-bold text-gray-700">Amount (₹) *</label>
-              <input name="amount" type="number" value={formData.amount} onChange={handleChange} className="w-full border p-2 rounded mt-1" required />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
+              <input required type="number" step="0.01" name="amount" value={formData.amount} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 text-lg font-bold" placeholder="0.00" />
             </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-bold text-gray-700">Payment Mode *</label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full border p-2 rounded mt-1">
-                <option>Cash</option>
-                <option>Cheque</option>
-                <option>Bank Transfer</option>
-                <option>UPI</option>
-                <option>DD</option>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode *</label>
+              <select required name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500">
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer / NEFT / RTGS</option>
+                <option value="Cheque">Cheque</option>
+                <option value="UPI">UPI / GPay / PhonePe</option>
               </select>
             </div>
             <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer bg-yellow-50 border-2 border-yellow-300 p-3 rounded-lg w-full">
-                <input type="checkbox" name="is_advance" checked={formData.is_advance} onChange={handleChange} className="w-5 h-5" />
-                <span className="font-bold text-yellow-900">️ This is Advance Payment</span>
+              <label className="flex items-center gap-3 p-3 border rounded-lg w-full cursor-pointer hover:bg-purple-50 transition-colors">
+                <input type="checkbox" name="is_advance" checked={formData.is_advance} onChange={handleChange} className="w-5 h-5 text-purple-600 rounded" />
+                <span className="font-medium text-gray-800">This is Advance Payment</span>
               </label>
             </div>
           </div>
 
-          <div>
-            <label className="text-sm font-bold text-gray-700">Remarks</label>
-            <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows="3" className="w-full border p-2 rounded mt-1" placeholder="Any additional notes..."></textarea>
+          {/* Remarks */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Remarks / Notes</label>
+            <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows="3" className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500" placeholder="Any additional notes..."></textarea>
           </div>
 
-          <button type="submit" disabled={submitting} className="w-full bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 disabled:bg-gray-400">
-            {submitting ? 'Creating MR...' : '✅ Create Money Receipt'}
-          </button>
+          {/* Actions */}
+          <div className="flex gap-3 justify-end">
+            <button type="button" onClick={() => navigate('/mr')} className="px-6 py-2.5 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-100">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="px-8 py-2.5 bg-purple-700 text-white rounded-lg font-bold hover:bg-purple-800 shadow disabled:opacity-50 flex items-center gap-2">
+              {loading ? 'Creating MR...' : '💾 Create Money Receipt'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
