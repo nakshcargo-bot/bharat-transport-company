@@ -247,6 +247,9 @@ async function runMigrations() {
   
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
   await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
+    // E-Way Bill State Columns for Intra-state (1L) vs Inter-state (50K) logic
+  await addColumnIfNotExists('consignments', 'from_state', 'TEXT');
+  await addColumnIfNotExists('consignments', 'to_state', 'TEXT');
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
@@ -1285,25 +1288,32 @@ app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
 // E-WAY BILL MODULE
 // ==========================================
 
-// Get consignments requiring E-Way Bill (Value > 50,000)
+// Get consignments requiring E-Way Bill (Smart Limit: 1L for Same State, 50K for Different State)
 app.get('/api/eway-bills', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
-    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+    const bf = branchId ? `AND c.branch_id = ${parseInt(branchId)}` : '';
     
+    // Smart Logic: If from_state = to_state, limit is 1,00,000. Else, limit is 50,000.
+    // If states are NULL/empty, it safely defaults to 50,000 limit.
     const result = await pool.query(`
-      SELECT id, lr_no, lr_date, consignor_name, consignee_name, from_name, to_name, 
-             declared_value, eway_bill_no, eway_valid_upto, transporter_id, transporter_name, status
-      FROM consignments 
-      WHERE CAST(declared_value AS NUMERIC) > 50000 ${bf}
-      ORDER BY lr_date DESC LIMIT 200
+      SELECT c.id, c.lr_no, c.lr_date, c.consignor_name, c.consignee_name, c.from_name, c.to_name, 
+             c.declared_value, c.eway_bill_no, c.eway_valid_upto, c.transporter_id, c.transporter_name, c.status,
+             c.from_state, c.to_state
+      FROM consignments c
+      WHERE CAST(c.declared_value AS NUMERIC) > CASE 
+        WHEN c.from_state IS NOT NULL AND c.to_state IS NOT NULL 
+             AND UPPER(TRIM(c.from_state)) = UPPER(TRIM(c.to_state)) 
+        THEN 100000 
+        ELSE 50000 
+      END ${bf}
+      ORDER BY c.lr_date DESC LIMIT 200
     `);
     res.json({ data: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 // Update E-Way Bill Details
 app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
   try {
