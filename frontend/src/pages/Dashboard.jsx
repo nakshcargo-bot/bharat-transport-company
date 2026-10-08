@@ -33,8 +33,17 @@ export default function Dashboard() {
         const data = await resStats.json()
         setStats(data)
       } else {
-        const err = await resStats.json()
+        const err = await resStats.json().catch(() => ({ error: 'Unknown error' }))
         setError('Stats load failed: ' + (err.error || 'Unknown error'))
+        // Set default stats so UI still shows
+        setStats({
+          today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
+          total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
+          total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
+          active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
+          total_branches: 0, today_revenue: 0, month_revenue: 0,
+          user_role: 'admin', user_branch: 'All'
+        })
       }
 
       if (resRecent.ok) setRecent(await resRecent.json())
@@ -44,6 +53,14 @@ export default function Dashboard() {
       }
     } catch (err) {
       setError('Network error: ' + err.message)
+      setStats({
+        today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
+        total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
+        total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
+        active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
+        total_branches: 0, today_revenue: 0, month_revenue: 0,
+        user_role: 'admin', user_branch: 'All'
+      })
     } finally {
       setLoading(false)
     }
@@ -56,7 +73,7 @@ export default function Dashboard() {
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
     { icon: '💰', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
-    { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
+    { icon: '', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
     { icon: '👥', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
@@ -71,6 +88,15 @@ export default function Dashboard() {
         </div>
       </div>
     )
+  }
+
+  // Safe stats with defaults
+  const s = stats || {
+    today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
+    total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
+    total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
+    active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
+    total_branches: 0, today_revenue: 0, month_revenue: 0, user_branch: 'All'
   }
 
   return (
@@ -97,20 +123,20 @@ export default function Dashboard() {
           <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${user.role === 'admin' ? 'bg-red-100 text-red-700' : user.role === 'Manager' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
             👤 {user.role === 'admin' ? 'Administrator' : user.role} {isAdmin && '(Full Access)'}
           </span>
-          {stats?.user_branch && <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {stats.user_branch}</span>}
+          {s.user_branch && <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {s.user_branch}</span>}
         </div>
 
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-center justify-between">
-              <div><p className="font-bold text-red-800">⚠️ {error}</p><p className="text-sm text-red-600">Please check backend logs or try again.</p></div>
+              <div><p className="font-bold text-red-800">⚠️ {error}</p><p className="text-sm text-red-600">Dashboard is showing default values. Click Retry to reload.</p></div>
               <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">🔄 Retry</button>
             </div>
           </div>
         )}
 
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-3">⚡ Quick Actions</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-3"> Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {quickActions.map((action, idx) => (
               <button key={idx} onClick={() => navigate(action.path)} className={`bg-gradient-to-br ${action.color} text-white p-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all`}>
@@ -121,130 +147,123 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {stats ? (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-blue-100 text-sm font-medium">TODAY'S LR</div>
-                <div className="text-4xl font-bold mt-2">{stats.today_lr}</div>
-                <div className="text-blue-200 text-xs mt-2">Total: {stats.total_lr} | Month: {stats.month_lr}</div>
-              </div>
-              <div className="bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-green-100 text-sm font-medium">TODAY'S REVENUE</div>
-                <div className="text-3xl font-bold mt-2">{formatCurrency(stats.today_revenue)}</div>
-                <div className="text-green-200 text-xs mt-2">Month: {formatCurrency(stats.month_revenue)}</div>
-              </div>
-              <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-orange-100 text-sm font-medium">PENDING AMOUNT</div>
-                <div className="text-3xl font-bold mt-2">{formatCurrency(stats.pending_amount)}</div>
-                <div className="text-orange-200 text-xs mt-2">Pending LR: {stats.pending_lr}</div>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl p-6 shadow-xl">
-                <div className="text-purple-100 text-sm font-medium">TOTAL REVENUE</div>
-                <div className="text-3xl font-bold mt-2">{formatCurrency(stats.total_revenue)}</div>
-                <div className="text-purple-200 text-xs mt-2">Paid Bilties: {stats.paid_lr}</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BILLS</div><div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_bills}</div><div className="text-xs text-red-600 mt-1">Pending: {stats.pending_bills}</div></div>
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">MONEY RECEIPTS</div><div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_mr}</div></div>
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PARTIES</div><div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_parties}</div></div>
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PENDING POD</div><div className="text-2xl font-bold text-orange-600 mt-1">{stats.pending_pod}</div></div>
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">OPEN CLAIMS</div><div className="text-2xl font-bold text-red-600 mt-1">{stats.open_claims}</div></div>
-              <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_branches}</div></div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
-                  <h3 className="font-bold text-lg">📋 Recent Bilties</h3>
-                  <button onClick={() => navigate('/consignments')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-                </div>
-                <div className="p-4">
-                  {!recent?.bilties?.length ? <p className="text-gray-500 text-center py-4">No recent bilties</p> : (
-                    <div className="space-y-2">
-                      {recent.bilties.map((b, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition">
-                          <div><div className="font-bold text-blue-700 text-sm">{b.lr_no}</div><div className="text-xs text-gray-600">{b.consignor_name} → {b.consignee_name}</div></div>
-                          <div className="text-right"><div className="font-bold text-green-700">{formatCurrency(b.grand_total)}</div><span className={`text-xs px-2 py-0.5 rounded ${b.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{b.payment_status}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-4 flex justify-between items-center">
-                  <h3 className="font-bold text-lg">🏆 Top Parties by Revenue</h3>
-                  <button onClick={() => navigate('/customers')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-                </div>
-                <div className="p-4">
-                  {!topParties.length ? <p className="text-gray-500 text-center py-4">No data yet</p> : (
-                    <div className="space-y-2">
-                      {topParties.map((p, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-600' : 'bg-blue-500'}`}>{idx + 1}</div>
-                            <div><div className="font-bold text-gray-800 text-sm">{p.consignor_name}</div><div className="text-xs text-gray-500">{p.total_bilties} bilties</div></div>
-                          </div>
-                          <div className="font-bold text-purple-700">{formatCurrency(p.total_revenue)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 flex justify-between items-center">
-                  <h3 className="font-bold text-lg">💰 Recent Money Receipts</h3>
-                  <button onClick={() => navigate('/mr')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-                </div>
-                <div className="p-4">
-                  {!recent?.receipts?.length ? <p className="text-gray-500 text-center py-4">No recent receipts</p> : (
-                    <div className="space-y-2">
-                      {recent.receipts.map((r, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div><div className="font-bold text-green-700 text-sm">{r.mr_no}</div><div className="text-xs text-gray-600">{r.party_name} • {r.payment_mode}</div></div>
-                          <div className="font-bold text-green-700">{formatCurrency(r.amount)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 flex justify-between items-center">
-                  <h3 className="font-bold text-lg">⚠️ Recent Claims</h3>
-                  <button onClick={() => navigate('/claims')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-                </div>
-                <div className="p-4">
-                  {!recent?.claims?.length ? <p className="text-gray-500 text-center py-4">No claims</p> : (
-                    <div className="space-y-2">
-                      {recent.claims.map((c, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div><div className="font-bold text-red-700 text-sm">{c.lr_no}</div><div className="text-xs text-gray-600">{c.claim_type}</div></div>
-                          <div className="text-right"><div className="font-bold text-red-700">{formatCurrency(c.claim_amount)}</div><span className={`text-xs px-2 py-0.5 rounded ${c.status === 'Open' ? 'bg-red-100 text-red-700' : c.status === 'Settled' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{c.status}</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg">
-            <p className="font-bold text-yellow-800">⚠️ Stats data load nahi ho raha</p>
-            <p className="text-sm text-yellow-700 mt-1">Backend API check karo ya page refresh karo.</p>
-            <button onClick={fetchData} className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">🔄 Retry Loading Stats</button>
+        {/* Main Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-6 shadow-xl">
+            <div className="text-blue-100 text-sm font-medium">TODAY'S LR</div>
+            <div className="text-4xl font-bold mt-2">{s.today_lr}</div>
+            <div className="text-blue-200 text-xs mt-2">Total: {s.total_lr} | Month: {s.month_lr}</div>
           </div>
-        )}
+          <div className="bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl p-6 shadow-xl">
+            <div className="text-green-100 text-sm font-medium">TODAY'S REVENUE</div>
+            <div className="text-3xl font-bold mt-2">{formatCurrency(s.today_revenue)}</div>
+            <div className="text-green-200 text-xs mt-2">Month: {formatCurrency(s.month_revenue)}</div>
+          </div>
+          <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl p-6 shadow-xl">
+            <div className="text-orange-100 text-sm font-medium">PENDING AMOUNT</div>
+            <div className="text-3xl font-bold mt-2">{formatCurrency(s.pending_amount)}</div>
+            <div className="text-orange-200 text-xs mt-2">Pending LR: {s.pending_lr}</div>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl p-6 shadow-xl">
+            <div className="text-purple-100 text-sm font-medium">TOTAL REVENUE</div>
+            <div className="text-3xl font-bold mt-2">{formatCurrency(s.total_revenue)}</div>
+            <div className="text-purple-200 text-xs mt-2">Paid Bilties: {s.paid_lr}</div>
+          </div>
+        </div>
+
+        {/* Secondary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BILLS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_bills}</div><div className="text-xs text-red-600 mt-1">Pending: {s.pending_bills}</div></div>
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">MONEY RECEIPTS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_mr}</div></div>
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PARTIES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_parties}</div></div>
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PENDING POD</div><div className="text-2xl font-bold text-orange-600 mt-1">{s.pending_pod}</div></div>
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">OPEN CLAIMS</div><div className="text-2xl font-bold text-red-600 mt-1">{s.open_claims}</div></div>
+          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_branches}</div></div>
+        </div>
+
+        {/* Recent Activities */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
+              <h3 className="font-bold text-lg">📋 Recent Bilties</h3>
+              <button onClick={() => navigate('/consignments')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+            </div>
+            <div className="p-4">
+              {!recent?.bilties?.length ? <p className="text-gray-500 text-center py-4">No recent bilties</p> : (
+                <div className="space-y-2">
+                  {recent.bilties.map((b, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition">
+                      <div><div className="font-bold text-blue-700 text-sm">{b.lr_no}</div><div className="text-xs text-gray-600">{b.consignor_name} → {b.consignee_name}</div></div>
+                      <div className="text-right"><div className="font-bold text-green-700">{formatCurrency(b.grand_total)}</div><span className={`text-xs px-2 py-0.5 rounded ${b.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{b.payment_status}</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-4 flex justify-between items-center">
+              <h3 className="font-bold text-lg">🏆 Top Parties by Revenue</h3>
+              <button onClick={() => navigate('/customers')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+            </div>
+            <div className="p-4">
+              {!topParties.length ? <p className="text-gray-500 text-center py-4">No data yet</p> : (
+                <div className="space-y-2">
+                  {topParties.map((p, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-600' : 'bg-blue-500'}`}>{idx + 1}</div>
+                        <div><div className="font-bold text-gray-800 text-sm">{p.consignor_name}</div><div className="text-xs text-gray-500">{p.total_bilties} bilties</div></div>
+                      </div>
+                      <div className="font-bold text-purple-700">{formatCurrency(p.total_revenue)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 flex justify-between items-center">
+              <h3 className="font-bold text-lg">💰 Recent Money Receipts</h3>
+              <button onClick={() => navigate('/mr')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+            </div>
+            <div className="p-4">
+              {!recent?.receipts?.length ? <p className="text-gray-500 text-center py-4">No recent receipts</p> : (
+                <div className="space-y-2">
+                  {recent.receipts.map((r, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <div><div className="font-bold text-green-700 text-sm">{r.mr_no}</div><div className="text-xs text-gray-600">{r.party_name} • {r.payment_mode}</div></div>
+                      <div className="font-bold text-green-700">{formatCurrency(r.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 flex justify-between items-center">
+              <h3 className="font-bold text-lg">⚠️ Recent Claims</h3>
+              <button onClick={() => navigate('/claims')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+            </div>
+            <div className="p-4">
+              {!recent?.claims?.length ? <p className="text-gray-500 text-center py-4">No claims</p> : (
+                <div className="space-y-2">
+                  {recent.claims.map((c, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <div><div className="font-bold text-red-700 text-sm">{c.lr_no}</div><div className="text-xs text-gray-600">{c.claim_type}</div></div>
+                      <div className="text-right"><div className="font-bold text-red-700">{formatCurrency(c.claim_amount)}</div><span className={`text-xs px-2 py-0.5 rounded ${c.status === 'Open' ? 'bg-red-100 text-red-700' : c.status === 'Settled' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{c.status}</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>© 2026 Bharat Transport Company • Professional Multi-Branch TMS</p>
