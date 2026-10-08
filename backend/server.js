@@ -151,7 +151,6 @@ async function runMigrations() {
       freight_amount NUMERIC, advance_paid NUMERIC, balance_due NUMERIC, toll_expense NUMERIC, diesel_expense NUMERIC, other_expense NUMERIC,
       tds_deduction NUMERIC, net_payable NUMERIC, issue_date DATE, created_at TIMESTAMP DEFAULT NOW()
     )`,
-    // ✅ FIXED: Trips table ab sahi jagah (array ke andar) hai
     `CREATE TABLE IF NOT EXISTS trips (
       id SERIAL PRIMARY KEY, trip_no TEXT UNIQUE NOT NULL, trip_date DATE, branch_id INTEGER,
       vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT,
@@ -160,6 +159,27 @@ async function runMigrations() {
       distance_km NUMERIC, estimated_days INTEGER,
       status TEXT DEFAULT 'Planning', remarks TEXT,
       created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS rate_contracts (
+      id SERIAL PRIMARY KEY,
+      branch_id INTEGER,
+      party_code TEXT,
+      from_city TEXT NOT NULL,
+      to_city TEXT NOT NULL,
+      rate_type TEXT DEFAULT 'per_kg',
+      rate_per_kg NUMERIC,
+      rate_per_pkg NUMERIC,
+      fixed_rate NUMERIC,
+      min_charge NUMERIC,
+      weight_from NUMERIC,
+      weight_to NUMERIC,
+      effective_from DATE NOT NULL,
+      effective_to DATE,
+      is_active BOOLEAN DEFAULT TRUE,
+      remarks TEXT,
+      created_by TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
     )`
   ];
 
@@ -225,10 +245,7 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   
-  // ✅ BUG #1 FIX: Added payment_status column to consignments
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
-  
-  // ✅ BUG #3 FIX: Added mr_no column to consignments
   await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
@@ -261,7 +278,6 @@ async function runMigrations() {
   await addColumnIfNotExists('drivers', 'photo_url', 'TEXT');
   await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
   
-  // ✅ BUG #2 FIX: Added phone column to drivers
   await addColumnIfNotExists('drivers', 'phone', 'TEXT');
 
   await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
@@ -872,7 +888,6 @@ app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ FIXED GADI CHALLAN POST: Handles empty numeric fields properly
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
@@ -886,7 +901,6 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
     }
     c.challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
     
-    // ✅ FIX: Convert empty strings to NULL for numeric columns to prevent PostgreSQL errors
     const numericFields = ['freight_amount', 'advance_paid', 'balance_due', 'toll_expense', 'diesel_expense', 'other_expense', 'tds_deduction', 'net_payable', 'broker_commission'];
     numericFields.forEach(field => {
       if (c[field] === '' || c[field] === null || c[field] === undefined) {
@@ -916,7 +930,7 @@ app.get('/api/consignments/track', async (req, res) => {
 });
 
 // ==========================================
-// TRANSIT / MANIFEST MODULE (NEW TCI-LEVEL FEATURE)
+// TRANSIT / MANIFEST MODULE
 // ==========================================
 app.get('/api/manifests', authMiddleware, async (req, res) => {
   try {
@@ -970,79 +984,53 @@ app.post('/api/manifests', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// PUBLIC POD UPLOAD & VIEW (No Auth Required)
+// PUBLIC POD UPLOAD & VIEW
 // ==========================================
-
-// Public POD Upload - Driver/Staff can upload without login
 app.post('/api/public/pod-upload', async (req, res) => {
   try {
     const { lr_no, delivery_date, delivered_by, receiver_name, receiver_phone, delivery_remarks, photo_url } = req.body;
-    
     if (!lr_no) return res.status(400).json({ error: 'LR Number is required' });
     
-    // Check if bilty exists
     const biltyCheck = await pool.query('SELECT id, lr_no FROM consignments WHERE lr_no = $1', [lr_no]);
     if (biltyCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Bilty not found with this LR Number' });
     }
     
     const finalDate = delivery_date || new Date().toISOString().split('T')[0];
-    
     const result = await pool.query(
       `INSERT INTO pod_records (lr_no, branch_id, delivery_date, delivered_by, receiver_name, receiver_phone, delivery_remarks, photo_url, status)
        VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, 'Delivered') RETURNING *`,
       [lr_no, finalDate, delivered_by || '', receiver_name || '', receiver_phone || '', delivery_remarks || '', photo_url || '']
     );
     
-    // Update consignment status
     await pool.query("UPDATE consignments SET pod_status = 'Delivered', pod_date = $1 WHERE lr_no = $2", [finalDate, lr_no]);
-    
-    res.json({ 
-      success: true, 
-      message: 'POD uploaded successfully!',
-      data: result.rows[0]
-    });
+    res.json({ success: true, message: 'POD uploaded successfully!', data: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Public POD View - Party can check POD without login
 app.get('/api/public/pod-view', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
     if (!lr_no) return res.status(400).json({ error: 'LR Number is required' });
     
-    // Get POD record
-    const podResult = await pool.query(
-      `SELECT * FROM pod_records WHERE lr_no = $1 ORDER BY created_at DESC LIMIT 1`,
-      [lr_no]
-    );
-    
-    // Get Bilty details
-    const biltyResult = await pool.query(
-      `SELECT lr_no, lr_date, consignor_name, consignee_name, from_name, to_name, packages, actual_weight, grand_total, status, pod_status FROM consignments WHERE lr_no = $1`,
-      [lr_no]
-    );
+    const podResult = await pool.query(`SELECT * FROM pod_records WHERE lr_no = $1 ORDER BY created_at DESC LIMIT 1`, [lr_no]);
+    const biltyResult = await pool.query(`SELECT lr_no, lr_date, consignor_name, consignee_name, from_name, to_name, packages, actual_weight, grand_total, status, pod_status FROM consignments WHERE lr_no = $1`, [lr_no]);
     
     if (podResult.rows.length === 0 && biltyResult.rows.length === 0) {
       return res.status(404).json({ error: 'No POD or Bilty found with this LR Number' });
     }
     
-    res.json({
-      success: true,
-      pod: podResult.rows[0] || null,
-      bilty: biltyResult.rows[0] || null
-    });
+    res.json({ success: true, pod: podResult.rows[0] || null, bilty: biltyResult.rows[0] || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // ==========================================
-// TRIP MANAGEMENT MODULE (APIs)
+// TRIP MANAGEMENT MODULE
 // ==========================================
-
 app.get('/api/trips', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -1103,31 +1091,8 @@ app.put('/api/trips/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// START
-// ==========================================
-async function ensureAdminUser() {
-  try {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
-    if (result.rows.length === 0) {
-      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
-      console.log('✅ Admin user created (admin / admin123)');
-    }
-  } catch (err) { console.error('Admin setup error:', err.message); }
-}
-
-async function startServer() {
-  await runMigrations();
-  await ensureAdminUser();
-  app.listen(PORT, HOST, () => {
-    console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
-  });
-}
-// ==========================================
 // SMART RATE ENGINE MODULE
 // ==========================================
-
-// Get all rate contracts
 app.get('/api/rates', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -1139,7 +1104,6 @@ app.get('/api/rates', authMiddleware, async (req, res) => {
   }
 });
 
-// Create new rate contract
 app.post('/api/rates', authMiddleware, async (req, res) => {
   try {
     const r = { ...req.body };
@@ -1158,7 +1122,6 @@ app.post('/api/rates', authMiddleware, async (req, res) => {
   }
 });
 
-// Update rate contract
 app.put('/api/rates/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
@@ -1180,7 +1143,6 @@ app.put('/api/rates/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete rate contract
 app.delete('/api/rates/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query('DELETE FROM rate_contracts WHERE id = $1', [req.params.id]);
@@ -1191,47 +1153,29 @@ app.delete('/api/rates/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Calculate freight based on rate contract
 app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
   try {
     const { from_city, to_city, weight_kg, packages, party_code } = req.body;
+    if (!from_city || !to_city) return res.status(400).json({ error: 'From and To cities are required' });
     
-    if (!from_city || !to_city) {
-      return res.status(400).json({ error: 'From and To cities are required' });
-    }
-    
-    // Find applicable rate contract
     const today = new Date().toISOString().split('T')[0];
-    let query = `
-      SELECT * FROM rate_contracts 
-      WHERE from_city = $1 AND to_city = $2 
-      AND effective_from <= $3 
-      AND (effective_to IS NULL OR effective_to >= $3)
-      AND is_active = TRUE
-    `;
+    let query = `SELECT * FROM rate_contracts WHERE from_city = $1 AND to_city = $2 AND effective_from <= $3 AND (effective_to IS NULL OR effective_to >= $3) AND is_active = TRUE`;
     const params = [from_city, to_city, today];
     
     if (party_code) {
       query += ` AND (party_code = $4 OR party_code IS NULL)`;
       params.push(party_code);
     }
-    
     query += ` ORDER BY party_code DESC NULLS LAST, weight_from DESC LIMIT 1`;
     
     const result = await pool.query(query, params);
-    
     if (result.rows.length === 0) {
-      return res.json({ 
-        found: false, 
-        message: 'No rate contract found for this route',
-        freight: 0 
-      });
+      return res.json({ found: false, message: 'No rate contract found for this route', freight: 0 });
     }
     
     const rate = result.rows[0];
     let freight = 0;
     
-    // Calculate based on weight or packages
     if (rate.rate_type === 'per_kg' && weight_kg) {
       freight = parseFloat(weight_kg) * parseFloat(rate.rate_per_kg);
     } else if (rate.rate_type === 'per_pkg' && packages) {
@@ -1240,7 +1184,6 @@ app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
       freight = parseFloat(rate.fixed_rate || 0);
     }
     
-    // Apply minimum charge
     if (rate.min_charge && freight < parseFloat(rate.min_charge)) {
       freight = parseFloat(rate.min_charge);
     }
@@ -1249,17 +1192,34 @@ app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
       found: true,
       rate_contract: rate,
       freight: Math.round(freight * 100) / 100,
-      calculation: {
-        weight_kg,
-        packages,
-        rate_applied: rate.rate_type === 'per_kg' ? rate.rate_per_kg : rate.rate_per_pkg,
-        min_charge: rate.min_charge
-      }
+      calculation: { weight_kg, packages, rate_applied: rate.rate_type === 'per_kg' ? rate.rate_per_kg : rate.rate_per_pkg, min_charge: rate.min_charge }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ==========================================
+// START
+// ==========================================
+async function ensureAdminUser() {
+  try {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    if (result.rows.length === 0) {
+      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
+      console.log('✅ Admin user created (admin / admin123)');
+    }
+  } catch (err) { console.error('Admin setup error:', err.message); }
+}
+
+async function startServer() {
+  await runMigrations();
+  await ensureAdminUser();
+  app.listen(PORT, HOST, () => {
+    console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
+  });
+}
 
 startServer();
 module.exports = app;
