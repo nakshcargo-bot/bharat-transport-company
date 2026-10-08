@@ -57,6 +57,7 @@ function App() {
           <Route path="/pod-view" element={<PODView />} />
           
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
           <Route path="/bills" element={<PrivateRoute><Bills /></PrivateRoute>} />
