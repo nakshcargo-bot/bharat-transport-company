@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -9,6 +9,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     fetchData()
@@ -29,13 +31,10 @@ export default function Dashboard() {
         fetch(`${apiUrl}/api/dashboard/top-parties`, { headers })
       ])
 
-      if (resStats.ok) {
-        const data = await resStats.json()
-        setStats(data)
-      } else {
-        const err = await resStats.json().catch(() => ({ error: 'Unknown error' }))
-        setError('Stats load failed: ' + (err.error || 'Unknown error'))
-        // Set default stats so UI still shows
+      if (resStats.ok) setStats(await resStats.json())
+      else {
+        const err = await resStats.json().catch(() => ({ error: 'Unknown' }))
+        setError('Stats: ' + (err.error || 'Unknown'))
         setStats({
           today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
           total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
@@ -52,7 +51,7 @@ export default function Dashboard() {
         setTopParties(data.data || [])
       }
     } catch (err) {
-      setError('Network error: ' + err.message)
+      setError('Network: ' + err.message)
       setStats({
         today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
         total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
@@ -66,9 +65,80 @@ export default function Dashboard() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const isAdmin = user.role === 'admin'
+
+  // COMPLETE NAVIGATION MENU - ALL MODULES
+  const navMenus = [
+    {
+      label: '📦 Operations',
+      items: [
+        { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
+        { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
+        { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
+        { name: 'Trip Management', path: '/trips', icon: '🗺️' },
+        { name: 'POD Management', path: '/pod', icon: '✅' },
+        { name: 'POD Upload (Public)', path: '/pod-upload', icon: '📤' },
+        { name: 'POD View (Public)', path: '/pod-view', icon: '👁️' },
+      ]
+    },
+    {
+      label: '💰 Finance',
+      items: [
+        { name: 'Billing', path: '/bills', icon: '🧾' },
+        { name: 'Money Receipts', path: '/mr', icon: '💵' },
+        { name: 'Create New MR', path: '/mr/create', icon: '' },
+        { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
+        { name: 'Rate Contracts', path: '/rates', icon: '💹' },
+        { name: 'Party Ledger', path: '/ledger', icon: '📒' },
+        { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
+      ]
+    },
+    {
+      label: ' Transport',
+      items: [
+        { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
+        { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
+        { name: 'Drivers', path: '/drivers', icon: '👷' },
+        { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
+        { name: 'E-Way Bill', path: '/eway', icon: '📄' },
+      ]
+    },
+    {
+      label: '👥 Management',
+      items: [
+        { name: 'Parties/Customers', path: '/customers', icon: '👥' },
+        { name: 'Branches', path: '/branches', icon: '🏢' },
+        { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
+        { name: 'Claims', path: '/claims', icon: '⚠️' },
+        { name: 'Commissions', path: '/commissions', icon: '💼' },
+        { name: 'Expenses', path: '/expenses', icon: '💸' },
+      ]
+    },
+    {
+      label: '📊 Reports',
+      items: [
+        { name: 'Reports', path: '/reports', icon: '📈' },
+        { name: 'Audit Logs', path: '/audit', icon: '🔍' },
+      ]
+    },
+    {
+      label: '🌐 Public',
+      items: [
+        { name: 'Track Bilty', path: '/track', icon: '🔍' },
+        { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
+        { name: 'MR Print', path: '/mr/print', icon: '🖨️' },
+        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '️' },
+      ]
+    }
+  ]
 
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
@@ -90,7 +160,6 @@ export default function Dashboard() {
     )
   }
 
-  // Safe stats with defaults
   const s = stats || {
     today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
     total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
@@ -101,8 +170,96 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
-      <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 text-white shadow-2xl">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* TOP NAVIGATION BAR */}
+      <nav className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white shadow-2xl sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="bg-white text-red-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">BTC</div>
+              <div>
+                <h1 className="font-bold text-lg">Bharat Transport</h1>
+                <p className="text-xs text-red-200">Professional TMS v6.0</p>
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center gap-1">
+              {navMenus.map((menu, idx) => (
+                <div key={idx} className="relative group">
+                  <button className="px-3 py-2 rounded-lg hover:bg-white/10 transition text-sm font-medium">
+                    {menu.label} ▾
+                  </button>
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="py-2">
+                      {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
+                        <button
+                          key={itemIdx}
+                          onClick={() => navigate(item.path)}
+                          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-700 text-sm transition"
+                        >
+                          <span className="mr-2">{item.icon}</span>
+                          {item.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* User Info & Logout */}
+            <div className="flex items-center gap-3">
+              <div className="hidden md:block text-right">
+                <div className="text-sm font-medium">Welcome, {user.username || 'Admin'}</div>
+                <div className="text-xs text-red-200">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="bg-white text-red-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-50 transition"
+              >
+                Logout
+              </button>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden bg-white/20 p-2 rounded-lg"
+              >
+                ☰
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-red-900 border-t border-red-700 max-h-96 overflow-y-auto">
+            <div className="max-w-7xl mx-auto px-4 py-3 space-y-2">
+              {navMenus.map((menu, idx) => (
+                <div key={idx}>
+                  <div className="text-sm font-bold text-red-200 mb-1">{menu.label}</div>
+                  <div className="space-y-1">
+                    {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
+                      <button
+                        key={itemIdx}
+                        onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
+                        className="block w-full text-left px-3 py-2 text-white hover:bg-white/10 rounded text-sm"
+                      >
+                        <span className="mr-2">{item.icon}</span>
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </nav>
+
+      {/* MAIN CONTENT */}
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 text-white rounded-2xl shadow-2xl p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Welcome Back, {user.username || 'Admin'}! 👋</h1>
@@ -110,15 +267,14 @@ export default function Dashboard() {
                 {isAdmin ? 'Your business overview across all branches' : `Branch: ${user.branch_code || 'N/A'} | ${user.branch_name || ''}`}
               </p>
             </div>
-            <div className="text-right">
+            <div className="text-right hidden md:block">
               <div className="text-2xl font-bold font-mono">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
               <div className="text-red-200 text-sm">{currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto p-6">
+        {/* Role & Branch Badges */}
         <div className="mb-6 flex items-center gap-3 flex-wrap">
           <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${user.role === 'admin' ? 'bg-red-100 text-red-700' : user.role === 'Manager' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
             👤 {user.role === 'admin' ? 'Administrator' : user.role} {isAdmin && '(Full Access)'}
@@ -126,17 +282,19 @@ export default function Dashboard() {
           {s.user_branch && <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {s.user_branch}</span>}
         </div>
 
+        {/* Error Message */}
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-center justify-between">
-              <div><p className="font-bold text-red-800">⚠️ {error}</p><p className="text-sm text-red-600">Dashboard is showing default values. Click Retry to reload.</p></div>
+              <div><p className="font-bold text-red-800">️ {error}</p><p className="text-sm text-red-600">Dashboard showing default values. Click Retry to reload.</p></div>
               <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">🔄 Retry</button>
             </div>
           </div>
         )}
 
+        {/* Quick Actions */}
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-3"> Quick Actions</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-3">⚡ Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {quickActions.map((action, idx) => (
               <button key={idx} onClick={() => navigate(action.path)} className={`bg-gradient-to-br ${action.color} text-white p-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all`}>
@@ -265,6 +423,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>© 2026 Bharat Transport Company • Professional Multi-Branch TMS</p>
           <p className="text-xs mt-1">Version 6.0 • Last Updated: {new Date().toLocaleDateString('en-IN')}</p>
