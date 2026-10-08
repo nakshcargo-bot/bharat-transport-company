@@ -1049,6 +1049,66 @@ app.get('/api/public/pod-view', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ==========================================
+// TRIP MANAGEMENT MODULE
+// ==========================================
+
+app.get('/api/trips', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
+    const result = await pool.query(`SELECT * FROM trips ${where} ORDER BY trip_date DESC LIMIT 200`);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/trips', authMiddleware, async (req, res) => {
+  try {
+    const t = { ...req.body };
+    if (!t.branch_id) t.branch_id = req.user.branch_id;
+    const year = String(new Date().getFullYear()).slice(-2);
+    
+    const result = await pool.query(`SELECT trip_no FROM trips WHERE trip_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`TRP/${year}/%`]);
+    let nextSerial = 1;
+    if (result.rows.length > 0 && result.rows[0].trip_no) {
+      const parts = result.rows[0].trip_no.split('/');
+      if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
+    }
+    t.trip_no = `TRP/${year}/${String(nextSerial).padStart(4, '0')}`;
+    
+    const keys = Object.keys(t);
+    const values = Object.values(t);
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const row = await pool.query(`INSERT INTO trips (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    
+    await logAudit('CREATE', 'TRIP', row.rows[0].id, `Trip ${t.trip_no} created`, req.user.username, t.branch_id);
+    res.json(row.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/trips/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const data = { ...req.body };
+    delete data.id;
+    delete data.created_at;
+    
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    values.push(id);
+    
+    const result = await pool.query(`UPDATE trips SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
+    await logAudit('UPDATE', 'TRIP', id, `Trip updated`, req.user.username);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
