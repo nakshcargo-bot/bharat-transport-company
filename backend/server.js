@@ -980,6 +980,75 @@ async function startServer() {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
   });
 }
+// ==========================================
+// PUBLIC POD UPLOAD & VIEW (No Auth Required)
+// ==========================================
+
+// Public POD Upload - Driver/Staff can upload without login
+app.post('/api/public/pod-upload', async (req, res) => {
+  try {
+    const { lr_no, delivery_date, delivered_by, receiver_name, receiver_phone, delivery_remarks, photo_url } = req.body;
+    
+    if (!lr_no) return res.status(400).json({ error: 'LR Number is required' });
+    
+    // Check if bilty exists
+    const biltyCheck = await pool.query('SELECT id, lr_no FROM consignments WHERE lr_no = $1', [lr_no]);
+    if (biltyCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Bilty not found with this LR Number' });
+    }
+    
+    const finalDate = delivery_date || new Date().toISOString().split('T')[0];
+    
+    const result = await pool.query(
+      `INSERT INTO pod_records (lr_no, branch_id, delivery_date, delivered_by, receiver_name, receiver_phone, delivery_remarks, photo_url, status)
+       VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, 'Delivered') RETURNING *`,
+      [lr_no, finalDate, delivered_by || '', receiver_name || '', receiver_phone || '', delivery_remarks || '', photo_url || '']
+    );
+    
+    // Update consignment status
+    await pool.query("UPDATE consignments SET pod_status = 'Delivered', pod_date = $1 WHERE lr_no = $2", [finalDate, lr_no]);
+    
+    res.json({ 
+      success: true, 
+      message: 'POD uploaded successfully!',
+      data: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public POD View - Party can check POD without login
+app.get('/api/public/pod-view', async (req, res) => {
+  try {
+    const lr_no = req.query.lr_no;
+    if (!lr_no) return res.status(400).json({ error: 'LR Number is required' });
+    
+    // Get POD record
+    const podResult = await pool.query(
+      `SELECT * FROM pod_records WHERE lr_no = $1 ORDER BY created_at DESC LIMIT 1`,
+      [lr_no]
+    );
+    
+    // Get Bilty details
+    const biltyResult = await pool.query(
+      `SELECT lr_no, lr_date, consignor_name, consignee_name, from_name, to_name, packages, actual_weight, grand_total, status, pod_status FROM consignments WHERE lr_no = $1`,
+      [lr_no]
+    );
+    
+    if (podResult.rows.length === 0 && biltyResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No POD or Bilty found with this LR Number' });
+    }
+    
+    res.json({
+      success: true,
+      pod: podResult.rows[0] || null,
+      bilty: biltyResult.rows[0] || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
