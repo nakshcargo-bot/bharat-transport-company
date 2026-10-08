@@ -22,7 +22,7 @@ const pool = new Pool({
 });
 
 // ==========================================
-// AUTO-MIGRATION: Add missing columns to existing tables
+// AUTO-MIGRATION
 // ==========================================
 async function addColumnIfNotExists(table, column, definition) {
   try {
@@ -229,7 +229,8 @@ async function runMigrations() {
   await addColumnIfNotExists('branches', 'manager_name', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
   await addColumnIfNotExists('branches', 'is_active', 'BOOLEAN DEFAULT TRUE');
-    // ✅ FIX: Add missing columns to users table
+
+  // ✅ FIX: Add missing columns to users table
   await addColumnIfNotExists('users', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('users', 'full_name', 'TEXT');
   await addColumnIfNotExists('users', 'role', "TEXT DEFAULT 'operator'");
@@ -311,6 +312,18 @@ function authMiddleware(req, res, next) {
 }
 
 // ==========================================
+// ROLE-BASED MIDDLEWARE
+// ==========================================
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied: insufficient permissions' });
+    }
+    next();
+  };
+}
+
+// ==========================================
 // AUDIT HELPER
 // ==========================================
 async function logAudit(action, module, recordId, details, performedBy, branchId = null) {
@@ -359,7 +372,6 @@ app.post('/api/auth/login', async (req, res) => {
     
     let valid = false;
     
-    // Check if password is bcrypt hashed
     if (user.password && user.password.startsWith('$2')) {
       try {
         console.log('🔑 Using bcrypt comparison...');
@@ -370,25 +382,23 @@ app.post('/api/auth/login', async (req, res) => {
         valid = false;
       }
     } else {
-      // Fallback for plain text password
       console.log('🔑 Plain text password comparison...');
       valid = (password === user.password);
       console.log('Plain text result:', valid);
     }
     
     if (!valid) {
-      console.log('❌ Invalid password for user:', username);
+      console.log(' Invalid password for user:', username);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    // Check JWT_SECRET
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      console.error('❌ JWT_SECRET is not defined in environment variables!');
+      console.error('❌ JWT_SECRET is not defined!');
       return res.status(500).json({ error: 'Server configuration error' });
     }
     
-    console.log('🎫 Generating JWT token...');
+    console.log(' Generating JWT token...');
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -464,46 +474,67 @@ app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// DASHBOARD STATS
+// SMART DASHBOARD STATS (ROLE-BASED)
 // ==========================================
 app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
-    const branchId = req.query.branch_id;
-    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+    
+    // Role-based filtering
+    const branchFilter = req.user.role === 'admin' ? '' : `AND branch_id = ${parseInt(req.user.branch_id)}`;
+    const branchFilterWhere = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
 
     const results = await Promise.all([
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date = $1 ${bf}`, [today]),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date LIKE $1 ${bf}`, [`${thisMonth}%`]),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE 1=1 ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE status IN ('Booked','In-Transit') ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE payment_status = 'Paid' ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM bill_book WHERE 1=1 ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM bill_book WHERE payment_status = 'Unpaid' ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM money_receipts WHERE 1=1 ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date = $1 ${branchFilter}`, [today]),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date LIKE $1 ${branchFilter}`, [`${thisMonth}%`]),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE 1=1 ${branchFilter}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE status IN ('Booked','In-Transit') ${branchFilter}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE payment_status = 'Paid' ${branchFilter}`),
+      pool.query(`SELECT COUNT(*) FROM bill_book ${branchFilterWhere}`),
+      pool.query(`SELECT COUNT(*) FROM bill_book ${branchFilterWhere} AND payment_status = 'Unpaid'`),
+      pool.query(`SELECT COUNT(*) FROM money_receipts ${branchFilterWhere}`),
       pool.query('SELECT COUNT(*) FROM parties WHERE is_active = TRUE'),
       pool.query('SELECT COUNT(*) FROM customers WHERE is_active = TRUE'),
-      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`),
-      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`),
-      pool.query(`SELECT COUNT(*) FROM pod_records WHERE status = 'Pending' ${bf}`),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${branchFilter}`),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${branchFilter}`),
+      pool.query(`SELECT COUNT(*) FROM pod_records WHERE status = 'Pending' ${branchFilter}`),
       pool.query("SELECT COUNT(*) FROM drivers WHERE status = 'Active'"),
       pool.query("SELECT COUNT(*) FROM vehicles WHERE status = 'Active'"),
-      pool.query("SELECT COUNT(*) FROM claims WHERE status = 'Open'"),
-      pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date >= $1 ${bf}`, [today]),
-      pool.query('SELECT COUNT(*) FROM branches WHERE is_active = TRUE')
+      pool.query(`SELECT COUNT(*) FROM claims WHERE status = 'Open' ${branchFilter}`),
+      pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${branchFilterWhere} AND expense_date >= $1`, [today]),
+      pool.query('SELECT COUNT(*) FROM branches WHERE is_active = TRUE'),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE lr_date = $1 AND payment_status = 'Paid' ${branchFilter}`, [today]),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE lr_date LIKE $1 AND payment_status = 'Paid' ${branchFilter}`, [`${thisMonth}%`])
     ]);
 
     res.json({
-      today_lr: parseInt(results[0].rows[0].count), month_lr: parseInt(results[1].rows[0].count), total_lr: parseInt(results[2].rows[0].count),
-      pending_lr: parseInt(results[3].rows[0].count), paid_lr: parseInt(results[4].rows[0].count), total_bills: parseInt(results[5].rows[0].count),
-      pending_bills: parseInt(results[6].rows[0].count), total_mr: parseInt(results[7].rows[0].count), total_parties: parseInt(results[8].rows[0].count),
-      total_customers: parseInt(results[9].rows[0].count), total_revenue: parseFloat(results[10].rows[0].total || 0),
-      pending_amount: parseFloat(results[11].rows[0].total || 0), pending_pod: parseInt(results[12].rows[0].count),
-      active_drivers: parseInt(results[13].rows[0].count), active_vehicles: parseInt(results[14].rows[0].count),
-      open_claims: parseInt(results[15].rows[0].count), today_expenses: parseFloat(results[16].rows[0].total || 0), total_branches: parseInt(results[17].rows[0].count)
+      today_lr: parseInt(results[0].rows[0].count), 
+      month_lr: parseInt(results[1].rows[0].count), 
+      total_lr: parseInt(results[2].rows[0].count),
+      pending_lr: parseInt(results[3].rows[0].count), 
+      paid_lr: parseInt(results[4].rows[0].count), 
+      total_bills: parseInt(results[5].rows[0].count),
+      pending_bills: parseInt(results[6].rows[0].count), 
+      total_mr: parseInt(results[7].rows[0].count), 
+      total_parties: parseInt(results[8].rows[0].count),
+      total_customers: parseInt(results[9].rows[0].count), 
+      total_revenue: parseFloat(results[10].rows[0].total || 0),
+      pending_amount: parseFloat(results[11].rows[0].total || 0), 
+      pending_pod: parseInt(results[12].rows[0].count),
+      active_drivers: parseInt(results[13].rows[0].count), 
+      active_vehicles: parseInt(results[14].rows[0].count),
+      open_claims: parseInt(results[15].rows[0].count), 
+      today_expenses: parseFloat(results[16].rows[0].total || 0), 
+      total_branches: parseInt(results[17].rows[0].count),
+      today_revenue: parseFloat(results[18].rows[0].total || 0),
+      month_revenue: parseFloat(results[19].rows[0].total || 0),
+      user_role: req.user.role,
+      user_branch: req.user.branch_code || 'All'
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
@@ -518,6 +549,46 @@ app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
     `);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// DASHBOARD RECENT ACTIVITIES
+// ==========================================
+app.get('/api/dashboard/recent', authMiddleware, async (req, res) => {
+  try {
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    
+    const [recentBilties, recentMR, recentClaims] = await Promise.all([
+      pool.query(`SELECT lr_no, lr_date, consignor_name, consignee_name, grand_total, status, payment_status, created_at FROM consignments ${branchFilter} ORDER BY created_at DESC LIMIT 5`),
+      pool.query(`SELECT mr_no, mr_date, party_name, amount, payment_mode, created_at FROM money_receipts ${branchFilter} ORDER BY created_at DESC LIMIT 5`),
+      pool.query(`SELECT lr_no, claim_type, claim_amount, status, created_at FROM claims ${branchFilter} ORDER BY created_at DESC LIMIT 3`)
+    ]);
+
+    res.json({
+      bilties: recentBilties.rows,
+      receipts: recentMR.rows,
+      claims: recentClaims.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/dashboard/top-parties', authMiddleware, async (req, res) => {
+  try {
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`
+      SELECT consignor_name, consignor_code, 
+             COUNT(*) as total_bilties,
+             SUM(CAST(grand_total AS NUMERIC)) as total_revenue
+      FROM consignments ${branchFilter}
+      GROUP BY consignor_name, consignor_code
+      ORDER BY total_revenue DESC LIMIT 5
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ==========================================
@@ -537,9 +608,8 @@ async function generateBiltyNo(branchCode) {
 
 app.get('/api/consignments', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM consignments ${where} ORDER BY id DESC LIMIT 500`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM consignments ${branchFilter} ORDER BY id DESC LIMIT 500`);
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -555,7 +625,7 @@ app.get('/api/consignments/:id', authMiddleware, async (req, res) => {
 app.post('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
-    if (!c.branch_id && req.user.branch_id) c.branch_id = req.user.branch_id;
+    if (!c.branch_id) c.branch_id = req.user.branch_id;
     if (!c.branch_code && req.user.branch_code) c.branch_code = req.user.branch_code;
     if (!c.lr_no) c.lr_no = await generateBiltyNo(c.branch_code);
     if (!c.status) c.status = 'Booked';
@@ -601,9 +671,8 @@ app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/pod', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM pod_records ${where} ORDER BY id DESC LIMIT 200`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM pod_records ${branchFilter} ORDER BY id DESC LIMIT 200`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -729,10 +798,9 @@ app.post('/api/routes', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/ledger/:partyCode', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM party_ledger WHERE party_code = $1 ${where} ORDER BY transaction_date DESC`, [req.params.partyCode]);
-    const balance = await pool.query(`SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) as balance FROM party_ledger WHERE party_code = $1 ${where}`, [req.params.partyCode]);
+    const branchFilter = req.user.role === 'admin' ? '' : `AND branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM party_ledger WHERE party_code = $1 ${branchFilter} ORDER BY transaction_date DESC`, [req.params.partyCode]);
+    const balance = await pool.query(`SELECT COALESCE(SUM(debit),0) - COALESCE(SUM(credit),0) as balance FROM party_ledger WHERE party_code = $1 ${branchFilter}`, [req.params.partyCode]);
     res.json({ data: result.rows, balance: parseFloat(balance.rows[0].balance || 0) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -746,12 +814,11 @@ app.post('/api/ledger', authMiddleware, async (req, res) => {
 
 app.get('/api/outstanding', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
     const result = await pool.query(
       `SELECT consignor_name as party_name, consignor_code as party_code, branch_code, COUNT(*) as total_bilties,
        SUM(CASE WHEN payment_status = 'Unpaid' THEN CAST(grand_total AS NUMERIC) ELSE 0 END) as pending_amount,
-       SUM(CAST(grand_total AS NUMERIC)) as total_amount FROM consignments ${where}
+       SUM(CAST(grand_total AS NUMERIC)) as total_amount FROM consignments ${branchFilter}
        GROUP BY consignor_name, consignor_code, branch_code
        HAVING SUM(CASE WHEN payment_status = 'Unpaid' THEN CAST(grand_total AS NUMERIC) ELSE 0 END) > 0 ORDER BY pending_amount DESC`
     );
@@ -764,9 +831,8 @@ app.get('/api/outstanding', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/expenses', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM expenses ${where} ORDER BY expense_date DESC LIMIT 200`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM expenses ${branchFilter} ORDER BY expense_date DESC LIMIT 200`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -782,9 +848,8 @@ app.post('/api/expenses', authMiddleware, async (req, res) => {
 
 app.get('/api/claims', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM claims ${where} ORDER BY id DESC`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM claims ${branchFilter} ORDER BY id DESC`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -815,9 +880,8 @@ app.put('/api/claims/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/commissions', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM commissions ${where} ORDER BY id DESC`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM commissions ${branchFilter} ORDER BY id DESC`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -852,9 +916,8 @@ app.post('/api/parties', authMiddleware, async (req, res) => {
 
 app.get('/api/bills', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM bill_book ${where} ORDER BY id DESC LIMIT 500`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM bill_book ${branchFilter} ORDER BY id DESC LIMIT 500`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -873,9 +936,8 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
 
 app.get('/api/mr', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM money_receipts ${where} ORDER BY id DESC LIMIT 500`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM money_receipts ${branchFilter} ORDER BY id DESC LIMIT 500`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -917,9 +979,8 @@ app.delete('/api/mr/:id', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/audit', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM audit_logs ${where} ORDER BY id DESC LIMIT 200`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM audit_logs ${branchFilter} ORDER BY id DESC LIMIT 200`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -931,9 +992,8 @@ app.get('/api/customers', authMiddleware, async (req, res) => {
 
 app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM gate_passes ${where} ORDER BY id DESC LIMIT 100`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM gate_passes ${branchFilter} ORDER BY id DESC LIMIT 100`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -960,9 +1020,8 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
 
 app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM gadi_challans ${where} ORDER BY id DESC LIMIT 100`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM gadi_challans ${branchFilter} ORDER BY id DESC LIMIT 100`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1013,12 +1072,11 @@ app.get('/api/consignments/track', async (req, res) => {
 // ==========================================
 app.get('/api/manifests', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE m.branch_id = ${parseInt(branchId)}` : '';
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE m.branch_id = ${parseInt(req.user.branch_id)}`;
     const result = await pool.query(`
       SELECT m.*, COUNT(mi.id) as total_lrs, STRING_AGG(mi.lr_no, ', ') as lr_nos
       FROM manifests m LEFT JOIN manifest_items mi ON m.id = mi.manifest_id
-      ${where} GROUP BY m.id ORDER BY m.created_at DESC LIMIT 200
+      ${branchFilter} GROUP BY m.id ORDER BY m.created_at DESC LIMIT 200
     `);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1112,9 +1170,8 @@ app.get('/api/public/pod-view', async (req, res) => {
 // ==========================================
 app.get('/api/trips', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM trips ${where} ORDER BY trip_date DESC LIMIT 200`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM trips ${branchFilter} ORDER BY trip_date DESC LIMIT 200`);
     res.json({ data: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1174,9 +1231,8 @@ app.put('/api/trips/:id', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/rates', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM rate_contracts ${where} ORDER BY from_city, to_city, effective_from DESC`);
+    const branchFilter = req.user.role === 'admin' ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
+    const result = await pool.query(`SELECT * FROM rate_contracts ${branchFilter} ORDER BY from_city, to_city, effective_from DESC`);
     res.json({ data: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1283,14 +1339,13 @@ app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/accounts/summary', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+    const branchFilter = req.user.role === 'admin' ? '' : `AND branch_id = ${parseInt(req.user.branch_id)}`;
 
-    const receivableRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`);
-    const payableRes = await pool.query(`SELECT COALESCE(SUM(balance_due), 0) as total FROM gadi_challans WHERE balance_due > 0 ${bf}`);
-    const revenueRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`);
-    const expenseRes = await pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${bf}`);
-    const tdsRes = await pool.query(`SELECT COALESCE(SUM(tds_deduction), 0) as total FROM gadi_challans ${bf}`);
+    const receivableRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${branchFilter}`);
+    const payableRes = await pool.query(`SELECT COALESCE(SUM(balance_due), 0) as total FROM gadi_challans WHERE balance_due > 0 ${branchFilter}`);
+    const revenueRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${branchFilter}`);
+    const expenseRes = await pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${branchFilter.replace('AND', 'WHERE')}`);
+    const tdsRes = await pool.query(`SELECT COALESCE(SUM(tds_deduction), 0) as total FROM gadi_challans ${branchFilter}`);
 
     res.json({
       success: true,
@@ -1310,12 +1365,13 @@ app.get('/api/accounts/summary', authMiddleware, async (req, res) => {
 
 app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)} AND tds_deduction > 0` : `WHERE tds_deduction > 0`;
+    const branchFilter = req.user.role === 'admin' 
+      ? `WHERE tds_deduction > 0` 
+      : `WHERE branch_id = ${parseInt(req.user.branch_id)} AND tds_deduction > 0`;
     
     const result = await pool.query(`
       SELECT challan_no, issue_date, broker_name, freight_amount, tds_deduction, net_payable 
-      FROM gadi_challans ${where} 
+      FROM gadi_challans ${branchFilter} 
       ORDER BY issue_date DESC LIMIT 200
     `);
     res.json({ data: result.rows });
@@ -1329,8 +1385,7 @@ app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
 // ==========================================
 app.get('/api/eway-bills', authMiddleware, async (req, res) => {
   try {
-    const branchId = req.query.branch_id;
-    const bf = branchId ? `AND c.branch_id = ${parseInt(branchId)}` : '';
+    const branchFilter = req.user.role === 'admin' ? '' : `AND c.branch_id = ${parseInt(req.user.branch_id)}`;
     
     const result = await pool.query(`
       SELECT c.id, c.lr_no, c.lr_date, c.consignor_name, c.consignee_name, c.from_name, c.to_name, 
@@ -1342,7 +1397,7 @@ app.get('/api/eway-bills', authMiddleware, async (req, res) => {
              AND UPPER(TRIM(c.from_state)) = UPPER(TRIM(c.to_state)) 
         THEN 100000 
         ELSE 50000 
-      END ${bf}
+      END ${branchFilter}
       ORDER BY c.lr_date DESC LIMIT 200
     `);
     res.json({ data: result.rows });
@@ -1370,34 +1425,10 @@ app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// START
-// ==========================================
-async function ensureAdminUser() {
-  try {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
-    if (result.rows.length === 0) {
-      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
-      console.log('✅ Admin user created (admin / admin123)');
-    }
-  } catch (err) { console.error('Admin setup error:', err.message); }
-}
-
-async function startServer() {
-  await runMigrations();
-  await ensureAdminUser();
-  app.listen(PORT, HOST, () => {
-    console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
-  });
-}
-// ==========================================
 // USER MANAGEMENT MODULE
 // ==========================================
-
-// Get all users
 app.get('/api/users', authMiddleware, async (req, res) => {
   try {
-    // Only admin can see all users
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Only admin can view all users' });
     }
@@ -1415,7 +1446,6 @@ app.get('/api/users', authMiddleware, async (req, res) => {
   }
 });
 
-// Create new user
 app.post('/api/users', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -1428,13 +1458,11 @@ app.post('/api/users', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
     
-    // Check if username already exists
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'Username already exists' });
     }
     
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const result = await pool.query(
@@ -1451,7 +1479,6 @@ app.post('/api/users', authMiddleware, async (req, res) => {
   }
 });
 
-// Update user
 app.put('/api/users/:id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -1465,7 +1492,6 @@ app.put('/api/users/:id', authMiddleware, async (req, res) => {
     const params = [full_name, role, branch_id || null, is_active !== undefined ? is_active : true];
     let paramCount = 4;
     
-    // If password is provided, update it
     if (password) {
       paramCount++;
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -1487,7 +1513,6 @@ app.put('/api/users/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete user (soft delete - deactivate)
 app.delete('/api/users/:id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -1496,7 +1521,6 @@ app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     
     const id = req.params.id;
     
-    // Prevent deleting yourself
     if (parseInt(id) === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
@@ -1509,6 +1533,28 @@ app.delete('/api/users/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ==========================================
+// START
+// ==========================================
+async function ensureAdminUser() {
+  try {
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    if (result.rows.length === 0) {
+      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
+      console.log('✅ Admin user created (admin / admin123)');
+    }
+  } catch (err) { console.error('Admin setup error:', err.message); }
+}
+
+async function startServer() {
+  await runMigrations();
+  await ensureAdminUser();
+  app.listen(PORT, HOST, () => {
+    console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
+  });
+}
 
 startServer();
 module.exports = app;
