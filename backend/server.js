@@ -217,6 +217,8 @@ async function runMigrations() {
   
   // ✅ BUG #1 FIX: Added payment_status column to consignments
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
+    // ✅ BUG #3 FIX: Added mr_no column to consignments
+  await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
