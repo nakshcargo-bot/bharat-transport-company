@@ -18,6 +18,7 @@ const Audit = lazy(() => import('./pages/Audit'))
 const Branches = lazy(() => import('./pages/Branches'))
 const POD = lazy(() => import('./pages/POD'))
 const Drivers = lazy(() => import('./pages/Drivers'))
+const Transit = lazy(() => import('./pages/Transit'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -55,6 +56,7 @@ function App() {
           <Route path="/audit" element={<PrivateRoute><Audit /></PrivateRoute>} />
           <Route path="/branches" element={<PrivateRoute><Branches /></PrivateRoute>} />
           <Route path="/pod" element={<PrivateRoute><POD /></PrivateRoute>} />
+          <Route path="/transit" element={<PrivateRoute><Transit /></PrivateRoute>} />
           <Route path="/drivers" element={<PrivateRoute><Drivers /></PrivateRoute>} />
           
           <Route path="*" element={
