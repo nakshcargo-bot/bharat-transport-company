@@ -22,410 +22,292 @@ const pool = new Pool({
 });
 
 // ==========================================
-// ALL DATABASE TABLES (MULTI-BRANCH READY)
+// AUTO-MIGRATION: Add missing columns to existing tables
 // ==========================================
-async function createTables() {
+async function addColumnIfNotExists(table, column, definition) {
+  try {
+    const check = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+      [table, column]
+    );
+    if (check.rows.length === 0) {
+      await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      console.log(`  ✅ Added column "${column}" to "${table}"`);
+    }
+  } catch (err) {
+    console.error(`  ⚠️ Error adding ${column} to ${table}:`, err.message);
+  }
+}
+
+async function runMigrations() {
+  console.log(' Running database migrations...');
+
+  // Create all tables first
   const tables = [
-    // ===== BRANCH MANAGEMENT =====
     `CREATE TABLE IF NOT EXISTS branches (
       id SERIAL PRIMARY KEY,
       branch_code TEXT UNIQUE NOT NULL,
       branch_name TEXT NOT NULL,
-      address TEXT,
-      city TEXT,
-      state TEXT,
-      pincode TEXT,
-      phone TEXT,
-      email TEXT,
-      gst_no TEXT,
-      pan_no TEXT,
-      manager_name TEXT,
-      manager_phone TEXT,
+      address TEXT, city TEXT, state TEXT, pincode TEXT,
+      phone TEXT, email TEXT, gst_no TEXT, pan_no TEXT,
+      manager_name TEXT, manager_phone TEXT,
       is_active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== USERS & ROLES =====
     `CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      full_name TEXT,
-      role TEXT DEFAULT 'operator',
-      branch_id INTEGER REFERENCES branches(id),
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL,
+      full_name TEXT, role TEXT DEFAULT 'operator', branch_id INTEGER,
+      is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== PARTIES (Shared across branches) =====
     `CREATE TABLE IF NOT EXISTS parties (
-      id SERIAL PRIMARY KEY,
-      party_code TEXT UNIQUE NOT NULL,
-      party_name TEXT NOT NULL,
-      party_type TEXT DEFAULT 'Consignor',
-      address TEXT,
-      city TEXT,
-      state TEXT,
-      pincode TEXT,
-      gst_no TEXT,
-      pan_no TEXT,
-      email TEXT,
-      phone TEXT,
-      mobile TEXT,
-      contact_person TEXT,
-      credit_days INTEGER DEFAULT 0,
-      opening_balance NUMERIC DEFAULT 0,
-      is_active BOOLEAN DEFAULT TRUE,
+      id SERIAL PRIMARY KEY, party_code TEXT UNIQUE NOT NULL,
+      party_name TEXT NOT NULL, party_type TEXT DEFAULT 'Consignor',
+      address TEXT, city TEXT, state TEXT, pincode TEXT,
+      gst_no TEXT, pan_no TEXT, email TEXT, phone TEXT, mobile TEXT,
+      contact_person TEXT, credit_days INTEGER DEFAULT 0,
+      opening_balance NUMERIC DEFAULT 0, is_active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
     `CREATE TABLE IF NOT EXISTS customers (
-      id SERIAL PRIMARY KEY,
-      customer_name TEXT NOT NULL,
-      customer_code TEXT UNIQUE,
-      address TEXT,
-      gst_no TEXT,
-      email TEXT,
-      phone TEXT,
-      is_active BOOLEAN DEFAULT TRUE,
+      id SERIAL PRIMARY KEY, customer_name TEXT NOT NULL,
+      customer_code TEXT UNIQUE, address TEXT, gst_no TEXT,
+      email TEXT, phone TEXT, is_active BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== DRIVER MASTER (Shared) =====
     `CREATE TABLE IF NOT EXISTS drivers (
-      id SERIAL PRIMARY KEY,
-      driver_code TEXT UNIQUE NOT NULL,
-      driver_name TEXT NOT NULL,
-      father_name TEXT,
-      aadhar_no TEXT,
-      license_no TEXT,
-      license_expiry DATE,
-      phone TEXT,
-      address TEXT,
-      photo_url TEXT,
-      joining_date DATE,
-      status TEXT DEFAULT 'Active',
+      id SERIAL PRIMARY KEY, driver_code TEXT UNIQUE NOT NULL,
+      driver_name TEXT NOT NULL, father_name TEXT,
+      aadhar_no TEXT, license_no TEXT, license_expiry DATE,
+      phone TEXT, address TEXT, photo_url TEXT,
+      joining_date DATE, status TEXT DEFAULT 'Active',
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== VEHICLE MASTER (Shared) =====
     `CREATE TABLE IF NOT EXISTS vehicles (
-      id SERIAL PRIMARY KEY,
-      vehicle_no TEXT UNIQUE NOT NULL,
-      vehicle_type TEXT,
-      owner_name TEXT,
-      owner_phone TEXT,
-      rc_expiry DATE,
-      insurance_expiry DATE,
-      fitness_expiry DATE,
-      permit_expiry DATE,
-      puc_expiry DATE,
-      status TEXT DEFAULT 'Active',
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, vehicle_no TEXT UNIQUE NOT NULL,
+      vehicle_type TEXT, owner_name TEXT, owner_phone TEXT,
+      rc_expiry DATE, insurance_expiry DATE, fitness_expiry DATE,
+      permit_expiry DATE, puc_expiry DATE,
+      status TEXT DEFAULT 'Active', created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== FREIGHT RATE MASTER =====
     `CREATE TABLE IF NOT EXISTS freight_rates (
-      id SERIAL PRIMARY KEY,
-      from_city TEXT NOT NULL,
-      to_city TEXT NOT NULL,
-      material TEXT,
-      rate_per_kg NUMERIC,
-      rate_per_pkg NUMERIC,
-      min_charge NUMERIC,
-      distance_km NUMERIC,
-      effective_from DATE,
-      effective_to DATE,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL,
+      material TEXT, rate_per_kg NUMERIC, rate_per_pkg NUMERIC,
+      min_charge NUMERIC, distance_km NUMERIC,
+      effective_from DATE, effective_to DATE,
+      is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== MATERIAL MASTER =====
     `CREATE TABLE IF NOT EXISTS materials (
-      id SERIAL PRIMARY KEY,
-      material_name TEXT UNIQUE NOT NULL,
-      material_code TEXT,
-      hsn_code TEXT,
-      category TEXT,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, material_name TEXT UNIQUE NOT NULL,
+      material_code TEXT, hsn_code TEXT, category TEXT,
+      is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== ROUTE MASTER =====
     `CREATE TABLE IF NOT EXISTS routes (
-      id SERIAL PRIMARY KEY,
-      from_city TEXT NOT NULL,
-      to_city TEXT NOT NULL,
-      distance_km NUMERIC,
-      via TEXT,
-      estimated_days INTEGER,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL,
+      distance_km NUMERIC, via TEXT, estimated_days INTEGER,
+      is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== CONSIGNMENTS (BILTY) - BRANCH TAGGED =====
     `CREATE TABLE IF NOT EXISTS consignments (
-      id SERIAL PRIMARY KEY,
-      lr_no TEXT UNIQUE NOT NULL,
-      lr_date DATE,
-      branch_id INTEGER REFERENCES branches(id),
-      branch_code TEXT,
-      from_name TEXT,
-      to_name TEXT,
-      consignor_code TEXT,
-      consignor_name TEXT,
-      consignor_address TEXT,
-      consignor_gst TEXT,
-      consignee_code TEXT,
-      consignee_name TEXT,
-      consignee_address TEXT,
-      consignee_gst TEXT,
-      invoice_no TEXT,
-      invoice_date TEXT,
-      po_no TEXT,
-      lorry_no TEXT,
-      driver_name TEXT,
-      driver_mobile TEXT,
+      id SERIAL PRIMARY KEY, lr_no TEXT UNIQUE NOT NULL, lr_date DATE,
+      branch_id INTEGER, branch_code TEXT,
+      from_name TEXT, to_name TEXT,
+      consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT,
+      consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT,
+      invoice_no TEXT, invoice_date TEXT, po_no TEXT,
+      lorry_no TEXT, driver_name TEXT, driver_mobile TEXT,
       delivery_type TEXT DEFAULT 'DOOR DELIVERY',
-      packages TEXT,
-      method_of_packing TEXT,
-      hsn_code TEXT,
-      actual_weight TEXT,
-      charged_weight TEXT,
-      material_desc TEXT,
-      eway_bill_no TEXT,
-      length TEXT,
-      width TEXT,
-      height TEXT,
-      total_cft TEXT,
-      declared_value TEXT,
-      basis_party TEXT,
-      basis_booking TEXT DEFAULT 'TO PAY',
-      rv_no TEXT,
-      rv_dt TEXT,
-      rv_am TEXT,
-      insurance_company TEXT,
-      policy_no TEXT,
-      insurance_amount TEXT,
-      freight TEXT,
-      aoc_percent TEXT,
-      material_mgmt_ch TEXT,
-      collection_charges TEXT,
-      door_dly_charges TEXT,
-      misc_charges TEXT,
-      grand_total TEXT,
-      status TEXT DEFAULT 'Booked',
-      payment_status TEXT DEFAULT 'Unpaid',
-      mr_no TEXT,
-      pod_status TEXT DEFAULT 'Pending',
-      pod_date DATE,
-      pod_remarks TEXT,
-      created_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      packages TEXT, method_of_packing TEXT, hsn_code TEXT,
+      actual_weight TEXT, charged_weight TEXT,
+      material_desc TEXT, eway_bill_no TEXT,
+      length TEXT, width TEXT, height TEXT, total_cft TEXT,
+      declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY',
+      rv_no TEXT, rv_dt TEXT, rv_am TEXT,
+      insurance_company TEXT, policy_no TEXT, insurance_amount TEXT,
+      freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT,
+      collection_charges TEXT, door_dly_charges TEXT, misc_charges TEXT,
+      grand_total TEXT, status TEXT DEFAULT 'Booked',
+      payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT,
+      pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT,
+      created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== POD RECORDS =====
     `CREATE TABLE IF NOT EXISTS pod_records (
-      id SERIAL PRIMARY KEY,
-      lr_no TEXT NOT NULL,
-      branch_id INTEGER REFERENCES branches(id),
-      delivery_date DATE,
-      delivered_by TEXT,
-      receiver_name TEXT,
-      receiver_signature TEXT,
-      receiver_phone TEXT,
-      delivery_remarks TEXT,
-      photo_url TEXT,
-      status TEXT DEFAULT 'Delivered',
+      id SERIAL PRIMARY KEY, lr_no TEXT NOT NULL, branch_id INTEGER,
+      delivery_date DATE, delivered_by TEXT,
+      receiver_name TEXT, receiver_signature TEXT,
+      receiver_phone TEXT, delivery_remarks TEXT,
+      photo_url TEXT, status TEXT DEFAULT 'Delivered',
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== BILL BOOK =====
     `CREATE TABLE IF NOT EXISTS bill_book (
-      id SERIAL PRIMARY KEY,
-      bill_no TEXT UNIQUE,
-      bill_date DATE,
-      branch_id INTEGER REFERENCES branches(id),
-      party_name TEXT,
-      party_code TEXT,
-      lr_nos TEXT,
-      amount TEXT,
-      gst_amount TEXT,
-      total_amount TEXT,
-      status TEXT DEFAULT 'Pending',
-      payment_status TEXT DEFAULT 'Unpaid',
-      mr_no TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, bill_no TEXT UNIQUE, bill_date DATE,
+      branch_id INTEGER, party_name TEXT, party_code TEXT,
+      lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT,
+      status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid',
+      mr_no TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== MONEY RECEIPTS =====
     `CREATE TABLE IF NOT EXISTS money_receipts (
-      id SERIAL PRIMARY KEY,
-      mr_no TEXT UNIQUE NOT NULL,
-      mr_date DATE NOT NULL,
-      branch_id INTEGER REFERENCES branches(id),
-      party_type TEXT NOT NULL,
-      party_name TEXT NOT NULL,
-      bilty_id INTEGER REFERENCES consignments(id),
-      bilty_lr_no TEXT,
-      bill_id INTEGER REFERENCES bill_book(id),
-      bill_no TEXT,
-      amount NUMERIC NOT NULL,
-      payment_mode TEXT DEFAULT 'Cash',
-      is_advance BOOLEAN DEFAULT FALSE,
-      remarks TEXT,
-      created_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, mr_no TEXT UNIQUE NOT NULL,
+      mr_date DATE NOT NULL, branch_id INTEGER,
+      party_type TEXT NOT NULL, party_name TEXT NOT NULL,
+      bilty_id INTEGER, bilty_lr_no TEXT,
+      bill_id INTEGER, bill_no TEXT,
+      amount NUMERIC NOT NULL, payment_mode TEXT DEFAULT 'Cash',
+      is_advance BOOLEAN DEFAULT FALSE, remarks TEXT,
+      created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== PARTY LEDGER =====
     `CREATE TABLE IF NOT EXISTS party_ledger (
-      id SERIAL PRIMARY KEY,
-      party_code TEXT NOT NULL,
-      branch_id INTEGER REFERENCES branches(id),
-      transaction_date DATE,
-      transaction_type TEXT,
-      reference_no TEXT,
-      debit NUMERIC DEFAULT 0,
-      credit NUMERIC DEFAULT 0,
-      balance NUMERIC DEFAULT 0,
-      remarks TEXT,
+      id SERIAL PRIMARY KEY, party_code TEXT NOT NULL, branch_id INTEGER,
+      transaction_date DATE, transaction_type TEXT,
+      reference_no TEXT, debit NUMERIC DEFAULT 0, credit NUMERIC DEFAULT 0,
+      balance NUMERIC DEFAULT 0, remarks TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== EXPENSES =====
     `CREATE TABLE IF NOT EXISTS expenses (
-      id SERIAL PRIMARY KEY,
-      expense_date DATE,
-      branch_id INTEGER REFERENCES branches(id),
-      category TEXT,
-      description TEXT,
-      amount NUMERIC,
-      payment_mode TEXT,
-      bill_no TEXT,
-      approved_by TEXT,
+      id SERIAL PRIMARY KEY, expense_date DATE, branch_id INTEGER,
+      category TEXT, description TEXT, amount NUMERIC,
+      payment_mode TEXT, bill_no TEXT, approved_by TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== CLAIMS =====
     `CREATE TABLE IF NOT EXISTS claims (
-      id SERIAL PRIMARY KEY,
-      lr_no TEXT,
-      branch_id INTEGER REFERENCES branches(id),
-      claim_date DATE,
-      claim_type TEXT,
-      description TEXT,
-      claim_amount NUMERIC,
-      settled_amount NUMERIC,
-      status TEXT DEFAULT 'Open',
-      remarks TEXT,
+      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER,
+      claim_date DATE, claim_type TEXT, description TEXT,
+      claim_amount NUMERIC, settled_amount NUMERIC,
+      status TEXT DEFAULT 'Open', remarks TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== COMMISSIONS =====
     `CREATE TABLE IF NOT EXISTS commissions (
-      id SERIAL PRIMARY KEY,
-      lr_no TEXT,
-      branch_id INTEGER REFERENCES branches(id),
-      agent_name TEXT,
-      commission_percent NUMERIC,
-      commission_amount NUMERIC,
-      status TEXT DEFAULT 'Pending',
-      paid_date DATE,
+      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER,
+      agent_name TEXT, commission_percent NUMERIC, commission_amount NUMERIC,
+      status TEXT DEFAULT 'Pending', paid_date DATE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== NOTIFICATIONS =====
     `CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY,
-      lr_no TEXT,
-      party_name TEXT,
-      phone TEXT,
-      email TEXT,
-      message TEXT,
-      type TEXT,
-      status TEXT DEFAULT 'Pending',
-      sent_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, lr_no TEXT, party_name TEXT,
+      phone TEXT, email TEXT, message TEXT,
+      type TEXT, status TEXT DEFAULT 'Pending',
+      sent_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== AUDIT LOGS =====
     `CREATE TABLE IF NOT EXISTS audit_logs (
-      id SERIAL PRIMARY KEY,
-      action TEXT NOT NULL,
-      module TEXT NOT NULL,
-      record_id TEXT,
-      details TEXT,
-      performed_by TEXT,
-      branch_id INTEGER,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, action TEXT NOT NULL, module TEXT NOT NULL,
+      record_id TEXT, details TEXT, performed_by TEXT,
+      branch_id INTEGER, created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== GATE PASSES =====
     `CREATE TABLE IF NOT EXISTS gate_passes (
-      id SERIAL PRIMARY KEY,
-      pass_no TEXT UNIQUE NOT NULL,
-      branch_id INTEGER REFERENCES branches(id),
-      lr_no TEXT,
-      vehicle_no TEXT,
-      driver_name TEXT,
-      driver_mobile TEXT,
-      material_desc TEXT,
-      quantity TEXT,
-      weight TEXT,
-      valid_until DATE,
-      issued_by TEXT,
-      qr_code TEXT,
+      id SERIAL PRIMARY KEY, pass_no TEXT UNIQUE NOT NULL,
+      branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
+      driver_name TEXT, driver_mobile TEXT,
+      material_desc TEXT, quantity TEXT, weight TEXT,
+      valid_until DATE, issued_by TEXT, qr_code TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
-
-    // ===== GADI CHALLANS =====
     `CREATE TABLE IF NOT EXISTS gadi_challans (
-      id SERIAL PRIMARY KEY,
-      challan_no TEXT UNIQUE NOT NULL,
-      branch_id INTEGER REFERENCES branches(id),
-      lr_no TEXT,
-      vehicle_no TEXT,
-      driver_name TEXT,
-      driver_mobile TEXT,
-      driver_license TEXT,
-      owner_name TEXT,
-      owner_mobile TEXT,
-      broker_name TEXT,
-      broker_mobile TEXT,
-      broker_commission TEXT,
-      from_place TEXT,
-      to_place TEXT,
-      material_desc TEXT,
-      weight TEXT,
-      packages TEXT,
-      bilty_date DATE,
-      consignor_name TEXT,
-      consignee_name TEXT,
-      freight_amount NUMERIC,
-      advance_paid NUMERIC,
-      balance_due NUMERIC,
-      toll_expense NUMERIC,
-      diesel_expense NUMERIC,
-      other_expense NUMERIC,
-      tds_deduction NUMERIC,
-      net_payable NUMERIC,
-      issue_date DATE,
+      id SERIAL PRIMARY KEY, challan_no TEXT UNIQUE NOT NULL,
+      branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
+      driver_name TEXT, driver_mobile TEXT, driver_license TEXT,
+      owner_name TEXT, owner_mobile TEXT,
+      broker_name TEXT, broker_mobile TEXT, broker_commission TEXT,
+      from_place TEXT, to_place TEXT, material_desc TEXT,
+      weight TEXT, packages TEXT, bilty_date DATE,
+      consignor_name TEXT, consignee_name TEXT,
+      freight_amount NUMERIC, advance_paid NUMERIC, balance_due NUMERIC,
+      toll_expense NUMERIC, diesel_expense NUMERIC, other_expense NUMERIC,
+      tds_deduction NUMERIC, net_payable NUMERIC, issue_date DATE,
       created_at TIMESTAMP DEFAULT NOW()
     )`
   ];
 
   for (const sql of tables) {
-    try {
-      await pool.query(sql);
-    } catch (err) {
-      console.error('Table error:', err.message);
-    }
+    try { await pool.query(sql); } catch (err) { console.error('Table error:', err.message); }
   }
-  console.log('✅ All multi-branch database tables ready');
+
+  // ===== ADD MISSING COLUMNS TO EXISTING TABLES =====
+  console.log('🔧 Adding missing columns to existing tables...');
+
+  // Branches table - add new columns
+  await addColumnIfNotExists('branches', 'address', 'TEXT');
+  await addColumnIfNotExists('branches', 'city', 'TEXT');
+  await addColumnIfNotExists('branches', 'state', 'TEXT');
+  await addColumnIfNotExists('branches', 'pincode', 'TEXT');
+  await addColumnIfNotExists('branches', 'phone', 'TEXT');
+  await addColumnIfNotExists('branches', 'email', 'TEXT');
+  await addColumnIfNotExists('branches', 'gst_no', 'TEXT');
+  await addColumnIfNotExists('branches', 'pan_no', 'TEXT');
+  await addColumnIfNotExists('branches', 'manager_name', 'TEXT');
+  await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
+  await addColumnIfNotExists('branches', 'is_active', 'BOOLEAN DEFAULT TRUE');
+
+  // Money receipts - add branch_id
+  await addColumnIfNotExists('money_receipts', 'branch_id', 'INTEGER');
+  await addColumnIfNotExists('money_receipts', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
+  await addColumnIfNotExists('money_receipts', 'created_by', 'TEXT');
+
+  // Consignments - add branch columns
+  await addColumnIfNotExists('consignments', 'branch_id', 'INTEGER');
+  await addColumnIfNotExists('consignments', 'branch_code', 'TEXT');
+  await addColumnIfNotExists('consignments', 'pod_status', "TEXT DEFAULT 'Pending'");
+  await addColumnIfNotExists('consignments', 'pod_date', 'DATE');
+  await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
+  await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
+
+  // Bill book - add branch_id
+  await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
+  await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
+
+  // Party ledger - add branch_id
+  await addColumnIfNotExists('party_ledger', 'branch_id', 'INTEGER');
+
+  // Expenses - add branch_id
+  await addColumnIfNotExists('expenses', 'branch_id', 'INTEGER');
+
+  // Claims - add branch_id
+  await addColumnIfNotExists('claims', 'branch_id', 'INTEGER');
+
+  // Commissions - add branch_id
+  await addColumnIfNotExists('commissions', 'branch_id', 'INTEGER');
+
+  // Audit logs - add branch_id
+  await addColumnIfNotExists('audit_logs', 'branch_id', 'INTEGER');
+
+  // Gate passes - add branch_id
+  await addColumnIfNotExists('gate_passes', 'branch_id', 'INTEGER');
+
+  // Gadi challans - add branch_id
+  await addColumnIfNotExists('gadi_challans', 'branch_id', 'INTEGER');
+
+  // POD records - add branch_id
+  await addColumnIfNotExists('pod_records', 'branch_id', 'INTEGER');
+
+  // Parties - add new columns
+  await addColumnIfNotExists('parties', 'party_type', "TEXT DEFAULT 'Consignor'");
+  await addColumnIfNotExists('parties', 'city', 'TEXT');
+  await addColumnIfNotExists('parties', 'state', 'TEXT');
+  await addColumnIfNotExists('parties', 'pincode', 'TEXT');
+  await addColumnIfNotExists('parties', 'pan_no', 'TEXT');
+  await addColumnIfNotExists('parties', 'mobile', 'TEXT');
+  await addColumnIfNotExists('parties', 'contact_person', 'TEXT');
+  await addColumnIfNotExists('parties', 'credit_days', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('parties', 'opening_balance', 'NUMERIC DEFAULT 0');
+
+  // Drivers - add new columns
+  await addColumnIfNotExists('drivers', 'driver_code', 'TEXT');
+  await addColumnIfNotExists('drivers', 'father_name', 'TEXT');
+  await addColumnIfNotExists('drivers', 'aadhar_no', 'TEXT');
+  await addColumnIfNotExists('drivers', 'license_no', 'TEXT');
+  await addColumnIfNotExists('drivers', 'license_expiry', 'DATE');
+  await addColumnIfNotExists('drivers', 'address', 'TEXT');
+  await addColumnIfNotExists('drivers', 'photo_url', 'TEXT');
+  await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
+
+  // Vehicles - add new columns
+  await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
+  await addColumnIfNotExists('vehicles', 'owner_name', 'TEXT');
+  await addColumnIfNotExists('vehicles', 'owner_phone', 'TEXT');
+  await addColumnIfNotExists('vehicles', 'rc_expiry', 'DATE');
+  await addColumnIfNotExists('vehicles', 'insurance_expiry', 'DATE');
+  await addColumnIfNotExists('vehicles', 'fitness_expiry', 'DATE');
+  await addColumnIfNotExists('vehicles', 'permit_expiry', 'DATE');
+  await addColumnIfNotExists('vehicles', 'puc_expiry', 'DATE');
+
+  console.log('✅ All migrations completed');
 }
 
 // ==========================================
@@ -489,22 +371,17 @@ app.post('/api/auth/login', async (req, res) => {
     );
     await logAudit('LOGIN', 'AUTH', user.id, `User ${username} logged in`, username, user.branch_id);
     res.json({
-      success: true,
-      token,
+      success: true, token,
       user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        branch_id: user.branch_id,
-        branch_code: user.branch_code,
-        branch_name: user.branch_name
+        id: user.id, username: user.username, role: user.role,
+        branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name
       }
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// BRANCH MANAGEMENT APIs
+// BRANCH MANAGEMENT
 // ==========================================
 app.get('/api/branches', authMiddleware, async (req, res) => {
   try {
@@ -534,7 +411,7 @@ app.put('/api/branches/:id', authMiddleware, async (req, res) => {
     const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
     values.push(id);
     const result = await pool.query(`UPDATE branches SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
-    await logAudit('UPDATE', 'BRANCH', id, `Branch updated`, req.user.username);
+    await logAudit('UPDATE', 'BRANCH', id, 'Branch updated', req.user.username);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -547,33 +424,33 @@ app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// DASHBOARD STATS (MULTI-BRANCH)
+// DASHBOARD STATS
 // ==========================================
 app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
-    const branchId = req.query.branch_id; // Optional filter
-    const branchFilter = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+    const branchId = req.query.branch_id;
+    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
 
     const results = await Promise.all([
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date = $1 ${branchFilter}`, [today]),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date LIKE $1 ${branchFilter}`, [`${thisMonth}%`]),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE 1=1 ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE status IN ('Booked','In-Transit') ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM consignments WHERE payment_status = 'Paid' ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM bill_book WHERE 1=1 ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM bill_book WHERE payment_status = 'Unpaid' ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM money_receipts WHERE 1=1 ${branchFilter}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date = $1 ${bf}`, [today]),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE lr_date LIKE $1 ${bf}`, [`${thisMonth}%`]),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE 1=1 ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE status IN ('Booked','In-Transit') ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM consignments WHERE payment_status = 'Paid' ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM bill_book WHERE 1=1 ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM bill_book WHERE payment_status = 'Unpaid' ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM money_receipts WHERE 1=1 ${bf}`),
       pool.query('SELECT COUNT(*) FROM parties WHERE is_active = TRUE'),
       pool.query('SELECT COUNT(*) FROM customers WHERE is_active = TRUE'),
-      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${branchFilter}`),
-      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${branchFilter}`),
-      pool.query(`SELECT COUNT(*) FROM pod_records WHERE status = 'Pending' ${branchFilter}`),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`),
+      pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`),
+      pool.query(`SELECT COUNT(*) FROM pod_records WHERE status = 'Pending' ${bf}`),
       pool.query("SELECT COUNT(*) FROM drivers WHERE status = 'Active'"),
       pool.query("SELECT COUNT(*) FROM vehicles WHERE status = 'Active'"),
       pool.query("SELECT COUNT(*) FROM claims WHERE status = 'Open'"),
-      pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date >= $1 ${branchFilter}`, [today]),
+      pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date >= $1 ${bf}`, [today]),
       pool.query('SELECT COUNT(*) FROM branches WHERE is_active = TRUE')
     ]);
 
@@ -600,7 +477,6 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Branch-wise stats for dashboard cards
 app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -619,11 +495,11 @@ app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// CONSIGNMENTS (BILTY) - BRANCH TAGGED
+// CONSIGNMENTS
 // ==========================================
 async function generateBiltyNo(branchCode) {
   const year = String(new Date().getFullYear()).slice(-2);
-  const prefix = branchCode ? `${branchCode}` : 'BTC';
+  const prefix = branchCode || 'BTC';
   const result = await pool.query(`SELECT lr_no FROM consignments WHERE lr_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`${prefix}/${year}/%`]);
   let nextSerial = 1;
   if (result.rows.length > 0 && result.rows[0].lr_no) {
@@ -655,7 +531,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     const c = { ...req.body };
     if (!c.branch_id && req.user.branch_id) c.branch_id = req.user.branch_id;
     if (!c.branch_code && req.user.branch_code) c.branch_code = req.user.branch_code;
-    if (!c.lr_no) c.lr_no = await generateBiltyNo(c.branch_code || 'BTC');
+    if (!c.lr_no) c.lr_no = await generateBiltyNo(c.branch_code);
     if (!c.status) c.status = 'Booked';
     if (!c.payment_status) c.payment_status = c.basis_booking === 'PAID' ? 'Paid' : 'Unpaid';
     if (!c.created_by) c.created_by = req.user.username;
@@ -698,7 +574,7 @@ app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// POD (PROOF OF DELIVERY)
+// POD
 // ==========================================
 app.get('/api/pod', authMiddleware, async (req, res) => {
   try {
@@ -759,7 +635,7 @@ app.put('/api/drivers/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// VEHICLES + EXPIRY ALERTS
+// VEHICLES
 // ==========================================
 app.get('/api/vehicles', authMiddleware, async (req, res) => {
   try {
@@ -853,7 +729,7 @@ app.post('/api/routes', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// PARTY LEDGER (BRANCH-WISE)
+// PARTY LEDGER
 // ==========================================
 app.get('/api/ledger/:partyCode', authMiddleware, async (req, res) => {
   try {
@@ -876,7 +752,7 @@ app.post('/api/ledger', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// OUTSTANDING REPORT (BRANCH-WISE)
+// OUTSTANDING
 // ==========================================
 app.get('/api/outstanding', authMiddleware, async (req, res) => {
   try {
@@ -1182,7 +1058,7 @@ async function ensureAdminUser() {
 }
 
 async function startServer() {
-  await createTables();
+  await runMigrations();
   await ensureAdminUser();
   app.listen(PORT, HOST, () => {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
