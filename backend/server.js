@@ -217,7 +217,8 @@ async function runMigrations() {
   
   // ✅ BUG #1 FIX: Added payment_status column to consignments
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
-    // ✅ BUG #3 FIX: Added mr_no column to consignments
+  
+  // ✅ BUG #3 FIX: Added mr_no column to consignments
   await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
@@ -860,6 +861,8 @@ app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// ✅ FIXED GADI CHALLAN POST: Handles empty numeric fields properly
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
@@ -872,10 +875,24 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
       if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
     c.challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
-    const keys = Object.keys(c); const values = Object.values(c);
+    
+    // ✅ FIX: Convert empty strings to NULL for numeric columns to prevent PostgreSQL errors
+    const numericFields = ['freight_amount', 'advance_paid', 'balance_due', 'toll_expense', 'diesel_expense', 'other_expense', 'tds_deduction', 'net_payable', 'broker_commission'];
+    numericFields.forEach(field => {
+      if (c[field] === '' || c[field] === null || c[field] === undefined) {
+        c[field] = null;
+      } else {
+        c[field] = parseFloat(c[field]);
+      }
+    });
+
+    const keys = Object.keys(c); 
+    const values = Object.values(c);
     const row = await pool.query(`INSERT INTO gadi_challans (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(row.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.get('/api/consignments/track', async (req, res) => {
