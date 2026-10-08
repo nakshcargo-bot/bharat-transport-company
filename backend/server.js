@@ -40,9 +40,8 @@ async function addColumnIfNotExists(table, column, definition) {
 }
 
 async function runMigrations() {
-  console.log(' Running database migrations...');
+  console.log('🏃 Running database migrations...');
 
-  // Create all tables first
   const tables = [
     `CREATE TABLE IF NOT EXISTS branches (
       id SERIAL PRIMARY KEY, branch_code TEXT UNIQUE NOT NULL, branch_name TEXT NOT NULL,
@@ -96,6 +95,7 @@ async function runMigrations() {
       insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT,
       collection_charges TEXT, door_dly_charges TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked',
       payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT,
+      from_state TEXT, to_state TEXT, transporter_id TEXT, transporter_name TEXT, eway_valid_upto DATE,
       created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS pod_records (
@@ -187,9 +187,6 @@ async function runMigrations() {
     try { await pool.query(sql); } catch (err) { console.error('Table error:', err.message); }
   }
 
-  // ==========================================
-  // ADD MANIFEST TABLES (NEW TCI-LEVEL FEATURE)
-  // ==========================================
   await pool.query(`
     CREATE TABLE IF NOT EXISTS manifests (
       id SERIAL PRIMARY KEY,
@@ -220,7 +217,6 @@ async function runMigrations() {
   `);
   console.log('✅ Manifests tables created successfully');
 
-  // ===== ADD MISSING COLUMNS TO EXISTING TABLES =====
   console.log('🔧 Adding missing columns to existing tables...');
   await addColumnIfNotExists('branches', 'address', 'TEXT');
   await addColumnIfNotExists('branches', 'city', 'TEXT');
@@ -244,12 +240,13 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_date', 'DATE');
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
-  
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
   await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
-    // E-Way Bill State Columns for Intra-state (1L) vs Inter-state (50K) logic
   await addColumnIfNotExists('consignments', 'from_state', 'TEXT');
   await addColumnIfNotExists('consignments', 'to_state', 'TEXT');
+  await addColumnIfNotExists('consignments', 'transporter_id', 'TEXT');
+  await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
+  await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
@@ -280,12 +277,7 @@ async function runMigrations() {
   await addColumnIfNotExists('drivers', 'address', 'TEXT');
   await addColumnIfNotExists('drivers', 'photo_url', 'TEXT');
   await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
-  
   await addColumnIfNotExists('drivers', 'phone', 'TEXT');
-    // E-Way Bill Columns
-  await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
-  await addColumnIfNotExists('consignments', 'transporter_id', 'TEXT');
-  await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
 
   await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
   await addColumnIfNotExists('vehicles', 'owner_name', 'TEXT');
@@ -333,37 +325,97 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// AUTH
+// AUTH - FIXED LOGIN API
 // ==========================================
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+    
+    console.log(`🔐 Login attempt for user: ${username}`);
+    
     const result = await pool.query(
       `SELECT u.*, b.branch_code, b.branch_name FROM users u 
        LEFT JOIN branches b ON u.branch_id = b.id 
        WHERE u.username = $1 AND u.is_active = TRUE`,
       [username]
     );
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-    const user = result.rows[0];
-    let valid = false;
-    if (user.password && user.password.startsWith('$2')) {
-      try { valid = await bcrypt.compare(password, user.password); } catch (e) { valid = false; }
-    }
-    if (!valid && password === user.password) valid = true;
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     
+    if (result.rows.length === 0) {
+      console.log('❌ User not found:', username);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = result.rows[0];
+    console.log('✅ User found:', user.username);
+    
+    let valid = false;
+    
+    // Check if password is bcrypt hashed
+    if (user.password && user.password.startsWith('$2')) {
+      try {
+        console.log('🔑 Using bcrypt comparison...');
+        valid = await bcrypt.compare(password, user.password);
+        console.log('Bcrypt result:', valid);
+      } catch (e) {
+        console.error('❌ Bcrypt error:', e.message);
+        valid = false;
+      }
+    } else {
+      // Fallback for plain text password
+      console.log('🔑 Plain text password comparison...');
+      valid = (password === user.password);
+      console.log('Plain text result:', valid);
+    }
+    
+    if (!valid) {
+      console.log('❌ Invalid password for user:', username);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Check JWT_SECRET
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('❌ JWT_SECRET is not defined in environment variables!');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    
+    console.log('🎫 Generating JWT token...');
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, branch_id: user.branch_id, branch_code: user.branch_code },
-      process.env.JWT_SECRET,
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role, 
+        branch_id: user.branch_id, 
+        branch_code: user.branch_code 
+      },
+      jwtSecret,
       { expiresIn: '7d' }
     );
+    
+    console.log('✅ Token generated successfully for:', username);
+    
     await logAudit('LOGIN', 'AUTH', user.id, `User ${username} logged in`, username, user.branch_id);
+    
     res.json({
-      success: true, token,
-      user: { id: user.id, username: user.username, role: user.role, branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name }
+      success: true, 
+      token,
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role, 
+        branch_id: user.branch_id, 
+        branch_code: user.branch_code, 
+        branch_name: user.branch_name 
+      }
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('❌ Login error:', err.message, err.stack);
+    res.status(500).json({ error: 'Internal server error: ' + err.message });
+  }
 });
 
 // ==========================================
@@ -737,6 +789,21 @@ app.post('/api/claims', authMiddleware, async (req, res) => {
     if (!data.branch_id) data.branch_id = req.user.branch_id;
     const keys = Object.keys(data); const values = Object.values(data);
     const result = await pool.query(`INSERT INTO claims (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/claims/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const data = { ...req.body };
+    delete data.id;
+    delete data.created_at;
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    values.push(id);
+    const result = await pool.query(`UPDATE claims SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1207,6 +1274,97 @@ app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
+// ADVANCED ACCOUNTING MODULE
+// ==========================================
+app.get('/api/accounts/summary', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+
+    const receivableRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`);
+    const payableRes = await pool.query(`SELECT COALESCE(SUM(balance_due), 0) as total FROM gadi_challans WHERE balance_due > 0 ${bf}`);
+    const revenueRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`);
+    const expenseRes = await pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${bf}`);
+    const tdsRes = await pool.query(`SELECT COALESCE(SUM(tds_deduction), 0) as total FROM gadi_challans ${bf}`);
+
+    res.json({
+      success: true,
+      data: {
+        total_receivable: parseFloat(receivableRes.rows[0].total || 0),
+        total_payable: parseFloat(payableRes.rows[0].total || 0),
+        total_revenue: parseFloat(revenueRes.rows[0].total || 0),
+        total_expenses: parseFloat(expenseRes.rows[0].total || 0),
+        tds_pending: parseFloat(tdsRes.rows[0].total || 0),
+        net_profit: parseFloat(revenueRes.rows[0].total || 0) - parseFloat(expenseRes.rows[0].total || 0)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)} AND tds_deduction > 0` : `WHERE tds_deduction > 0`;
+    
+    const result = await pool.query(`
+      SELECT challan_no, issue_date, broker_name, freight_amount, tds_deduction, net_payable 
+      FROM gadi_challans ${where} 
+      ORDER BY issue_date DESC LIMIT 200
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// E-WAY BILL MODULE
+// ==========================================
+app.get('/api/eway-bills', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const bf = branchId ? `AND c.branch_id = ${parseInt(branchId)}` : '';
+    
+    const result = await pool.query(`
+      SELECT c.id, c.lr_no, c.lr_date, c.consignor_name, c.consignee_name, c.from_name, c.to_name, 
+             c.declared_value, c.eway_bill_no, c.eway_valid_upto, c.transporter_id, c.transporter_name, c.status,
+             c.from_state, c.to_state
+      FROM consignments c
+      WHERE CAST(c.declared_value AS NUMERIC) > CASE 
+        WHEN c.from_state IS NOT NULL AND c.to_state IS NOT NULL 
+             AND UPPER(TRIM(c.from_state)) = UPPER(TRIM(c.to_state)) 
+        THEN 100000 
+        ELSE 50000 
+      END ${bf}
+      ORDER BY c.lr_date DESC LIMIT 200
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { eway_bill_no, eway_valid_upto, transporter_id, transporter_name } = req.body;
+    
+    const result = await pool.query(`
+      UPDATE consignments 
+      SET eway_bill_no = $1, eway_valid_upto = $2, transporter_id = $3, transporter_name = $4, updated_at = NOW()
+      WHERE id = $5 RETURNING id, lr_no, eway_bill_no
+    `, [eway_bill_no || null, eway_valid_upto || null, transporter_id || null, transporter_name || null, id]);
+    
+    await logAudit('UPDATE', 'E_WAY_BILL', id, `E-Way Bill ${eway_bill_no} updated for LR ${result.rows[0]?.lr_no}`, req.user.username);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
 // START
 // ==========================================
 async function ensureAdminUser() {
@@ -1227,165 +1385,6 @@ async function startServer() {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
   });
 }
-// ==========================================
-// ADVANCED ACCOUNTING MODULE
-// ==========================================
-
-// Get Accounting Summary Dashboard
-app.get('/api/accounts/summary', authMiddleware, async (req, res) => {
-  try {
-    const branchId = req.query.branch_id;
-    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
-
-    // 1. Total Receivable (Unpaid Bilties)
-    const receivableRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`);
-    
-    // 2. Total Payable (Unpaid Gadi Challans / Vendor dues)
-    const payableRes = await pool.query(`SELECT COALESCE(SUM(balance_due), 0) as total FROM gadi_challans WHERE balance_due > 0 ${bf}`);
-    
-    // 3. Total Revenue (Paid Bilties)
-    const revenueRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`);
-    
-    // 4. Total Expenses
-    const expenseRes = await pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${bf}`);
-    
-    // 5. TDS Pending (From Gadi Challans)
-    const tdsRes = await pool.query(`SELECT COALESCE(SUM(tds_deduction), 0) as total FROM gadi_challans ${bf}`);
-
-    res.json({
-      success: true,
-      data: {
-        total_receivable: parseFloat(receivableRes.rows[0].total || 0),
-        total_payable: parseFloat(payableRes.rows[0].total || 0),
-        total_revenue: parseFloat(revenueRes.rows[0].total || 0),
-        total_expenses: parseFloat(expenseRes.rows[0].total || 0),
-        tds_pending: parseFloat(tdsRes.rows[0].total || 0),
-        net_profit: parseFloat(revenueRes.rows[0].total || 0) - parseFloat(expenseRes.rows[0].total || 0)
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get TDS Register Summary
-app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
-  try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)} AND tds_deduction > 0` : `WHERE tds_deduction > 0`;
-    
-    const result = await pool.query(`
-      SELECT challan_no, issue_date, broker_name, freight_amount, tds_deduction, net_payable 
-      FROM gadi_challans ${where} 
-      ORDER BY issue_date DESC LIMIT 200
-    `);
-    res.json({ data: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-// ==========================================
-// E-WAY BILL MODULE
-// ==========================================
-
-// Get consignments requiring E-Way Bill (Smart Limit: 1L for Same State, 50K for Different State)
-app.get('/api/eway-bills', authMiddleware, async (req, res) => {
-  try {
-    const branchId = req.query.branch_id;
-    const bf = branchId ? `AND c.branch_id = ${parseInt(branchId)}` : '';
-    
-    // Smart Logic: If from_state = to_state, limit is 1,00,000. Else, limit is 50,000.
-    // If states are NULL/empty, it safely defaults to 50,000 limit.
-    const result = await pool.query(`
-      SELECT c.id, c.lr_no, c.lr_date, c.consignor_name, c.consignee_name, c.from_name, c.to_name, 
-             c.declared_value, c.eway_bill_no, c.eway_valid_upto, c.transporter_id, c.transporter_name, c.status,
-             c.from_state, c.to_state
-      FROM consignments c
-      WHERE CAST(c.declared_value AS NUMERIC) > CASE 
-        WHEN c.from_state IS NOT NULL AND c.to_state IS NOT NULL 
-             AND UPPER(TRIM(c.from_state)) = UPPER(TRIM(c.to_state)) 
-        THEN 100000 
-        ELSE 50000 
-      END ${bf}
-      ORDER BY c.lr_date DESC LIMIT 200
-    `);
-    res.json({ data: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-// Update E-Way Bill Details
-app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { eway_bill_no, eway_valid_upto, transporter_id, transporter_name } = req.body;
-    
-    const result = await pool.query(`
-      UPDATE consignments 
-      SET eway_bill_no = $1, eway_valid_upto = $2, transporter_id = $3, transporter_name = $4, updated_at = NOW()
-      WHERE id = $5 RETURNING id, lr_no, eway_bill_no
-    `, [eway_bill_no || null, eway_valid_upto || null, transporter_id || null, transporter_name || null, id]);
-    
-    await logAudit('UPDATE', 'E_WAY_BILL', id, `E-Way Bill ${eway_bill_no} updated for LR ${result.rows[0]?.lr_no}`, req.user.username);
-    res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-// ==========================================
-// CLAIM MANAGEMENT MODULE
-// ==========================================
-
-// Get all claims
-app.get('/api/claims', authMiddleware, async (req, res) => {
-  try {
-    const branchId = req.query.branch_id;
-    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
-    const result = await pool.query(`SELECT * FROM claims ${where} ORDER BY claim_date DESC LIMIT 200`);
-    res.json({ data: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Create new claim
-app.post('/api/claims', authMiddleware, async (req, res) => {
-  try {
-    const c = { ...req.body };
-    if (!c.branch_id) c.branch_id = req.user.branch_id;
-    
-    const keys = Object.keys(c);
-    const values = Object.values(c);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const row = await pool.query(`INSERT INTO claims (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
-    
-    await logAudit('CREATE', 'CLAIM', row.rows[0].id, `Claim created for LR ${c.lr_no}`, req.user.username, c.branch_id);
-    res.json(row.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update claim
-app.put('/api/claims/:id', authMiddleware, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const data = { ...req.body };
-    delete data.id;
-    delete data.created_at;
-    
-    const keys = Object.keys(data);
-    const values = Object.values(data);
-    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
-    values.push(id);
-    
-    const result = await pool.query(`UPDATE claims SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
-    await logAudit('UPDATE', 'CLAIM', id, `Claim updated for LR ${result.rows[0]?.lr_no}`, req.user.username);
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 startServer();
 module.exports = app;
