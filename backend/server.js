@@ -42,7 +42,6 @@ async function addColumnIfNotExists(table, column, definition) {
 async function runMigrations() {
   console.log('🏃 Running database migrations...');
 
-  // Create all tables
   const tables = [
     `CREATE TABLE IF NOT EXISTS branches (
       id SERIAL PRIMARY KEY, branch_code TEXT UNIQUE NOT NULL, branch_name TEXT NOT NULL,
@@ -187,7 +186,6 @@ async function runMigrations() {
     )`);
   console.log('✅ Manifests tables created successfully');
 
-  // Add ALL missing columns to ALL tables
   console.log('🔧 Adding missing columns...');
   
   await addColumnIfNotExists('branches', 'address', 'TEXT');
@@ -219,10 +217,8 @@ async function runMigrations() {
   await addColumnIfNotExists('parties', 'opening_balance', 'NUMERIC DEFAULT 0');
 
   await addColumnIfNotExists('customers', 'is_active', 'BOOLEAN DEFAULT TRUE');
-
   await addColumnIfNotExists('drivers', 'status', "TEXT DEFAULT 'Active'");
   await addColumnIfNotExists('drivers', 'phone', 'TEXT');
-
   await addColumnIfNotExists('vehicles', 'status', "TEXT DEFAULT 'Active'");
 
   await addColumnIfNotExists('money_receipts', 'branch_id', 'INTEGER');
@@ -246,6 +242,7 @@ async function runMigrations() {
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('bill_book', 'payment_status', "TEXT DEFAULT 'Unpaid'");
+  
   await addColumnIfNotExists('party_ledger', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('expenses', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('claims', 'branch_id', 'INTEGER');
@@ -254,6 +251,7 @@ async function runMigrations() {
   await addColumnIfNotExists('gate_passes', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('gadi_challans', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('pod_records', 'branch_id', 'INTEGER');
+  
   await addColumnIfNotExists('freight_rates', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('materials', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('routes', 'is_active', 'BOOLEAN DEFAULT TRUE');
@@ -335,7 +333,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ==========================================
-// ✅ ULTRA-SAFE DASHBOARD STATS (NO MORE ERRORS)
+// DASHBOARD STATS
 // ==========================================
 app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   try {
@@ -350,52 +348,30 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
     const whereBranch = isAdmin ? '' : `WHERE branch_id = ${branchId}`;
     const andBranch = isAdmin ? '' : `AND branch_id = ${branchId}`;
 
-    // Use COALESCE and CASE WHEN to handle missing columns safely
     const queries = [
-      // 0: today_lr
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE lr_date = $1 ${andBranch}`, [today]),
-      // 1: month_lr
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE to_char(lr_date, 'YYYY-MM') = $1 ${andBranch}`, [thisMonth]),
-      // 2: total_lr
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE 1=1 ${andBranch}`),
-      // 3: pending_lr (Booked/In-Transit)
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE status IN ('Booked','In-Transit') ${andBranch}`),
-      // 4: paid_lr - use CASE WHEN for missing column
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`),
-      // 5: total_bills
       pool.query(`SELECT COUNT(*) as count FROM bill_book ${whereBranch}`),
-      // 6: pending_bills
       pool.query(`SELECT COUNT(*) as count FROM bill_book ${whereBranch} ${whereBranch ? 'AND' : 'WHERE'} COALESCE(payment_status, 'Unpaid') = 'Unpaid'`),
-      // 7: total_mr
       pool.query(`SELECT COUNT(*) as count FROM money_receipts ${whereBranch}`),
-      // 8: total_parties - use COALESCE
       pool.query(`SELECT COUNT(*) as count FROM parties WHERE COALESCE(is_active, TRUE) = TRUE`),
-      // 9: total_customers
       pool.query(`SELECT COUNT(*) as count FROM customers WHERE COALESCE(is_active, TRUE) = TRUE`),
-      // 10: total_revenue
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`),
-      // 11: pending_amount
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE COALESCE(payment_status, 'Unpaid') = 'Unpaid' ${andBranch}`),
-      // 12: pending_pod
       pool.query(`SELECT COUNT(*) as count FROM pod_records WHERE COALESCE(status, 'Pending') = 'Pending' ${andBranch}`),
-      // 13: active_drivers
       pool.query(`SELECT COUNT(*) as count FROM drivers WHERE COALESCE(status, 'Active') = 'Active'`),
-      // 14: active_vehicles
       pool.query(`SELECT COUNT(*) as count FROM vehicles WHERE COALESCE(status, 'Active') = 'Active'`),
-      // 15: open_claims
       pool.query(`SELECT COUNT(*) as count FROM claims WHERE COALESCE(status, 'Open') = 'Open' ${andBranch}`),
-      // 16: today_expenses
       pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date >= $1 ${andBranch}`, [today]),
-      // 17: total_branches
       pool.query(`SELECT COUNT(*) as count FROM branches WHERE COALESCE(is_active, TRUE) = TRUE`),
-      // 18: today_revenue
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE lr_date = $1 AND COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`, [today]),
-      // 19: month_revenue
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE to_char(lr_date, 'YYYY-MM') = $1 AND COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`, [thisMonth])
     ];
 
     const results = await Promise.all(queries);
-
     const get = (idx, field = 'count') => {
       const row = results[idx]?.rows?.[0];
       if (!row) return 0;
@@ -424,13 +400,11 @@ app.get('/api/dashboard/recent', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
     const branchCondition = isAdmin ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
-    
     const [recentBilties, recentMR, recentClaims] = await Promise.all([
       pool.query(`SELECT lr_no, lr_date, consignor_name, consignee_name, grand_total, status, COALESCE(payment_status, 'Unpaid') as payment_status, created_at FROM consignments ${branchCondition} ORDER BY created_at DESC LIMIT 5`),
       pool.query(`SELECT mr_no, mr_date, party_name, amount, payment_mode, created_at FROM money_receipts ${branchCondition} ORDER BY created_at DESC LIMIT 5`),
       pool.query(`SELECT lr_no, claim_type, claim_amount, COALESCE(status, 'Open') as status, created_at FROM claims ${branchCondition} ORDER BY created_at DESC LIMIT 3`)
     ]);
-
     res.json({ bilties: recentBilties.rows, receipts: recentMR.rows, claims: recentClaims.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -442,20 +416,6 @@ app.get('/api/dashboard/top-parties', authMiddleware, async (req, res) => {
     const result = await pool.query(`
       SELECT consignor_name, consignor_code, COUNT(*) as total_bilties, SUM(CAST(grand_total AS NUMERIC)) as total_revenue
       FROM consignments ${branchCondition} GROUP BY consignor_name, consignor_code ORDER BY total_revenue DESC LIMIT 5
-    `);
-    res.json({ data: result.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT b.branch_code, b.branch_name, b.city,
-        COUNT(c.id) as total_lr,
-        SUM(CASE WHEN COALESCE(c.payment_status, 'Unpaid') = 'Paid' THEN COALESCE(CAST(c.grand_total AS NUMERIC), 0) ELSE 0 END) as revenue,
-        SUM(CASE WHEN COALESCE(c.payment_status, 'Unpaid') = 'Unpaid' THEN COALESCE(CAST(c.grand_total AS NUMERIC), 0) ELSE 0 END) as pending
-      FROM branches b LEFT JOIN consignments c ON b.id = c.branch_id
-      WHERE COALESCE(b.is_active, TRUE) = TRUE GROUP BY b.id, b.branch_code, b.branch_name, b.city ORDER BY revenue DESC
     `);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -801,6 +761,7 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ✅ FIXED MR ROUTES (No more nesting errors)
 app.get('/api/mr', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
@@ -809,6 +770,17 @@ app.get('/api/mr', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.get('/api/mr/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM money_receipts WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'MR not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/mr', authMiddleware, async (req, res) => {
   try {
     const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
@@ -883,6 +855,7 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ✅ FIXED GADI CHALLAN ROUTES
 app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
@@ -891,6 +864,17 @@ app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.get('/api/gadi-challan/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM gadi_challans WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Challan not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body }; if (!c.branch_id) c.branch_id = req.user.branch_id;
