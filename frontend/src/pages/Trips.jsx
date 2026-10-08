@@ -245,7 +245,7 @@ export default function Trips() {
                   Cancel
                 </button>
                 <button type="submit" disabled={loading} className="px-8 py-2.5 bg-cyan-700 text-white rounded-lg font-bold hover:bg-cyan-800 shadow disabled:opacity-50">
-                  {loading ? 'Saving...' : editId ? ' Update Trip' : '✅ Create Trip'}
+                  {loading ? 'Saving...' : editId ? '🔄 Update Trip' : '✅ Create Trip'}
                 </button>
               </div>
             </form>
