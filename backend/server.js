@@ -229,6 +229,11 @@ async function runMigrations() {
   await addColumnIfNotExists('branches', 'manager_name', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
   await addColumnIfNotExists('branches', 'is_active', 'BOOLEAN DEFAULT TRUE');
+    // ✅ FIX: Add missing columns to users table
+  await addColumnIfNotExists('users', 'branch_id', 'INTEGER');
+  await addColumnIfNotExists('users', 'full_name', 'TEXT');
+  await addColumnIfNotExists('users', 'role', "TEXT DEFAULT 'operator'");
+  await addColumnIfNotExists('users', 'is_active', 'BOOLEAN DEFAULT TRUE');
 
   await addColumnIfNotExists('money_receipts', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('money_receipts', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
