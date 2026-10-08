@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, lazy, Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
@@ -15,6 +15,7 @@ const MR = lazy(() => import('./pages/MR'))
 const MRCreate = lazy(() => import('./pages/MRCreate'))
 const MRPrint = lazy(() => import('./pages/MRPrint'))
 const Audit = lazy(() => import('./pages/Audit'))
+const Branches = lazy(() => import('./pages/Branches'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -24,7 +25,7 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2>⏳ Loading...</h2>
+      <h2> Loading...</h2>
     </div>
   )
 }
@@ -50,6 +51,7 @@ function App() {
           <Route path="/mr" element={<PrivateRoute><MR /></PrivateRoute>} />
           <Route path="/mr/create" element={<PrivateRoute><MRCreate /></PrivateRoute>} />
           <Route path="/audit" element={<PrivateRoute><Audit /></PrivateRoute>} />
+          <Route path="/branches" element={<PrivateRoute><Branches /></PrivateRoute>} />
           
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
