@@ -104,7 +104,7 @@ export default function EwayBill() {
             <button onClick={() => navigate('/')} className="bg-white/20 p-2 rounded-lg hover:bg-white/30">← Back</button>
             <div>
               <h1 className="font-bold text-xl">📄 E-Way Bill Generator</h1>
-              <p className="text-xs text-indigo-200">GST Compliance & Transporter Details</p>
+              <p className="text-xs text-indigo-200">Smart GST Compliance (₹50K Inter-state / ₹1L Intra-state)</p>
             </div>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function EwayBill() {
 
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800"> Consignments Requiring E-Way Bill (Value &gt; ₹50,000)</h2>
+            <h2 className="text-xl font-bold text-gray-800">📋 Consignments Requiring E-Way Bill</h2>
             <div className="text-sm text-gray-500">Total: {bills.length}</div>
           </div>
 
@@ -149,7 +149,7 @@ export default function EwayBill() {
             <div className="p-12 text-center text-gray-500">
               <div className="text-4xl mb-3">📄</div>
               <p className="font-medium">No consignments require E-Way Bill right now.</p>
-              <p className="text-sm mt-1">Bilties with declared value over ₹50,000 will appear here.</p>
+              <p className="text-sm mt-1">Bilties with declared value over ₹50,000 (or ₹1,00,000 for same state) will appear here.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -157,8 +157,7 @@ export default function EwayBill() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="p-4 text-left font-bold text-gray-600">LR No</th>
-                    <th className="p-4 text-left font-bold text-gray-600">Date</th>
-                    <th className="p-4 text-left font-bold text-gray-600">Parties</th>
+                    <th className="p-4 text-left font-bold text-gray-600">Route (State)</th>
                     <th className="p-4 text-right font-bold text-gray-600">Declared Value</th>
                     <th className="p-4 text-left font-bold text-gray-600">E-Way Bill No</th>
                     <th className="p-4 text-left font-bold text-gray-600">Valid Upto</th>
@@ -167,35 +166,44 @@ export default function EwayBill() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bills.map(b => (
-                    <tr key={b.id} className="border-t hover:bg-indigo-50/30 transition-colors">
-                      <td className="p-4 font-bold text-indigo-700">{b.lr_no}</td>
-                      <td className="p-4">{b.lr_date ? new Date(b.lr_date).toLocaleDateString('en-IN') : '-'}</td>
-                      <td className="p-4">
-                        <div className="font-medium text-xs">{b.consignor_name}</div>
-                        <div className="text-xs text-gray-500">→ {b.consignee_name}</div>
-                      </td>
-                      <td className="p-4 text-right font-bold text-green-700">{formatCurrency(b.declared_value)}</td>
-                      <td className="p-4">
-                        {b.eway_bill_no ? (
-                          <span className="px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-bold">{b.eway_bill_no}</span>
-                        ) : (
-                          <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold">Pending</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-xs">{b.eway_valid_upto ? new Date(b.eway_valid_upto).toLocaleDateString('en-IN') : '-'}</td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button onClick={() => handleEdit(b)} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-200">
-                          {b.eway_bill_no ? '️ Edit' : '➕ Generate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {bills.map(b => {
+                    const isSameState = b.from_state && b.to_state && b.from_state.toUpperCase().trim() === b.to_state.toUpperCase().trim();
+                    const limit = isSameState ? '₹1,00,000' : '₹50,000';
+                    
+                    return (
+                      <tr key={b.id} className="border-t hover:bg-indigo-50/30 transition-colors">
+                        <td className="p-4 font-bold text-indigo-700">{b.lr_no}</td>
+                        <td className="p-4">
+                          <div className="font-medium text-xs">{b.from_name || 'N/A'} → {b.to_name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {b.from_state || '?'} → {b.to_state || '?'} 
+                            <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${isSameState ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                              Limit: {limit}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-bold text-green-700">{formatCurrency(b.declared_value)}</td>
+                        <td className="p-4">
+                          {b.eway_bill_no ? (
+                            <span className="px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-bold">{b.eway_bill_no}</span>
+                          ) : (
+                            <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold">Pending</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-xs">{b.eway_valid_upto ? new Date(b.eway_valid_upto).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <button onClick={() => handleEdit(b)} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold hover:bg-indigo-200">
+                            {b.eway_bill_no ? '✏️ Edit' : '➕ Generate'}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
