@@ -6,8 +6,10 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
     total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
-    total_revenue: 0, pending_amount: 0
+    total_revenue: 0, pending_amount: 0, total_branches: 0,
+    pending_pod: 0, active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0
   })
+  const [branchStats, setBranchStats] = useState([])
   const [loading, setLoading] = useState(true)
   const [recentBilties, setRecentBilties] = useState([])
 
@@ -24,9 +26,10 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
-      const [statsRes, biltiesRes] = await Promise.all([
+      const [statsRes, biltiesRes, branchStatsRes] = await Promise.all([
         fetch(`${apiUrl}/api/dashboard/stats`, { headers }),
-        fetch(`${apiUrl}/api/consignments`, { headers })
+        fetch(`${apiUrl}/api/consignments`, { headers }),
+        fetch(`${apiUrl}/api/dashboard/branch-stats`, { headers })
       ])
 
       if (statsRes.ok) {
@@ -37,6 +40,11 @@ export default function Dashboard() {
       if (biltiesRes.ok) {
         const biltiesData = await biltiesRes.json()
         setRecentBilties((biltiesData.data || []).slice(0, 5))
+      }
+
+      if (branchStatsRes.ok) {
+        const branchData = await branchStatsRes.json()
+        setBranchStats(branchData.data || [])
       }
     } catch (err) {
       console.error('Dashboard error:', err)
@@ -59,24 +67,24 @@ export default function Dashboard() {
     { id: 'bilty', label: 'Bilty / LR', icon: '📝', color: 'from-blue-600 to-blue-800', route: '/consignments', desc: 'Create & Manage Bilties' },
     { id: 'bill', label: 'Billing', icon: '💰', color: 'from-green-600 to-green-800', route: '/bills', desc: 'Bills & Invoices' },
     { id: 'mr', label: 'Money Receipt', icon: '🧾', color: 'from-purple-600 to-purple-800', route: '/mr', desc: 'Payment Receipts' },
-    { id: 'customers', label: 'Parties', icon: '👥', color: 'from-pink-600 to-pink-800', route: '/customers', desc: 'Customer Master' },
-    { id: 'gatepass', label: 'Gate Pass', icon: '🎫', color: 'from-indigo-600 to-indigo-800', route: '/gate-pass', desc: 'Gate Pass Issue' },
-    { id: 'gadi', label: 'Gadi Challan', icon: '', color: 'from-orange-600 to-orange-800', route: '/gadi-challan', desc: 'Broker Settlement' },
-    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-teal-600 to-teal-800', route: '/reports', desc: 'All Reports' },
-    { id: 'audit', label: 'Audit Log', icon: '🔍', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
-    { id: 'track', label: 'Track Bilty', icon: '', color: 'from-cyan-600 to-cyan-800', route: '/track', desc: 'Public Tracking' }
+    { id: 'branches', label: 'Branches', icon: '🏢', color: 'from-indigo-600 to-indigo-800', route: '/branches', desc: 'Multi-Branch Master' },
+    { id: 'customers', label: 'Parties', icon: '', color: 'from-pink-600 to-pink-800', route: '/customers', desc: 'Customer Master' },
+    { id: 'gatepass', label: 'Gate Pass', icon: '🎫', color: 'from-teal-600 to-teal-800', route: '/gate-pass', desc: 'Gate Pass Issue' },
+    { id: 'gadi', label: 'Gadi Challan', icon: '🚛', color: 'from-orange-600 to-orange-800', route: '/gadi-challan', desc: 'Broker Settlement' },
+    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-cyan-600 to-cyan-800', route: '/reports', desc: 'All Reports' },
+    { id: 'audit', label: 'Audit Log', icon: '', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
+    { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-yellow-600 to-yellow-800', route: '/track', desc: 'Public Tracking' }
   ]
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation */}
       <nav className="bg-gradient-to-r from-red-700 to-red-900 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-white text-red-700 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow">BTC</div>
             <div>
               <h1 className="font-bold text-xl">Bharat Transport Company</h1>
-              <p className="text-xs text-red-200">Professional Transport Management System</p>
+              <p className="text-xs text-red-200">Professional Multi-Branch Transport Management System</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -97,18 +105,18 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Welcome Section */}
+            {/* Welcome */}
             <div className="mb-6 bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-6 text-white shadow-lg">
               <h1 className="text-3xl font-bold">Welcome Back, {user.username}! </h1>
-              <p className="text-red-100 mt-1">Here's your business overview for today</p>
+              <p className="text-red-100 mt-1">Your business overview across all {stats.total_branches || 0} branches</p>
             </div>
 
-            {/* Key Stats Cards */}
+            {/* Key Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-5 shadow-lg text-white">
                 <div className="text-blue-100 text-xs font-medium uppercase">Today's LR</div>
                 <div className="text-white text-3xl font-bold mt-1">{stats.today_lr}</div>
-                <div className="text-blue-200 text-xs mt-1">Total: {stats.total_lr}</div>
+                <div className="text-blue-200 text-xs mt-1">Total: {stats.total_lr} | Month: {stats.month_lr}</div>
               </div>
               <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-5 shadow-lg text-white">
                 <div className="text-green-100 text-xs font-medium uppercase">Revenue Collected</div>
@@ -128,12 +136,12 @@ export default function Dashboard() {
             </div>
 
             {/* Secondary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
-                <div className="text-gray-500 text-xs font-medium uppercase">This Month LR</div>
-                <div className="text-2xl font-bold text-gray-800 mt-1">{stats.month_lr}</div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-indigo-500">
+                <div className="text-gray-500 text-xs font-medium uppercase">Active Branches</div>
+                <div className="text-2xl font-bold text-indigo-700 mt-1">{stats.total_branches || 0}</div>
               </div>
-              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
+              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500">
                 <div className="text-gray-500 text-xs font-medium uppercase">Total Bills</div>
                 <div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_bills}</div>
               </div>
@@ -141,15 +149,55 @@ export default function Dashboard() {
                 <div className="text-gray-500 text-xs font-medium uppercase">Pending Bills</div>
                 <div className="text-2xl font-bold text-red-600 mt-1">{stats.pending_bills}</div>
               </div>
-              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-purple-500">
-                <div className="text-gray-500 text-xs font-medium uppercase">Active Customers</div>
-                <div className="text-2xl font-bold text-gray-800 mt-1">{stats.total_customers || 0}</div>
+              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-yellow-500">
+                <div className="text-gray-500 text-xs font-medium uppercase">Pending POD</div>
+                <div className="text-2xl font-bold text-yellow-600 mt-1">{stats.pending_pod || 0}</div>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 border-l-4 border-pink-500">
+                <div className="text-gray-500 text-xs font-medium uppercase">Open Claims</div>
+                <div className="text-2xl font-bold text-pink-600 mt-1">{stats.open_claims || 0}</div>
               </div>
             </div>
 
-            {/* All Modules Grid */}
+            {/* Branch-wise Performance */}
+            {branchStats.length > 0 && (
+              <div className="bg-white rounded-xl shadow p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-gray-800 text-lg"> Branch-wise Performance</h3>
+                  <button onClick={() => navigate('/branches')} className="text-indigo-700 text-sm font-bold hover:underline">Manage Branches →</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-indigo-50">
+                      <tr>
+                        <th className="p-3 text-left text-xs font-bold text-gray-600">Branch Code</th>
+                        <th className="p-3 text-left text-xs font-bold text-gray-600">Branch Name</th>
+                        <th className="p-3 text-left text-xs font-bold text-gray-600">City</th>
+                        <th className="p-3 text-right text-xs font-bold text-gray-600">Total LR</th>
+                        <th className="p-3 text-right text-xs font-bold text-gray-600">Revenue</th>
+                        <th className="p-3 text-right text-xs font-bold text-gray-600">Pending</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branchStats.map((b, i) => (
+                        <tr key={i} className="border-t hover:bg-gray-50">
+                          <td className="p-3 font-bold text-indigo-700">{b.branch_code}</td>
+                          <td className="p-3 text-sm font-medium">{b.branch_name}</td>
+                          <td className="p-3 text-sm">{b.city || '-'}</td>
+                          <td className="p-3 text-right font-bold">{b.total_lr || 0}</td>
+                          <td className="p-3 text-right font-bold text-green-700">{formatCurrency(b.revenue)}</td>
+                          <td className="p-3 text-right font-bold text-orange-700">{formatCurrency(b.pending)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* All Modules */}
             <h2 className="text-xl font-bold text-gray-800 mb-4"> All Modules</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
               {modules.map(m => (
                 <div
                   key={m.id}
@@ -169,7 +217,7 @@ export default function Dashboard() {
             {/* Recent Bilties */}
             <div className="bg-white rounded-xl shadow p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-gray-800 text-lg">📋 Recent Bilties</h3>
+                <h3 className="font-bold text-gray-800 text-lg"> Recent Bilties</h3>
                 <button onClick={() => navigate('/consignments')} className="text-red-700 text-sm font-bold hover:underline">View All →</button>
               </div>
               {recentBilties.length === 0 ? (
