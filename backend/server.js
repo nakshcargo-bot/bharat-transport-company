@@ -1220,6 +1220,63 @@ async function startServer() {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
   });
 }
+// ==========================================
+// ADVANCED ACCOUNTING MODULE
+// ==========================================
+
+// Get Accounting Summary Dashboard
+app.get('/api/accounts/summary', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+
+    // 1. Total Receivable (Unpaid Bilties)
+    const receivableRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Unpaid' ${bf}`);
+    
+    // 2. Total Payable (Unpaid Gadi Challans / Vendor dues)
+    const payableRes = await pool.query(`SELECT COALESCE(SUM(balance_due), 0) as total FROM gadi_challans WHERE balance_due > 0 ${bf}`);
+    
+    // 3. Total Revenue (Paid Bilties)
+    const revenueRes = await pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE payment_status = 'Paid' ${bf}`);
+    
+    // 4. Total Expenses
+    const expenseRes = await pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses ${bf}`);
+    
+    // 5. TDS Pending (From Gadi Challans)
+    const tdsRes = await pool.query(`SELECT COALESCE(SUM(tds_deduction), 0) as total FROM gadi_challans ${bf}`);
+
+    res.json({
+      success: true,
+      data: {
+        total_receivable: parseFloat(receivableRes.rows[0].total || 0),
+        total_payable: parseFloat(payableRes.rows[0].total || 0),
+        total_revenue: parseFloat(revenueRes.rows[0].total || 0),
+        total_expenses: parseFloat(expenseRes.rows[0].total || 0),
+        tds_pending: parseFloat(tdsRes.rows[0].total || 0),
+        net_profit: parseFloat(revenueRes.rows[0].total || 0) - parseFloat(expenseRes.rows[0].total || 0)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get TDS Register Summary
+app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)} AND tds_deduction > 0` : `WHERE tds_deduction > 0`;
+    
+    const result = await pool.query(`
+      SELECT challan_no, issue_date, broker_name, freight_amount, tds_deduction, net_payable 
+      FROM gadi_challans ${where} 
+      ORDER BY issue_date DESC LIMIT 200
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
