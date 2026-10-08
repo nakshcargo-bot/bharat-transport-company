@@ -26,6 +26,7 @@ const Vehicles = lazy(() => import('./pages/Vehicles'))
 const Trips = lazy(() => import('./pages/Trips'))
 const Rates = lazy(() => import('./pages/Rates'))
 const Accounts = lazy(() => import('./pages/Accounts'))
+const EwayBill = lazy(() => import('./pages/EwayBill'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -72,6 +73,7 @@ function App() {
           <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
           <Route path="/rates" element={<PrivateRoute><Rates /></PrivateRoute>} />
           <Route path="/accounts" element={<PrivateRoute><Accounts /></PrivateRoute>} />
+          <Route path="/eway" element={<PrivateRoute><EwayBill /></PrivateRoute>} />
           
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
