@@ -1390,6 +1390,125 @@ async function startServer() {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
   });
 }
+// ==========================================
+// USER MANAGEMENT MODULE
+// ==========================================
+
+// Get all users
+app.get('/api/users', authMiddleware, async (req, res) => {
+  try {
+    // Only admin can see all users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can view all users' });
+    }
+    
+    const result = await pool.query(`
+      SELECT u.id, u.username, u.full_name, u.role, u.branch_id, u.is_active, u.created_at,
+             b.branch_code, b.branch_name, b.city
+      FROM users u
+      LEFT JOIN branches b ON u.branch_id = b.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create new user
+app.post('/api/users', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can create users' });
+    }
+    
+    const { username, password, full_name, role, branch_id } = req.body;
+    
+    if (!username || !password || !full_name || !role) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+    
+    // Check if username already exists
+    const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const result = await pool.query(
+      `INSERT INTO users (username, password, full_name, role, branch_id, is_active) 
+       VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, username, full_name, role, branch_id`,
+      [username, hashedPassword, full_name, role, branch_id || null]
+    );
+    
+    await logAudit('CREATE', 'USER', result.rows[0].id, `User ${username} created with role ${role}`, req.user.username);
+    
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update user
+app.put('/api/users/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can update users' });
+    }
+    
+    const id = req.params.id;
+    const { full_name, role, branch_id, is_active, password } = req.body;
+    
+    let query = `UPDATE users SET full_name = $1, role = $2, branch_id = $3, is_active = $4`;
+    const params = [full_name, role, branch_id || null, is_active !== undefined ? is_active : true];
+    let paramCount = 4;
+    
+    // If password is provided, update it
+    if (password) {
+      paramCount++;
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += `, password = $${paramCount}`;
+      params.push(hashedPassword);
+    }
+    
+    paramCount++;
+    query += ` WHERE id = $${paramCount} RETURNING id, username, full_name, role, branch_id, is_active`;
+    params.push(id);
+    
+    const result = await pool.query(query, params);
+    
+    await logAudit('UPDATE', 'USER', id, `User updated`, req.user.username);
+    
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete user (soft delete - deactivate)
+app.delete('/api/users/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can delete users' });
+    }
+    
+    const id = req.params.id;
+    
+    // Prevent deleting yourself
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+    
+    await pool.query('UPDATE users SET is_active = FALSE WHERE id = $1', [id]);
+    await logAudit('DELETE', 'USER', id, `User deactivated`, req.user.username);
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
