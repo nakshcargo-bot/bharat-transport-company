@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, lazy, Suspense } from 'react'
 
-// Lazy load all pages
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
 const Bills = lazy(() => import('./pages/Bills'))
@@ -15,6 +14,7 @@ const BiltyPrint = lazy(() => import('./pages/BiltyPrint'))
 const MR = lazy(() => import('./pages/MR'))
 const MRCreate = lazy(() => import('./pages/MRCreate'))
 const MRPrint = lazy(() => import('./pages/MRPrint'))
+const Audit = lazy(() => import('./pages/Audit'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -24,25 +24,21 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2>Loading...</h2>
+      <h2>⏳ Loading...</h2>
     </div>
   )
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'))
-
   return (
     <BrowserRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login onLogin={() => setIsLoggedIn(true)} />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
           
-          {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
@@ -53,8 +49,8 @@ function App() {
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
           <Route path="/mr" element={<PrivateRoute><MR /></PrivateRoute>} />
           <Route path="/mr/create" element={<PrivateRoute><MRCreate /></PrivateRoute>} />
+          <Route path="/audit" element={<PrivateRoute><Audit /></PrivateRoute>} />
           
-          {/* Catch-all Route (Must be last) */}
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
               <h1>404 - Page Not Found</h1>
