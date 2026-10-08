@@ -214,6 +214,9 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_date', 'DATE');
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
+  
+  // ✅ BUG #1 FIX: Added payment_status column to consignments
+  await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
 
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
@@ -244,6 +247,9 @@ async function runMigrations() {
   await addColumnIfNotExists('drivers', 'address', 'TEXT');
   await addColumnIfNotExists('drivers', 'photo_url', 'TEXT');
   await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
+  
+  // ✅ BUG #2 FIX: Added phone column to drivers
+  await addColumnIfNotExists('drivers', 'phone', 'TEXT');
 
   await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
   await addColumnIfNotExists('vehicles', 'owner_name', 'TEXT');
