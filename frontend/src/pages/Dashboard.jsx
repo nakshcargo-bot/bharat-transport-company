@@ -68,12 +68,14 @@ export default function Dashboard() {
     { id: 'bill', label: 'Billing', icon: '💰', color: 'from-green-600 to-green-800', route: '/bills', desc: 'Bills & Invoices' },
     { id: 'mr', label: 'Money Receipt', icon: '🧾', color: 'from-purple-600 to-purple-800', route: '/mr', desc: 'Payment Receipts' },
     { id: 'branches', label: 'Branches', icon: '🏢', color: 'from-indigo-600 to-indigo-800', route: '/branches', desc: 'Multi-Branch Master' },
-    { id: 'customers', label: 'Parties', icon: '', color: 'from-pink-600 to-pink-800', route: '/customers', desc: 'Customer Master' },
+    { id: 'customers', label: 'Parties', icon: '👥', color: 'from-pink-600 to-pink-800', route: '/customers', desc: 'Customer Master' },
     { id: 'gatepass', label: 'Gate Pass', icon: '🎫', color: 'from-teal-600 to-teal-800', route: '/gate-pass', desc: 'Gate Pass Issue' },
     { id: 'gadi', label: 'Gadi Challan', icon: '🚛', color: 'from-orange-600 to-orange-800', route: '/gadi-challan', desc: 'Broker Settlement' },
-    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-cyan-600 to-cyan-800', route: '/reports', desc: 'All Reports' },
-    { id: 'audit', label: 'Audit Log', icon: '', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
-    { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-yellow-600 to-yellow-800', route: '/track', desc: 'Public Tracking' }
+    { id: 'pod', label: 'POD / Delivery', icon: '📦', color: 'from-green-600 to-green-800', route: '/pod', desc: 'Proof of Delivery' },
+    { id: 'drivers', label: 'Drivers', icon: '🚗', color: 'from-cyan-600 to-cyan-800', route: '/drivers', desc: 'Driver Master' },
+    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-yellow-600 to-yellow-800', route: '/reports', desc: 'All Reports' },
+    { id: 'audit', label: 'Audit Log', icon: '🔍', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
+    { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-red-600 to-red-800', route: '/track', desc: 'Public Tracking' }
   ]
 
   return (
@@ -107,7 +109,7 @@ export default function Dashboard() {
           <>
             {/* Welcome */}
             <div className="mb-6 bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-6 text-white shadow-lg">
-              <h1 className="text-3xl font-bold">Welcome Back, {user.username}! </h1>
+              <h1 className="text-3xl font-bold">Welcome Back, {user.username}! 👋</h1>
               <p className="text-red-100 mt-1">Your business overview across all {stats.total_branches || 0} branches</p>
             </div>
 
@@ -163,7 +165,7 @@ export default function Dashboard() {
             {branchStats.length > 0 && (
               <div className="bg-white rounded-xl shadow p-6 mb-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-800 text-lg"> Branch-wise Performance</h3>
+                  <h3 className="font-bold text-gray-800 text-lg">📊 Branch-wise Performance</h3>
                   <button onClick={() => navigate('/branches')} className="text-indigo-700 text-sm font-bold hover:underline">Manage Branches →</button>
                 </div>
                 <div className="overflow-x-auto">
@@ -196,8 +198,8 @@ export default function Dashboard() {
             )}
 
             {/* All Modules */}
-            <h2 className="text-xl font-bold text-gray-800 mb-4"> All Modules</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">🚀 All Modules</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
               {modules.map(m => (
                 <div
                   key={m.id}
@@ -217,7 +219,7 @@ export default function Dashboard() {
             {/* Recent Bilties */}
             <div className="bg-white rounded-xl shadow p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-gray-800 text-lg"> Recent Bilties</h3>
+                <h3 className="font-bold text-gray-800 text-lg">📋 Recent Bilties</h3>
                 <button onClick={() => navigate('/consignments')} className="text-red-700 text-sm font-bold hover:underline">View All →</button>
               </div>
               {recentBilties.length === 0 ? (
