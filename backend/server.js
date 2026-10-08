@@ -1332,6 +1332,60 @@ app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ==========================================
+// CLAIM MANAGEMENT MODULE
+// ==========================================
+
+// Get all claims
+app.get('/api/claims', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
+    const result = await pool.query(`SELECT * FROM claims ${where} ORDER BY claim_date DESC LIMIT 200`);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create new claim
+app.post('/api/claims', authMiddleware, async (req, res) => {
+  try {
+    const c = { ...req.body };
+    if (!c.branch_id) c.branch_id = req.user.branch_id;
+    
+    const keys = Object.keys(c);
+    const values = Object.values(c);
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const row = await pool.query(`INSERT INTO claims (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    
+    await logAudit('CREATE', 'CLAIM', row.rows[0].id, `Claim created for LR ${c.lr_no}`, req.user.username, c.branch_id);
+    res.json(row.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update claim
+app.put('/api/claims/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const data = { ...req.body };
+    delete data.id;
+    delete data.created_at;
+    
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    values.push(id);
+    
+    const result = await pool.query(`UPDATE claims SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
+    await logAudit('UPDATE', 'CLAIM', id, `Claim updated for LR ${result.rows[0]?.lr_no}`, req.user.username);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
