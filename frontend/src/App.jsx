@@ -16,6 +16,7 @@ const MRCreate = lazy(() => import('./pages/MRCreate'))
 const MRPrint = lazy(() => import('./pages/MRPrint'))
 const Audit = lazy(() => import('./pages/Audit'))
 const Branches = lazy(() => import('./pages/Branches'))
+const POD = lazy(() => import('./pages/POD'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -25,7 +26,7 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2> Loading...</h2>
+      <h2>⏳ Loading...</h2>
     </div>
   )
 }
@@ -52,6 +53,7 @@ function App() {
           <Route path="/mr/create" element={<PrivateRoute><MRCreate /></PrivateRoute>} />
           <Route path="/audit" element={<PrivateRoute><Audit /></PrivateRoute>} />
           <Route path="/branches" element={<PrivateRoute><Branches /></PrivateRoute>} />
+          <Route path="/pod" element={<PrivateRoute><POD /></PrivateRoute>} />
           
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
