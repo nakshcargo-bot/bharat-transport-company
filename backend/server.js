@@ -45,14 +45,9 @@ async function runMigrations() {
   // Create all tables first
   const tables = [
     `CREATE TABLE IF NOT EXISTS branches (
-      id SERIAL PRIMARY KEY,
-      branch_code TEXT UNIQUE NOT NULL,
-      branch_name TEXT NOT NULL,
-      address TEXT, city TEXT, state TEXT, pincode TEXT,
-      phone TEXT, email TEXT, gst_no TEXT, pan_no TEXT,
-      manager_name TEXT, manager_phone TEXT,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, branch_code TEXT UNIQUE NOT NULL, branch_name TEXT NOT NULL,
+      address TEXT, city TEXT, state TEXT, pincode TEXT, phone TEXT, email TEXT, gst_no TEXT, pan_no TEXT,
+      manager_name TEXT, manager_phone TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL,
@@ -60,158 +55,101 @@ async function runMigrations() {
       is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS parties (
-      id SERIAL PRIMARY KEY, party_code TEXT UNIQUE NOT NULL,
-      party_name TEXT NOT NULL, party_type TEXT DEFAULT 'Consignor',
-      address TEXT, city TEXT, state TEXT, pincode TEXT,
-      gst_no TEXT, pan_no TEXT, email TEXT, phone TEXT, mobile TEXT,
-      contact_person TEXT, credit_days INTEGER DEFAULT 0,
-      opening_balance NUMERIC DEFAULT 0, is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, party_code TEXT UNIQUE NOT NULL, party_name TEXT NOT NULL, party_type TEXT DEFAULT 'Consignor',
+      address TEXT, city TEXT, state TEXT, pincode TEXT, gst_no TEXT, pan_no TEXT, email TEXT, phone TEXT, mobile TEXT,
+      contact_person TEXT, credit_days INTEGER DEFAULT 0, opening_balance NUMERIC DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS customers (
-      id SERIAL PRIMARY KEY, customer_name TEXT NOT NULL,
-      customer_code TEXT UNIQUE, address TEXT, gst_no TEXT,
-      email TEXT, phone TEXT, is_active BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, customer_name TEXT NOT NULL, customer_code TEXT UNIQUE, address TEXT, gst_no TEXT,
+      email TEXT, phone TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS drivers (
-      id SERIAL PRIMARY KEY, driver_code TEXT UNIQUE NOT NULL,
-      driver_name TEXT NOT NULL, father_name TEXT,
-      aadhar_no TEXT, license_no TEXT, license_expiry DATE,
-      phone TEXT, address TEXT, photo_url TEXT,
-      joining_date DATE, status TEXT DEFAULT 'Active',
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, driver_code TEXT UNIQUE NOT NULL, driver_name TEXT NOT NULL, father_name TEXT,
+      aadhar_no TEXT, license_no TEXT, license_expiry DATE, phone TEXT, address TEXT, photo_url TEXT,
+      joining_date DATE, status TEXT DEFAULT 'Active', created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS vehicles (
-      id SERIAL PRIMARY KEY, vehicle_no TEXT UNIQUE NOT NULL,
-      vehicle_type TEXT, owner_name TEXT, owner_phone TEXT,
-      rc_expiry DATE, insurance_expiry DATE, fitness_expiry DATE,
-      permit_expiry DATE, puc_expiry DATE,
+      id SERIAL PRIMARY KEY, vehicle_no TEXT UNIQUE NOT NULL, vehicle_type TEXT, owner_name TEXT, owner_phone TEXT,
+      rc_expiry DATE, insurance_expiry DATE, fitness_expiry DATE, permit_expiry DATE, puc_expiry DATE,
       status TEXT DEFAULT 'Active', created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS freight_rates (
-      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL,
-      material TEXT, rate_per_kg NUMERIC, rate_per_pkg NUMERIC,
-      min_charge NUMERIC, distance_km NUMERIC,
-      effective_from DATE, effective_to DATE,
-      is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL, material TEXT, rate_per_kg NUMERIC, rate_per_pkg NUMERIC,
+      min_charge NUMERIC, distance_km NUMERIC, effective_from DATE, effective_to DATE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS materials (
-      id SERIAL PRIMARY KEY, material_name TEXT UNIQUE NOT NULL,
-      material_code TEXT, hsn_code TEXT, category TEXT,
+      id SERIAL PRIMARY KEY, material_name TEXT UNIQUE NOT NULL, material_code TEXT, hsn_code TEXT, category TEXT,
       is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS routes (
-      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL,
-      distance_km NUMERIC, via TEXT, estimated_days INTEGER,
+      id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL, distance_km NUMERIC, via TEXT, estimated_days INTEGER,
       is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS consignments (
-      id SERIAL PRIMARY KEY, lr_no TEXT UNIQUE NOT NULL, lr_date DATE,
-      branch_id INTEGER, branch_code TEXT,
-      from_name TEXT, to_name TEXT,
-      consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT,
-      consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT,
-      invoice_no TEXT, invoice_date TEXT, po_no TEXT,
-      lorry_no TEXT, driver_name TEXT, driver_mobile TEXT,
-      delivery_type TEXT DEFAULT 'DOOR DELIVERY',
-      packages TEXT, method_of_packing TEXT, hsn_code TEXT,
-      actual_weight TEXT, charged_weight TEXT,
-      material_desc TEXT, eway_bill_no TEXT,
-      length TEXT, width TEXT, height TEXT, total_cft TEXT,
-      declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY',
-      rv_no TEXT, rv_dt TEXT, rv_am TEXT,
-      insurance_company TEXT, policy_no TEXT, insurance_amount TEXT,
-      freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT,
-      collection_charges TEXT, door_dly_charges TEXT, misc_charges TEXT,
-      grand_total TEXT, status TEXT DEFAULT 'Booked',
-      payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT,
-      pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT,
+      id SERIAL PRIMARY KEY, lr_no TEXT UNIQUE NOT NULL, lr_date DATE, branch_id INTEGER, branch_code TEXT,
+      from_name TEXT, to_name TEXT, consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT,
+      consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT, invoice_no TEXT, invoice_date TEXT, po_no TEXT,
+      lorry_no TEXT, driver_name TEXT, driver_mobile TEXT, delivery_type TEXT DEFAULT 'DOOR DELIVERY',
+      packages TEXT, method_of_packing TEXT, hsn_code TEXT, actual_weight TEXT, charged_weight TEXT,
+      material_desc TEXT, eway_bill_no TEXT, length TEXT, width TEXT, height TEXT, total_cft TEXT,
+      declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY', rv_no TEXT, rv_dt TEXT, rv_am TEXT,
+      insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT,
+      collection_charges TEXT, door_dly_charges TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked',
+      payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT,
       created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS pod_records (
-      id SERIAL PRIMARY KEY, lr_no TEXT NOT NULL, branch_id INTEGER,
-      delivery_date DATE, delivered_by TEXT,
-      receiver_name TEXT, receiver_signature TEXT,
-      receiver_phone TEXT, delivery_remarks TEXT,
-      photo_url TEXT, status TEXT DEFAULT 'Delivered',
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, lr_no TEXT NOT NULL, branch_id INTEGER, delivery_date DATE, delivered_by TEXT,
+      receiver_name TEXT, receiver_signature TEXT, receiver_phone TEXT, delivery_remarks TEXT,
+      photo_url TEXT, status TEXT DEFAULT 'Delivered', created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS bill_book (
-      id SERIAL PRIMARY KEY, bill_no TEXT UNIQUE, bill_date DATE,
-      branch_id INTEGER, party_name TEXT, party_code TEXT,
-      lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT,
-      status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid',
+      id SERIAL PRIMARY KEY, bill_no TEXT UNIQUE, bill_date DATE, branch_id INTEGER, party_name TEXT, party_code TEXT,
+      lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT, status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid',
       mr_no TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS money_receipts (
-      id SERIAL PRIMARY KEY, mr_no TEXT UNIQUE NOT NULL,
-      mr_date DATE NOT NULL, branch_id INTEGER,
-      party_type TEXT NOT NULL, party_name TEXT NOT NULL,
-      bilty_id INTEGER, bilty_lr_no TEXT,
-      bill_id INTEGER, bill_no TEXT,
-      amount NUMERIC NOT NULL, payment_mode TEXT DEFAULT 'Cash',
-      is_advance BOOLEAN DEFAULT FALSE, remarks TEXT,
-      created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, mr_no TEXT UNIQUE NOT NULL, mr_date DATE NOT NULL, branch_id INTEGER,
+      party_type TEXT NOT NULL, party_name TEXT NOT NULL, bilty_id INTEGER, bilty_lr_no TEXT,
+      bill_id INTEGER, bill_no TEXT, amount NUMERIC NOT NULL, payment_mode TEXT DEFAULT 'Cash',
+      is_advance BOOLEAN DEFAULT FALSE, remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS party_ledger (
-      id SERIAL PRIMARY KEY, party_code TEXT NOT NULL, branch_id INTEGER,
-      transaction_date DATE, transaction_type TEXT,
-      reference_no TEXT, debit NUMERIC DEFAULT 0, credit NUMERIC DEFAULT 0,
-      balance NUMERIC DEFAULT 0, remarks TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, party_code TEXT NOT NULL, branch_id INTEGER, transaction_date DATE, transaction_type TEXT,
+      reference_no TEXT, debit NUMERIC DEFAULT 0, credit NUMERIC DEFAULT 0, balance NUMERIC DEFAULT 0, remarks TEXT, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS expenses (
-      id SERIAL PRIMARY KEY, expense_date DATE, branch_id INTEGER,
-      category TEXT, description TEXT, amount NUMERIC,
-      payment_mode TEXT, bill_no TEXT, approved_by TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, expense_date DATE, branch_id INTEGER, category TEXT, description TEXT, amount NUMERIC,
+      payment_mode TEXT, bill_no TEXT, approved_by TEXT, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS claims (
-      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER,
-      claim_date DATE, claim_type TEXT, description TEXT,
-      claim_amount NUMERIC, settled_amount NUMERIC,
-      status TEXT DEFAULT 'Open', remarks TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER, claim_date DATE, claim_type TEXT, description TEXT,
+      claim_amount NUMERIC, settled_amount NUMERIC, status TEXT DEFAULT 'Open', remarks TEXT, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS commissions (
-      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER,
-      agent_name TEXT, commission_percent NUMERIC, commission_amount NUMERIC,
-      status TEXT DEFAULT 'Pending', paid_date DATE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, lr_no TEXT, branch_id INTEGER, agent_name TEXT, commission_percent NUMERIC, commission_amount NUMERIC,
+      status TEXT DEFAULT 'Pending', paid_date DATE, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS notifications (
-      id SERIAL PRIMARY KEY, lr_no TEXT, party_name TEXT,
-      phone TEXT, email TEXT, message TEXT,
-      type TEXT, status TEXT DEFAULT 'Pending',
-      sent_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, lr_no TEXT, party_name TEXT, phone TEXT, email TEXT, message TEXT,
+      type TEXT, status TEXT DEFAULT 'Pending', sent_at TIMESTAMP, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS audit_logs (
-      id SERIAL PRIMARY KEY, action TEXT NOT NULL, module TEXT NOT NULL,
-      record_id TEXT, details TEXT, performed_by TEXT,
+      id SERIAL PRIMARY KEY, action TEXT NOT NULL, module TEXT NOT NULL, record_id TEXT, details TEXT, performed_by TEXT,
       branch_id INTEGER, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS gate_passes (
-      id SERIAL PRIMARY KEY, pass_no TEXT UNIQUE NOT NULL,
-      branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
-      driver_name TEXT, driver_mobile TEXT,
-      material_desc TEXT, quantity TEXT, weight TEXT,
-      valid_until DATE, issued_by TEXT, qr_code TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, pass_no TEXT UNIQUE NOT NULL, branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
+      driver_name TEXT, driver_mobile TEXT, material_desc TEXT, quantity TEXT, weight TEXT,
+      valid_until DATE, issued_by TEXT, qr_code TEXT, created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS gadi_challans (
-      id SERIAL PRIMARY KEY, challan_no TEXT UNIQUE NOT NULL,
-      branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
-      driver_name TEXT, driver_mobile TEXT, driver_license TEXT,
-      owner_name TEXT, owner_mobile TEXT,
-      broker_name TEXT, broker_mobile TEXT, broker_commission TEXT,
-      from_place TEXT, to_place TEXT, material_desc TEXT,
-      weight TEXT, packages TEXT, bilty_date DATE,
-      consignor_name TEXT, consignee_name TEXT,
-      freight_amount NUMERIC, advance_paid NUMERIC, balance_due NUMERIC,
-      toll_expense NUMERIC, diesel_expense NUMERIC, other_expense NUMERIC,
-      tds_deduction NUMERIC, net_payable NUMERIC, issue_date DATE,
-      created_at TIMESTAMP DEFAULT NOW()
+      id SERIAL PRIMARY KEY, challan_no TEXT UNIQUE NOT NULL, branch_id INTEGER, lr_no TEXT, vehicle_no TEXT,
+      driver_name TEXT, driver_mobile TEXT, driver_license TEXT, owner_name TEXT, owner_mobile TEXT,
+      broker_name TEXT, broker_mobile TEXT, broker_commission TEXT, from_place TEXT, to_place TEXT, material_desc TEXT,
+      weight TEXT, packages TEXT, bilty_date DATE, consignor_name TEXT, consignee_name TEXT,
+      freight_amount NUMERIC, advance_paid NUMERIC, balance_due NUMERIC, toll_expense NUMERIC, diesel_expense NUMERIC, other_expense NUMERIC,
+      tds_deduction NUMERIC, net_payable NUMERIC, issue_date DATE, created_at TIMESTAMP DEFAULT NOW()
     )`
   ];
 
@@ -219,10 +157,41 @@ async function runMigrations() {
     try { await pool.query(sql); } catch (err) { console.error('Table error:', err.message); }
   }
 
+  // ==========================================
+  // ADD MANIFEST TABLES (NEW TCI-LEVEL FEATURE)
+  // ==========================================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS manifests (
+      id SERIAL PRIMARY KEY,
+      manifest_no TEXT UNIQUE NOT NULL,
+      manifest_date DATE NOT NULL,
+      branch_id INTEGER,
+      from_branch TEXT,
+      to_branch TEXT,
+      vehicle_no TEXT,
+      driver_name TEXT,
+      driver_mobile TEXT,
+      status TEXT DEFAULT 'Created',
+      remarks TEXT,
+      created_by TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS manifest_items (
+      id SERIAL PRIMARY KEY,
+      manifest_id INTEGER REFERENCES manifests(id) ON DELETE CASCADE,
+      lr_no TEXT NOT NULL,
+      branch_id INTEGER,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  console.log('✅ Manifests tables created successfully');
+
   // ===== ADD MISSING COLUMNS TO EXISTING TABLES =====
   console.log('🔧 Adding missing columns to existing tables...');
-
-  // Branches table - add new columns
   await addColumnIfNotExists('branches', 'address', 'TEXT');
   await addColumnIfNotExists('branches', 'city', 'TEXT');
   await addColumnIfNotExists('branches', 'state', 'TEXT');
@@ -235,12 +204,10 @@ async function runMigrations() {
   await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
   await addColumnIfNotExists('branches', 'is_active', 'BOOLEAN DEFAULT TRUE');
 
-  // Money receipts - add branch_id
   await addColumnIfNotExists('money_receipts', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('money_receipts', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('money_receipts', 'created_by', 'TEXT');
 
-  // Consignments - add branch columns
   await addColumnIfNotExists('consignments', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('consignments', 'branch_code', 'TEXT');
   await addColumnIfNotExists('consignments', 'pod_status', "TEXT DEFAULT 'Pending'");
@@ -248,35 +215,17 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
 
-  // Bill book - add branch_id
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
-
-  // Party ledger - add branch_id
   await addColumnIfNotExists('party_ledger', 'branch_id', 'INTEGER');
-
-  // Expenses - add branch_id
   await addColumnIfNotExists('expenses', 'branch_id', 'INTEGER');
-
-  // Claims - add branch_id
   await addColumnIfNotExists('claims', 'branch_id', 'INTEGER');
-
-  // Commissions - add branch_id
   await addColumnIfNotExists('commissions', 'branch_id', 'INTEGER');
-
-  // Audit logs - add branch_id
   await addColumnIfNotExists('audit_logs', 'branch_id', 'INTEGER');
-
-  // Gate passes - add branch_id
   await addColumnIfNotExists('gate_passes', 'branch_id', 'INTEGER');
-
-  // Gadi challans - add branch_id
   await addColumnIfNotExists('gadi_challans', 'branch_id', 'INTEGER');
-
-  // POD records - add branch_id
   await addColumnIfNotExists('pod_records', 'branch_id', 'INTEGER');
 
-  // Parties - add new columns
   await addColumnIfNotExists('parties', 'party_type', "TEXT DEFAULT 'Consignor'");
   await addColumnIfNotExists('parties', 'city', 'TEXT');
   await addColumnIfNotExists('parties', 'state', 'TEXT');
@@ -287,7 +236,6 @@ async function runMigrations() {
   await addColumnIfNotExists('parties', 'credit_days', 'INTEGER DEFAULT 0');
   await addColumnIfNotExists('parties', 'opening_balance', 'NUMERIC DEFAULT 0');
 
-  // Drivers - add new columns
   await addColumnIfNotExists('drivers', 'driver_code', 'TEXT');
   await addColumnIfNotExists('drivers', 'father_name', 'TEXT');
   await addColumnIfNotExists('drivers', 'aadhar_no', 'TEXT');
@@ -297,7 +245,6 @@ async function runMigrations() {
   await addColumnIfNotExists('drivers', 'photo_url', 'TEXT');
   await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
 
-  // Vehicles - add new columns
   await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
   await addColumnIfNotExists('vehicles', 'owner_name', 'TEXT');
   await addColumnIfNotExists('vehicles', 'owner_phone', 'TEXT');
@@ -372,10 +319,7 @@ app.post('/api/auth/login', async (req, res) => {
     await logAudit('LOGIN', 'AUTH', user.id, `User ${username} logged in`, username, user.branch_id);
     res.json({
       success: true, token,
-      user: {
-        id: user.id, username: user.username, role: user.role,
-        branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name
-      }
+      user: { id: user.id, username: user.username, role: user.role, branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name }
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -389,7 +333,6 @@ app.get('/api/branches', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/branches', authMiddleware, async (req, res) => {
   try {
     const keys = Object.keys(req.body);
@@ -400,7 +343,6 @@ app.post('/api/branches', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.put('/api/branches/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
@@ -415,7 +357,6 @@ app.put('/api/branches/:id', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query('UPDATE branches SET is_active = FALSE WHERE id = $1', [req.params.id]);
@@ -455,24 +396,13 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
     ]);
 
     res.json({
-      today_lr: parseInt(results[0].rows[0].count),
-      month_lr: parseInt(results[1].rows[0].count),
-      total_lr: parseInt(results[2].rows[0].count),
-      pending_lr: parseInt(results[3].rows[0].count),
-      paid_lr: parseInt(results[4].rows[0].count),
-      total_bills: parseInt(results[5].rows[0].count),
-      pending_bills: parseInt(results[6].rows[0].count),
-      total_mr: parseInt(results[7].rows[0].count),
-      total_parties: parseInt(results[8].rows[0].count),
-      total_customers: parseInt(results[9].rows[0].count),
-      total_revenue: parseFloat(results[10].rows[0].total || 0),
-      pending_amount: parseFloat(results[11].rows[0].total || 0),
-      pending_pod: parseInt(results[12].rows[0].count),
-      active_drivers: parseInt(results[13].rows[0].count),
-      active_vehicles: parseInt(results[14].rows[0].count),
-      open_claims: parseInt(results[15].rows[0].count),
-      today_expenses: parseFloat(results[16].rows[0].total || 0),
-      total_branches: parseInt(results[17].rows[0].count)
+      today_lr: parseInt(results[0].rows[0].count), month_lr: parseInt(results[1].rows[0].count), total_lr: parseInt(results[2].rows[0].count),
+      pending_lr: parseInt(results[3].rows[0].count), paid_lr: parseInt(results[4].rows[0].count), total_bills: parseInt(results[5].rows[0].count),
+      pending_bills: parseInt(results[6].rows[0].count), total_mr: parseInt(results[7].rows[0].count), total_parties: parseInt(results[8].rows[0].count),
+      total_customers: parseInt(results[9].rows[0].count), total_revenue: parseFloat(results[10].rows[0].total || 0),
+      pending_amount: parseFloat(results[11].rows[0].total || 0), pending_pod: parseInt(results[12].rows[0].count),
+      active_drivers: parseInt(results[13].rows[0].count), active_vehicles: parseInt(results[14].rows[0].count),
+      open_claims: parseInt(results[15].rows[0].count), today_expenses: parseFloat(results[16].rows[0].total || 0), total_branches: parseInt(results[17].rows[0].count)
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -484,11 +414,8 @@ app.get('/api/dashboard/branch-stats', authMiddleware, async (req, res) => {
         COUNT(c.id) as total_lr,
         SUM(CASE WHEN c.payment_status = 'Paid' THEN COALESCE(CAST(c.grand_total AS NUMERIC), 0) ELSE 0 END) as revenue,
         SUM(CASE WHEN c.payment_status = 'Unpaid' THEN COALESCE(CAST(c.grand_total AS NUMERIC), 0) ELSE 0 END) as pending
-      FROM branches b
-      LEFT JOIN consignments c ON b.id = c.branch_id
-      WHERE b.is_active = TRUE
-      GROUP BY b.id, b.branch_code, b.branch_name, b.city
-      ORDER BY revenue DESC
+      FROM branches b LEFT JOIN consignments c ON b.id = c.branch_id
+      WHERE b.is_active = TRUE GROUP BY b.id, b.branch_code, b.branch_name, b.city ORDER BY revenue DESC
     `);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -540,10 +467,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     const keys = Object.keys(c);
     const values = Object.values(c);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    
-    const result = await pool.query(
-      `INSERT INTO consignments (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values
-    );
+    const result = await pool.query(`INSERT INTO consignments (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
     await logAudit('CREATE', 'CONSIGNMENT', result.rows[0].id, `Bilty ${c.lr_no} created`, req.user.username, c.branch_id);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -608,7 +532,6 @@ app.get('/api/drivers', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/drivers', authMiddleware, async (req, res) => {
   try {
     const keys = Object.keys(req.body);
@@ -619,7 +542,6 @@ app.post('/api/drivers', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.put('/api/drivers/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
@@ -643,7 +565,6 @@ app.get('/api/vehicles', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/vehicles', authMiddleware, async (req, res) => {
   try {
     const keys = Object.keys(req.body);
@@ -653,15 +574,12 @@ app.post('/api/vehicles', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.get('/api/vehicles/expiring', authMiddleware, async (req, res) => {
   try {
     const thirtyDays = new Date();
     thirtyDays.setDate(thirtyDays.getDate() + 30);
     const result = await pool.query(
-      `SELECT * FROM vehicles WHERE 
-       insurance_expiry <= $1 OR fitness_expiry <= $1 OR permit_expiry <= $1 OR rc_expiry <= $1
-       ORDER BY insurance_expiry ASC`,
+      `SELECT * FROM vehicles WHERE insurance_expiry <= $1 OR fitness_expiry <= $1 OR permit_expiry <= $1 OR rc_expiry <= $1 ORDER BY insurance_expiry ASC`,
       [thirtyDays.toISOString().split('T')[0]]
     );
     res.json({ data: result.rows });
@@ -669,67 +587,46 @@ app.get('/api/vehicles/expiring', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// FREIGHT RATES
+// FREIGHT RATES, MATERIALS, ROUTES
 // ==========================================
 app.get('/api/freight-rates', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM freight_rates WHERE is_active = TRUE ORDER BY from_city, to_city");
-    res.json({ data: result.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const result = await pool.query("SELECT * FROM freight_rates WHERE is_active = TRUE ORDER BY from_city, to_city"); res.json({ data: result.rows }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/freight-rates', authMiddleware, async (req, res) => {
   try {
-    const keys = Object.keys(req.body);
-    const values = Object.values(req.body);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO freight_rates (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(req.body); const values = Object.values(req.body);
+    const result = await pool.query(`INSERT INTO freight_rates (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// MATERIALS
-// ==========================================
 app.get('/api/materials', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM materials WHERE is_active = TRUE ORDER BY material_name");
-    res.json({ data: result.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const result = await pool.query("SELECT * FROM materials WHERE is_active = TRUE ORDER BY material_name"); res.json({ data: result.rows }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/materials', authMiddleware, async (req, res) => {
   try {
-    const keys = Object.keys(req.body);
-    const values = Object.values(req.body);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO materials (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(req.body); const values = Object.values(req.body);
+    const result = await pool.query(`INSERT INTO materials (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// ROUTES
-// ==========================================
 app.get('/api/routes', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM routes WHERE is_active = TRUE ORDER BY from_city, to_city");
-    res.json({ data: result.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const result = await pool.query("SELECT * FROM routes WHERE is_active = TRUE ORDER BY from_city, to_city"); res.json({ data: result.rows }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/routes', authMiddleware, async (req, res) => {
   try {
-    const keys = Object.keys(req.body);
-    const values = Object.values(req.body);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO routes (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(req.body); const values = Object.values(req.body);
+    const result = await pool.query(`INSERT INTO routes (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// PARTY LEDGER
+// PARTY LEDGER & OUTSTANDING
 // ==========================================
 app.get('/api/ledger/:partyCode', authMiddleware, async (req, res) => {
   try {
@@ -740,40 +637,31 @@ app.get('/api/ledger/:partyCode', authMiddleware, async (req, res) => {
     res.json({ data: result.rows, balance: parseFloat(balance.rows[0].balance || 0) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/ledger', authMiddleware, async (req, res) => {
   try {
-    const keys = Object.keys(req.body);
-    const values = Object.values(req.body);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO party_ledger (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(req.body); const values = Object.values(req.body);
+    const result = await pool.query(`INSERT INTO party_ledger (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// OUTSTANDING
-// ==========================================
 app.get('/api/outstanding', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
     const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
     const result = await pool.query(
-      `SELECT consignor_name as party_name, consignor_code as party_code, branch_code,
-       COUNT(*) as total_bilties,
+      `SELECT consignor_name as party_name, consignor_code as party_code, branch_code, COUNT(*) as total_bilties,
        SUM(CASE WHEN payment_status = 'Unpaid' THEN CAST(grand_total AS NUMERIC) ELSE 0 END) as pending_amount,
-       SUM(CAST(grand_total AS NUMERIC)) as total_amount
-       FROM consignments ${where}
+       SUM(CAST(grand_total AS NUMERIC)) as total_amount FROM consignments ${where}
        GROUP BY consignor_name, consignor_code, branch_code
-       HAVING SUM(CASE WHEN payment_status = 'Unpaid' THEN CAST(grand_total AS NUMERIC) ELSE 0 END) > 0
-       ORDER BY pending_amount DESC`
+       HAVING SUM(CASE WHEN payment_status = 'Unpaid' THEN CAST(grand_total AS NUMERIC) ELSE 0 END) > 0 ORDER BY pending_amount DESC`
     );
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// EXPENSES
+// EXPENSES, CLAIMS, COMMISSIONS
 // ==========================================
 app.get('/api/expenses', authMiddleware, async (req, res) => {
   try {
@@ -783,22 +671,16 @@ app.get('/api/expenses', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/expenses', authMiddleware, async (req, res) => {
   try {
     const data = { ...req.body };
     if (!data.branch_id) data.branch_id = req.user.branch_id;
-    const keys = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO expenses (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(data); const values = Object.values(data);
+    const result = await pool.query(`INSERT INTO expenses (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// CLAIMS
-// ==========================================
 app.get('/api/claims', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -807,22 +689,16 @@ app.get('/api/claims', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/claims', authMiddleware, async (req, res) => {
   try {
     const data = { ...req.body };
     if (!data.branch_id) data.branch_id = req.user.branch_id;
-    const keys = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO claims (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(data); const values = Object.values(data);
+    const result = await pool.query(`INSERT INTO claims (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// COMMISSIONS
-// ==========================================
 app.get('/api/commissions', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -831,46 +707,35 @@ app.get('/api/commissions', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/commissions', authMiddleware, async (req, res) => {
   try {
     const data = { ...req.body };
     if (!data.branch_id) data.branch_id = req.user.branch_id;
-    const keys = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO commissions (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(data); const values = Object.values(data);
+    const result = await pool.query(`INSERT INTO commissions (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// PARTIES
+// PARTIES, BILLS, MONEY RECEIPTS
 // ==========================================
 app.get('/api/parties', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM parties WHERE is_active = TRUE ORDER BY party_name');
-    res.json({ data: result.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const result = await pool.query('SELECT * FROM parties WHERE is_active = TRUE ORDER BY party_name'); res.json({ data: result.rows }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/parties', authMiddleware, async (req, res) => {
   try {
     const { party_code, party_name, address, gst_no, email, phone } = req.body;
     const result = await pool.query(
-      `INSERT INTO parties (party_code, party_name, address, gst_no, email, phone)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT(party_code) DO UPDATE SET party_name=EXCLUDED.party_name, address=EXCLUDED.address, gst_no=EXCLUDED.gst_no
-       RETURNING *`,
+      `INSERT INTO parties (party_code, party_name, address, gst_no, email, phone) VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT(party_code) DO UPDATE SET party_name=EXCLUDED.party_name, address=EXCLUDED.address, gst_no=EXCLUDED.gst_no RETURNING *`,
       [party_code, party_name, address || '', gst_no || '', email || '', phone || '']
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// BILLS
-// ==========================================
 app.get('/api/bills', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -879,7 +744,6 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/bills', authMiddleware, async (req, res) => {
   try {
     const b = { ...req.body };
@@ -887,17 +751,12 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
     if (!b.bill_date) b.bill_date = new Date().toISOString().split('T')[0];
     if (!b.status) b.status = 'Pending';
     if (!b.payment_status) b.payment_status = 'Unpaid';
-    const keys = Object.keys(b);
-    const values = Object.values(b);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO bill_book (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(b); const values = Object.values(b);
+    const result = await pool.query(`INSERT INTO bill_book (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// MONEY RECEIPTS
-// ==========================================
 app.get('/api/mr', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -906,7 +765,6 @@ app.get('/api/mr', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/mr', authMiddleware, async (req, res) => {
   try {
     const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
@@ -935,16 +793,13 @@ app.post('/api/mr', authMiddleware, async (req, res) => {
     res.json({ success: true, mr_no: finalMRNo, data: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.delete('/api/mr/:id', authMiddleware, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM money_receipts WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { await pool.query('DELETE FROM money_receipts WHERE id = $1', [req.params.id]); res.json({ success: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// AUDIT
+// AUDIT, CUSTOMERS, GATE PASS, GADI CHALLAN, TRACKING
 // ==========================================
 app.get('/api/audit', authMiddleware, async (req, res) => {
   try {
@@ -955,19 +810,11 @@ app.get('/api/audit', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// CUSTOMERS
-// ==========================================
 app.get('/api/customers', authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM customers WHERE is_active = TRUE ORDER BY customer_name');
-    res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  try { const result = await pool.query('SELECT * FROM customers WHERE is_active = TRUE ORDER BY customer_name'); res.json(result.rows); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// GATE PASS
-// ==========================================
 app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -976,7 +823,6 @@ app.get('/api/gate-pass', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   try {
     const { lr_no, vehicle_no, driver_name, driver_mobile, material_desc, quantity, weight, valid_until, issued_by } = req.body;
@@ -998,9 +844,6 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// GADI CHALLAN
-// ==========================================
 app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const branchId = req.query.branch_id;
@@ -1009,7 +852,6 @@ app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
@@ -1022,17 +864,12 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
       if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
     }
     c.challan_no = `GC/${year}/${String(nextSerial).padStart(4, '0')}`;
-    const keys = Object.keys(c);
-    const values = Object.values(c);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const row = await pool.query(`INSERT INTO gadi_challans (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const keys = Object.keys(c); const values = Object.values(c);
+    const row = await pool.query(`INSERT INTO gadi_challans (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(row.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ==========================================
-// PUBLIC TRACKING
-// ==========================================
 app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
@@ -1040,6 +877,60 @@ app.get('/api/consignments/track', async (req, res) => {
     const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1', [lr_no]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
     res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// TRANSIT / MANIFEST MODULE (NEW TCI-LEVEL FEATURE)
+// ==========================================
+app.get('/api/manifests', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE m.branch_id = ${parseInt(branchId)}` : '';
+    const result = await pool.query(`
+      SELECT m.*, COUNT(mi.id) as total_lrs, STRING_AGG(mi.lr_no, ', ') as lr_nos
+      FROM manifests m LEFT JOIN manifest_items mi ON m.id = mi.manifest_id
+      ${where} GROUP BY m.id ORDER BY m.created_at DESC LIMIT 200
+    `);
+    res.json({ data: result.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/manifests', authMiddleware, async (req, res) => {
+  try {
+    const { manifest_no, manifest_date, branch_id, from_branch, to_branch, vehicle_no, driver_name, driver_mobile, lr_nos, status, remarks } = req.body;
+    const bId = branch_id || req.user.branch_id;
+    const year = String(new Date().getFullYear()).slice(-2);
+    
+    let finalManifestNo = manifest_no;
+    if (!finalManifestNo) {
+      const lastManifest = await pool.query(`SELECT manifest_no FROM manifests WHERE manifest_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`MF/${year}/%`]);
+      let nextSerial = 1;
+      if (lastManifest.rows.length > 0 && lastManifest.rows[0].manifest_no) {
+        const parts = lastManifest.rows[0].manifest_no.split('/');
+        nextSerial = parseInt(parts[2] || '0') + 1;
+      }
+      finalManifestNo = `MF/${year}/${String(nextSerial).padStart(4, '0')}`;
+    }
+
+    const result = await pool.query(
+      `INSERT INTO manifests (manifest_no, manifest_date, branch_id, from_branch, to_branch, vehicle_no, driver_name, driver_mobile, status, remarks, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [finalManifestNo, manifest_date || new Date().toISOString().split('T')[0], bId, from_branch, to_branch, vehicle_no, driver_name, driver_mobile, status || 'Created', remarks || '', req.user.username]
+    );
+
+    const manifestId = result.rows[0].id;
+
+    if (lr_nos && lr_nos.length > 0) {
+      const lrArray = lr_nos.split(',').map(lr => lr.trim());
+      for (const lr_no of lrArray) {
+        await pool.query(`INSERT INTO manifest_items (manifest_id, lr_no, branch_id) VALUES ($1, $2, $3)`, [manifestId, lr_no, bId]);
+        await pool.query(`UPDATE consignments SET status = 'In-Transit', lorry_no = $1, driver_name = $2 WHERE lr_no = $3`, [vehicle_no, driver_name, lr_no]);
+      }
+    }
+
+    await logAudit('CREATE', 'MANIFEST', manifestId, `Manifest ${finalManifestNo} created`, req.user.username, bId);
+    res.json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
