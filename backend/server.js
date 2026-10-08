@@ -1123,6 +1123,143 @@ async function startServer() {
     console.log(`✅ Bharat Transport TMS v6.0 - Multi-Branch running on port ${PORT}`);
   });
 }
+// ==========================================
+// SMART RATE ENGINE MODULE
+// ==========================================
+
+// Get all rate contracts
+app.get('/api/rates', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const where = branchId ? `WHERE branch_id = ${parseInt(branchId)}` : '';
+    const result = await pool.query(`SELECT * FROM rate_contracts ${where} ORDER BY from_city, to_city, effective_from DESC`);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create new rate contract
+app.post('/api/rates', authMiddleware, async (req, res) => {
+  try {
+    const r = { ...req.body };
+    if (!r.branch_id) r.branch_id = req.user.branch_id;
+    if (!r.created_by) r.created_by = req.user.username;
+    
+    const keys = Object.keys(r);
+    const values = Object.values(r);
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const row = await pool.query(`INSERT INTO rate_contracts (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    
+    await logAudit('CREATE', 'RATE_CONTRACT', row.rows[0].id, `Rate contract created: ${r.from_city} to ${r.to_city}`, req.user.username, r.branch_id);
+    res.json(row.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update rate contract
+app.put('/api/rates/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const data = { ...req.body };
+    delete data.id;
+    delete data.created_at;
+    data.updated_at = new Date().toISOString();
+    
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    values.push(id);
+    
+    const result = await pool.query(`UPDATE rate_contracts SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
+    await logAudit('UPDATE', 'RATE_CONTRACT', id, `Rate contract updated`, req.user.username);
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete rate contract
+app.delete('/api/rates/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM rate_contracts WHERE id = $1', [req.params.id]);
+    await logAudit('DELETE', 'RATE_CONTRACT', req.params.id, `Rate contract deleted`, req.user.username);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Calculate freight based on rate contract
+app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
+  try {
+    const { from_city, to_city, weight_kg, packages, party_code } = req.body;
+    
+    if (!from_city || !to_city) {
+      return res.status(400).json({ error: 'From and To cities are required' });
+    }
+    
+    // Find applicable rate contract
+    const today = new Date().toISOString().split('T')[0];
+    let query = `
+      SELECT * FROM rate_contracts 
+      WHERE from_city = $1 AND to_city = $2 
+      AND effective_from <= $3 
+      AND (effective_to IS NULL OR effective_to >= $3)
+      AND is_active = TRUE
+    `;
+    const params = [from_city, to_city, today];
+    
+    if (party_code) {
+      query += ` AND (party_code = $4 OR party_code IS NULL)`;
+      params.push(party_code);
+    }
+    
+    query += ` ORDER BY party_code DESC NULLS LAST, weight_from DESC LIMIT 1`;
+    
+    const result = await pool.query(query, params);
+    
+    if (result.rows.length === 0) {
+      return res.json({ 
+        found: false, 
+        message: 'No rate contract found for this route',
+        freight: 0 
+      });
+    }
+    
+    const rate = result.rows[0];
+    let freight = 0;
+    
+    // Calculate based on weight or packages
+    if (rate.rate_type === 'per_kg' && weight_kg) {
+      freight = parseFloat(weight_kg) * parseFloat(rate.rate_per_kg);
+    } else if (rate.rate_type === 'per_pkg' && packages) {
+      freight = parseFloat(packages) * parseFloat(rate.rate_per_pkg);
+    } else if (rate.rate_type === 'fixed') {
+      freight = parseFloat(rate.fixed_rate || 0);
+    }
+    
+    // Apply minimum charge
+    if (rate.min_charge && freight < parseFloat(rate.min_charge)) {
+      freight = parseFloat(rate.min_charge);
+    }
+    
+    res.json({
+      found: true,
+      rate_contract: rate,
+      freight: Math.round(freight * 100) / 100,
+      calculation: {
+        weight_kg,
+        packages,
+        rate_applied: rate.rate_type === 'per_kg' ? rate.rate_per_kg : rate.rate_per_pkg,
+        min_charge: rate.min_charge
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 startServer();
 module.exports = app;
