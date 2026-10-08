@@ -1,263 +1,485 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function GadiChallan() {
   const navigate = useNavigate()
+  const [challans, setChallans] = useState([])
+  const [biltyList, setBiltyList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+
   const [formData, setFormData] = useState({
-    lr_no: '', vehicle_no: '', driver_name: '', driver_mobile: '', driver_license: '',
-    owner_name: '', owner_mobile: '', broker_name: '', broker_mobile: '', broker_commission: '',
-    from_place: '', to_place: '', material_desc: '', weight: '', packages: '',
-    bilty_date: '', consignor_name: '', consignee_name: '',
-    freight_amount: '', advance_paid: '', toll_expense: '', diesel_expense: '',
-    other_expense: '', tds_deduction: '', issue_date: new Date().toISOString().split('T')[0]
+    lr_no: '',
+    vehicle_no: '',
+    driver_name: '',
+    driver_mobile: '',
+    driver_license: '',
+    owner_name: '',
+    owner_mobile: '',
+    broker_name: '',
+    broker_mobile: '',
+    broker_commission: '',
+    from_place: '',
+    to_place: '',
+    material_desc: '',
+    weight: '',
+    packages: '',
+    bilty_date: '',
+    consignor_name: '',
+    consignee_name: '',
+    freight_amount: '',
+    advance_paid: '',
+    balance_due: '',
+    toll_expense: '',
+    diesel_expense: '',
+    other_expense: '',
+    tds_deduction: '',
+    net_payable: '',
+    issue_date: new Date().toISOString().split('T')[0]
   })
-  const [challan, setChallan] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [fetchingLR, setFetchingLR] = useState(false)
 
-  const handleChange = (e) => {
-    setFormData({...formData, [e.target.name]: e.target.value})
-  }
+  useEffect(() => {
+    fetchData()
+    fetchBilties()
+  }, [])
 
-  // ✅ FIXED: Robust Auto-fetch that handles missing columns gracefully
-  const handleLRChange = async (e) => {
-    const lr_no = e.target.value
-    setFormData(prev => ({ ...prev, lr_no }))
-    
-    if (lr_no.trim().length > 5) {
-      setFetchingLR(true)
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-        const response = await fetch(`${apiUrl}/api/consignments/track?lr_no=${encodeURIComponent(lr_no.trim())}`)
-        const data = await response.json()
-        
-        if (response.ok && data.lr_no) {
-          setFormData(prev => ({
-            ...prev,
-            lr_no: data.lr_no,
-            bilty_date: data.lr_date || '',
-            from_place: data.from_name || data.from_place || '',
-            to_place: data.to_name || data.to_place || '',
-            consignor_name: data.consignor_name || '',
-            consignee_name: data.consignee_name || '',
-            // Try multiple possible column names for weight/packages/material
-            material_desc: data.material_desc || data.goods || data.commodity || '',
-            weight: data.weight || data.gross_weight || data.total_weight || data.actual_weight || '',
-            packages: data.packages || data.no_of_packages || data.pkgs || '',
-            vehicle_no: data.lorry_no || data.vehicle_no || prev.vehicle_no
-          }))
-        }
-      } catch (err) {
-        console.error('LR fetch error:', err)
-      } finally {
-        setFetchingLR(false)
-      }
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+  const fetchData = async () => {
     try {
+      setLoading(true)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const response = await fetch(`${apiUrl}/api/gadi-challan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(formData)
-      })
-      const data = await response.json()
-      if (response.ok) {
-        setChallan(data)
-      } else {
-        alert('Error: ' + (data.error || 'Failed to create challan'))
+      const headers = { 'Authorization': `Bearer ${token}` }
+
+      const res = await fetch(`${apiUrl}/api/gadi-challan`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setChallans(data.data || [])
       }
     } catch (err) {
-      alert('Error: ' + err.message)
+      console.error('Challan fetch error:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const freight = parseFloat(formData.freight_amount || 0)
-  const advance = parseFloat(formData.advance_paid || 0)
-  const tds = parseFloat(formData.tds_deduction || 0)
-  const balance = freight - advance
-  const netPayable = freight - advance - tds
+  const fetchBilties = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const headers = { 'Authorization': `Bearer ${token}` }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-red-700 text-white p-4">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold">BHARAT TRANSPORT COMPANY</h1>
-          <button onClick={() => navigate('/')} className="bg-white text-red-700 px-4 py-2 rounded font-bold">← Back to Home</button>
+      const res = await fetch(`${apiUrl}/api/consignments`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        // Sirf booked/in-transit bilties dikhayenge
+        const activeBilties = (data.data || []).filter(b => 
+          b.status === 'Booked' || b.status === 'In-Transit'
+        )
+        setBiltyList(activeBilties)
+      }
+    } catch (err) {
+      console.error('Bilty fetch error:', err)
+    }
+  }
+
+  const handleBiltyChange = async (e) => {
+    const lrNo = e.target.value
+    if (!lrNo) {
+      setFormData({
+        ...formData,
+        lr_no: '',
+        consignor_name: '',
+        consignee_name: '',
+        from_place: '',
+        to_place: '',
+        material_desc: '',
+        weight: '',
+        packages: '',
+        freight_amount: '',
+        bilty_date: ''
+      })
+      return
+    }
+
+    // Find selected bilty from list
+    const selectedBilty = biltyList.find(b => b.lr_no === lrNo)
+    if (selectedBilty) {
+      setFormData({
+        ...formData,
+        lr_no: selectedBilty.lr_no,
+        consignor_name: selectedBilty.consignor_name || '',
+        consignee_name: selectedBilty.consignee_name || '',
+        from_place: selectedBilty.branch_code || selectedBilty.from_name || '',
+        to_place: selectedBilty.to_name || '',
+        material_desc: selectedBilty.material_desc || '',
+        weight: selectedBilty.actual_weight || selectedBilty.charged_weight || '',
+        packages: selectedBilty.packages || '',
+        freight_amount: selectedBilty.grand_total || '',
+        bilty_date: selectedBilty.lr_date ? selectedBilty.lr_date.split('T')[0] : ''
+      })
+    }
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    const updatedData = { ...formData, [name]: value }
+
+    // Auto-calculate balance_due and net_payable
+    if (name === 'freight_amount' || name === 'advance_paid' || name === 'tds_deduction') {
+      const freight = parseFloat(updatedData.freight_amount || 0)
+      const advance = parseFloat(updatedData.advance_paid || 0)
+      const tds = parseFloat(updatedData.tds_deduction || 0)
+      updatedData.balance_due = (freight - advance).toFixed(2)
+      updatedData.net_payable = (freight - advance - tds).toFixed(2)
+    }
+
+    setFormData(updatedData)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+
+      const url = editId ? `${apiUrl}/api/gadi-challan/${editId}` : `${apiUrl}/api/gadi-challan`
+      const method = editId ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+
+      if (res.ok) {
+        alert(editId ? 'Challan updated successfully!' : 'Gadi Challan created successfully!')
+        setShowForm(false)
+        setEditId(null)
+        setFormData({
+          lr_no: '',
+          vehicle_no: '',
+          driver_name: '',
+          driver_mobile: '',
+          driver_license: '',
+          owner_name: '',
+          owner_mobile: '',
+          broker_name: '',
+          broker_mobile: '',
+          broker_commission: '',
+          from_place: '',
+          to_place: '',
+          material_desc: '',
+          weight: '',
+          packages: '',
+          bilty_date: '',
+          consignor_name: '',
+          consignee_name: '',
+          freight_amount: '',
+          advance_paid: '',
+          balance_due: '',
+          toll_expense: '',
+          diesel_expense: '',
+          other_expense: '',
+          tds_deduction: '',
+          net_payable: '',
+          issue_date: new Date().toISOString().split('T')[0]
+        })
+        fetchData()
+      } else {
+        const err = await res.json()
+        alert('Error: ' + err.error)
+      }
+    } catch (err) {
+      console.error('Challan save error:', err)
+      alert('Failed to save challan')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = (challan) => {
+    setFormData({
+      ...challan,
+      bilty_date: challan.bilty_date ? challan.bilty_date.split('T')[0] : '',
+      issue_date: challan.issue_date ? challan.issue_date.split('T')[0] : new Date().toISOString().split('T')[0]
+    })
+    setEditId(challan.id)
+    setShowForm(true)
+  }
+
+  const formatCurrency = (amount) => {
+    return '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  }
+
+  if (loading && challans.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-lime-700"></div>
+          <p className="mt-4 text-gray-500">Loading Challans...</p>
         </div>
       </div>
+    )
+  }
 
-      <div className="max-w-5xl mx-auto p-6">
-        {!challan ? (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-bold mb-4 text-red-700">🚛 Gadi Challan (Vehicle Freight Receipt)</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              <div className="border-2 border-red-200 bg-red-50 p-4 rounded">
-                <h3 className="font-bold text-gray-700 mb-2"> Bilty/LR Details (Auto-Fill)</h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="relative">
-                    <input name="lr_no" placeholder="Enter LR Number (e.g., BTC/26/0001)" value={formData.lr_no} onChange={handleLRChange} className="border p-2 rounded w-full" required />
-                    {fetchingLR && <span className="absolute right-2 top-2 text-blue-600 text-sm">Fetching...</span>}
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <nav className="bg-gradient-to-r from-lime-700 to-lime-900 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="bg-white/20 p-2 rounded-lg hover:bg-white/30">← Back</button>
+            <div>
+              <h1 className="font-bold text-xl">📋 Gadi Challan Management</h1>
+              <p className="text-xs text-lime-200">Broker Settlement & Trip Expenses</p>
+            </div>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => { setShowForm(true); setEditId(null); }}
+              className="bg-white text-lime-700 px-5 py-2 rounded-lg font-bold text-sm hover:bg-lime-50 shadow flex items-center gap-2"
+            >
+              <span>+</span> Create New Challan
+            </button>
+          )}
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto p-6">
+        {showForm ? (
+          /* CREATE/EDIT CHALLAN FORM */
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">
+              {editId ? '✏️ Edit Gadi Challan' : ' Create New Gadi Challan'}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              {/* Bilty Selection - Auto Fill */}
+              <div className="bg-lime-50 border-2 border-lime-300 rounded-xl p-4 mb-6">
+                <h3 className="font-bold text-lime-800 mb-3 flex items-center gap-2">
+                  🔗 Select Bilty / LR (Auto-Fill Details)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">LR Number *</label>
+                    <select
+                      name="lr_no"
+                      value={formData.lr_no}
+                      onChange={handleBiltyChange}
+                      className="w-full border-2 border-lime-300 rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500 bg-white"
+                      required
+                    >
+                      <option value="">-- Select Bilty --</option>
+                      {biltyList.map(b => (
+                        <option key={b.id} value={b.lr_no}>
+                          {b.lr_no} - {b.consignor_name} → {b.consignee_name} ({formatCurrency(b.grand_total)})
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <input name="bilty_date" placeholder="Bilty Date" value={formData.bilty_date} onChange={handleChange} className="border p-2 rounded bg-gray-100" readOnly />
                 </div>
-                <div className="grid md:grid-cols-2 gap-3 mt-3">
-                  <input name="consignor_name" placeholder="Consignor (Sender)" value={formData.consignor_name} onChange={handleChange} className="border p-2 rounded bg-gray-100" readOnly />
-                  <input name="consignee_name" placeholder="Consignee (Receiver)" value={formData.consignee_name} onChange={handleChange} className="border p-2 rounded bg-gray-100" readOnly />
+
+                {/* Auto-Filled Bilty Details */}
+                {formData.lr_no && (
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <div className="text-gray-500 text-xs">Consignor</div>
+                      <div className="font-bold text-gray-800">{formData.consignor_name || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Consignee</div>
+                      <div className="font-bold text-gray-800">{formData.consignee_name || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">From</div>
+                      <div className="font-bold text-gray-800">{formData.from_place || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">To</div>
+                      <div className="font-bold text-gray-800">{formData.to_place || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Material</div>
+                      <div className="font-bold text-gray-800">{formData.material_desc || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Packages</div>
+                      <div className="font-bold text-gray-800">{formData.packages || '-'} Pcs</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Weight</div>
+                      <div className="font-bold text-gray-800">{formData.weight || '-'} Kg</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Freight Amount</div>
+                      <div className="font-bold text-lime-700 text-lg">{formatCurrency(formData.freight_amount)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Vehicle & Driver Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number *</label>
+                  <input required type="text" name="vehicle_no" value={formData.vehicle_no} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500 uppercase" placeholder="e.g., DL-1C-AB-1234" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Driver Name *</label>
+                  <input required type="text" name="driver_name" value={formData.driver_name} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="Driver name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Driver Mobile *</label>
+                  <input required type="text" name="driver_mobile" value={formData.driver_mobile} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="9876543210" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Driver License</label>
+                  <input type="text" name="driver_license" value={formData.driver_license} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="License number" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
+                  <input type="text" name="owner_name" value={formData.owner_name} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="Vehicle owner" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner Mobile</label>
+                  <input type="text" name="owner_mobile" value={formData.owner_mobile} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="9876543210" />
                 </div>
               </div>
 
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">🛣️ Route & Material</h3>
-                <div className="grid md:grid-cols-4 gap-3">
-                  <input name="from_place" placeholder="From" value={formData.from_place} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="to_place" placeholder="To" value={formData.to_place} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="material_desc" placeholder="Material" value={formData.material_desc} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="weight" placeholder="Weight (kg)" value={formData.weight} onChange={handleChange} className="border p-2 rounded" />
+              {/* Broker Details */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                <h3 className="font-bold text-gray-800 mb-3"> Broker / Agent Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Broker Name</label>
+                    <input type="text" name="broker_name" value={formData.broker_name} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="Broker name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Broker Mobile</label>
+                    <input type="text" name="broker_mobile" value={formData.broker_mobile} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="9876543210" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Broker Commission (₹)</label>
+                    <input type="number" step="0.01" name="broker_commission" value={formData.broker_commission} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                  </div>
                 </div>
               </div>
 
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">🚗 Vehicle Details</h3>
-                <div className="grid md:grid-cols-3 gap-3">
-                  <input name="vehicle_no" placeholder="Vehicle Number" value={formData.vehicle_no} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="issue_date" type="date" value={formData.issue_date} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="packages" placeholder="No. of Packages" value={formData.packages} onChange={handleChange} className="border p-2 rounded" />
+              {/* Payment & Expenses */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Freight Amount (₹) *</label>
+                  <input required type="number" step="0.01" name="freight_amount" value={formData.freight_amount} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500 font-bold" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Advance Paid (₹)</label>
+                  <input type="number" step="0.01" name="advance_paid" value={formData.advance_paid} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Balance Due (₹)</label>
+                  <input type="number" step="0.01" name="balance_due" value={formData.balance_due} readOnly className="w-full border rounded-lg p-2.5 bg-gray-100 font-bold" placeholder="Auto-calculated" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">TDS Deduction (₹)</label>
+                  <input type="number" step="0.01" name="tds_deduction" value={formData.tds_deduction} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Net Payable (₹)</label>
+                  <input type="number" step="0.01" name="net_payable" value={formData.net_payable} readOnly className="w-full border rounded-lg p-2.5 bg-gray-100 font-bold text-lime-700" placeholder="Auto-calculated" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Date *</label>
+                  <input required type="date" name="issue_date" value={formData.issue_date} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" />
                 </div>
               </div>
 
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">👤 Driver Details</h3>
-                <div className="grid md:grid-cols-3 gap-3">
-                  <input name="driver_name" placeholder="Driver Name" value={formData.driver_name} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="driver_mobile" placeholder="Driver Mobile" value={formData.driver_mobile} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="driver_license" placeholder="License Number" value={formData.driver_license} onChange={handleChange} className="border p-2 rounded" />
+              {/* Trip Expenses */}
+              <div className="bg-yellow-50 rounded-xl p-4 mb-6">
+                <h3 className="font-bold text-gray-800 mb-3">💰 Trip Expenses</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Diesel Expense (₹)</label>
+                    <input type="number" step="0.01" name="diesel_expense" value={formData.diesel_expense} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Toll Expense (₹)</label>
+                    <input type="number" step="0.01" name="toll_expense" value={formData.toll_expense} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Other Expense (₹)</label>
+                    <input type="number" step="0.01" name="other_expense" value={formData.other_expense} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
+                  </div>
                 </div>
               </div>
 
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">🚗 Vehicle Owner Details</h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <input name="owner_name" placeholder="Owner Name" value={formData.owner_name} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="owner_mobile" placeholder="Owner Mobile" value={formData.owner_mobile} onChange={handleChange} className="border p-2 rounded" />
-                </div>
+              {/* Actions */}
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => { setShowForm(false); setEditId(null); }} className="px-6 py-2.5 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-100">
+                  Cancel
+                </button>
+                <button type="submit" disabled={loading} className="px-8 py-2.5 bg-lime-700 text-white rounded-lg font-bold hover:bg-lime-800 shadow disabled:opacity-50">
+                  {loading ? 'Saving...' : editId ? ' Update Challan' : '✅ Create Challan'}
+                </button>
               </div>
-
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">🤝 Broker Details</h3>
-                <div className="grid md:grid-cols-3 gap-3">
-                  <input name="broker_name" placeholder="Broker Name" value={formData.broker_name} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="broker_mobile" placeholder="Broker Mobile" value={formData.broker_mobile} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="broker_commission" type="number" placeholder="Commission ()" value={formData.broker_commission} onChange={handleChange} className="border p-2 rounded" />
-                </div>
-              </div>
-
-              <div className="border-b pb-4">
-                <h3 className="font-bold text-gray-700 mb-2">💰 Payment Details</h3>
-                <div className="grid md:grid-cols-3 gap-3">
-                  <input name="freight_amount" type="number" placeholder="Freight Amount (₹)" value={formData.freight_amount} onChange={handleChange} className="border p-2 rounded" required />
-                  <input name="advance_paid" type="number" placeholder="Advance Paid (₹)" value={formData.advance_paid} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="tds_deduction" type="number" placeholder="TDS (₹)" value={formData.tds_deduction} onChange={handleChange} className="border p-2 rounded" />
-                </div>
-                <div className="grid md:grid-cols-3 gap-3 mt-3">
-                  <input name="toll_expense" type="number" placeholder="Toll (₹)" value={formData.toll_expense} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="diesel_expense" type="number" placeholder="Diesel (₹)" value={formData.diesel_expense} onChange={handleChange} className="border p-2 rounded" />
-                  <input name="other_expense" type="number" placeholder="Other Expense (₹)" value={formData.other_expense} onChange={handleChange} className="border p-2 rounded" />
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 border-2 border-yellow-400 rounded p-4">
-                <h3 className="font-bold text-gray-700 mb-2">📊 Auto-Calculated Summary</h3>
-                <div className="grid md:grid-cols-3 gap-3 text-sm">
-                  <div><strong>Freight:</strong> ₹{freight.toFixed(2)}</div>
-                  <div><strong>Advance Paid:</strong> ₹{advance.toFixed(2)}</div>
-                  <div><strong>Balance Due:</strong> ₹{balance.toFixed(2)}</div>
-                  <div><strong>TDS:</strong> ₹{tds.toFixed(2)}</div>
-                  <div className="md:col-span-2"><strong className="text-red-700 text-lg">Net Payable to Driver:</strong> <span className="text-red-700 text-lg font-bold">₹{netPayable.toFixed(2)}</span></div>
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading} className="bg-red-700 text-white px-6 py-3 rounded font-bold hover:bg-red-800 disabled:bg-gray-400 w-full">
-                {loading ? 'Generating...' : '🚛 Generate Gadi Challan'}
-              </button>
             </form>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none">
-            <div className="border-2 border-gray-800 p-6 rounded">
-              <div className="text-center mb-4 border-b-2 border-gray-800 pb-3">
-                <h2 className="text-2xl font-bold text-red-700">BHARAT TRANSPORT COMPANY</h2>
-                <p className="text-gray-600 font-bold">GADI CHALLAN / VEHICLE FREIGHT RECEIPT</p>
-                <p className="text-sm">Challan No: <span className="font-bold text-red-700">{challan.challan_no}</span> | Date: {new Date(challan.issue_date).toLocaleDateString('en-IN')}</p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div className="border p-3 rounded bg-blue-50">
-                  <h4 className="font-bold bg-blue-100 p-1 mb-2">📋 Bilty Details</h4>
-                  <p><strong>LR No:</strong> {challan.lr_no}</p>
-                  <p><strong>Bilty Date:</strong> {challan.bilty_date ? new Date(challan.bilty_date).toLocaleDateString('en-IN') : 'N/A'}</p>
-                  <p><strong>Consignor:</strong> {challan.consignor_name || 'N/A'}</p>
-                  <p><strong>Consignee:</strong> {challan.consignee_name || 'N/A'}</p>
-                </div>
-                <div className="border p-3 rounded">
-                  <h4 className="font-bold bg-gray-100 p-1 mb-2">🚗 Vehicle & Driver</h4>
-                  <p><strong>Vehicle No:</strong> {challan.vehicle_no}</p>
-                  <p><strong>Driver:</strong> {challan.driver_name}</p>
-                  <p><strong>Mobile:</strong> {challan.driver_mobile}</p>
-                  <p><strong>License:</strong> {challan.driver_license || 'N/A'}</p>
-                  {challan.owner_name && <p><strong>Owner:</strong> {challan.owner_name} ({challan.owner_mobile})</p>}
-                </div>
-                <div className="border p-3 rounded">
-                  <h4 className="font-bold bg-gray-100 p-1 mb-2">🛣️ Route & Material</h4>
-                  <p><strong>From:</strong> {challan.from_place} → <strong>To:</strong> {challan.to_place}</p>
-                  <p><strong>Material:</strong> {challan.material_desc}</p>
-                  <p><strong>Weight:</strong> {challan.weight} kg</p>
-                  <p><strong>Packages:</strong> {challan.packages || 'N/A'}</p>
-                </div>
-                <div className="border p-3 rounded">
-                  <h4 className="font-bold bg-gray-100 p-1 mb-2">🤝 Broker</h4>
-                  <p><strong>Name:</strong> {challan.broker_name || 'N/A'}</p>
-                  <p><strong>Mobile:</strong> {challan.broker_mobile || 'N/A'}</p>
-                  <p><strong>Commission:</strong> ₹{parseFloat(challan.broker_commission || 0).toFixed(2)}</p>
-                </div>
-                <div className="border p-3 rounded bg-yellow-50 md:col-span-2">
-                  <h4 className="font-bold bg-yellow-200 p-1 mb-2">💰 Payment Summary</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <p><strong>Freight:</strong> ₹{parseFloat(challan.freight_amount || 0).toFixed(2)}</p>
-                    <p><strong>Advance:</strong> ₹{parseFloat(challan.advance_paid || 0).toFixed(2)}</p>
-                    <p><strong>TDS:</strong> ₹{parseFloat(challan.tds_deduction || 0).toFixed(2)}</p>
-                    <p><strong>Toll:</strong> ₹{parseFloat(challan.toll_expense || 0).toFixed(2)}</p>
-                    <p><strong>Diesel:</strong> ₹{parseFloat(challan.diesel_expense || 0).toFixed(2)}</p>
-                    <p><strong>Other:</strong> ₹{parseFloat(challan.other_expense || 0).toFixed(2)}</p>
-                    <p className="col-span-2 font-bold text-red-700 text-lg"><strong>Net Payable:</strong> ₹{parseFloat(challan.net_payable || 0).toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-between text-sm border-t-2 pt-3">
-                <div>
-                  <p><strong>Issued By:</strong> Admin</p>
-                  <p className="text-xs text-gray-500">{new Date(challan.created_at).toLocaleString('en-IN')}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">Driver Signature</p>
-                  <div className="border-b border-gray-400 w-40 mt-8"></div>
-                </div>
-              </div>
+          /* CHALLAN LIST */
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">📋 Recent Gadi Challans</h2>
+              <div className="text-sm text-gray-500">Total: {challans.length}</div>
             </div>
 
-            <div className="mt-4 flex gap-2 print:hidden">
-              <button onClick={() => window.print()} className="bg-blue-700 text-white px-4 py-2 rounded font-bold hover:bg-blue-800">🖨️ Print Challan</button>
-              <button onClick={() => setChallan(null)} className="bg-gray-700 text-white px-4 py-2 rounded font-bold hover:bg-gray-800">New Challan</button>
-            </div>
+            {challans.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="text-4xl mb-3"></div>
+                <p className="font-medium">No challans created yet.</p>
+                <p className="text-sm mt-1">Click "Create New Challan" to get started.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-4 text-left font-bold text-gray-600">Challan No</th>
+                      <th className="p-4 text-left font-bold text-gray-600">LR No</th>
+                      <th className="p-4 text-left font-bold text-gray-600">Vehicle</th>
+                      <th className="p-4 text-left font-bold text-gray-600">Driver</th>
+                      <th className="p-4 text-right font-bold text-gray-600">Freight</th>
+                      <th className="p-4 text-right font-bold text-gray-600">Advance</th>
+                      <th className="p-4 text-right font-bold text-gray-600">Balance</th>
+                      <th className="p-4 text-center font-bold text-gray-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {challans.map(c => (
+                      <tr key={c.id} className="border-t hover:bg-lime-50/30 transition-colors">
+                        <td className="p-4 font-bold text-lime-700">{c.challan_no}</td>
+                        <td className="p-4 font-medium">{c.lr_no || '-'}</td>
+                        <td className="p-4 font-medium">{c.vehicle_no}</td>
+                        <td className="p-4">
+                          <div className="font-medium">{c.driver_name}</div>
+                          <div className="text-xs text-gray-500">{c.driver_mobile}</div>
+                        </td>
+                        <td className="p-4 text-right font-bold">{formatCurrency(c.freight_amount)}</td>
+                        <td className="p-4 text-right">{formatCurrency(c.advance_paid)}</td>
+                        <td className="p-4 text-right font-bold text-lime-700">{formatCurrency(c.balance_due)}</td>
+                        <td className="p-4 text-center">
+                          <button onClick={() => handleEdit(c)} className="text-lime-700 hover:text-lime-900 font-medium text-xs">
+                            ✏️ Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
