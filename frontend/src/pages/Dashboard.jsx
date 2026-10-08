@@ -64,21 +64,35 @@ export default function Dashboard() {
   }
 
   const modules = [
+    // --- CORE OPERATIONS (Aapke Existing) ---
     { id: 'bilty', label: 'Bilty / LR', icon: '📝', color: 'from-blue-600 to-blue-800', route: '/consignments', desc: 'Create & Manage Bilties' },
     { id: 'bill', label: 'Billing', icon: '💰', color: 'from-green-600 to-green-800', route: '/bills', desc: 'Bills & Invoices' },
     { id: 'mr', label: 'Money Receipt', icon: '🧾', color: 'from-purple-600 to-purple-800', route: '/mr', desc: 'Payment Receipts' },
-    { id: 'branches', label: 'Branches', icon: '🏢', color: 'from-indigo-600 to-indigo-800', route: '/branches', desc: 'Multi-Branch Master' },
-    { id: 'customers', label: 'Parties', icon: '👥', color: 'from-pink-600 to-pink-800', route: '/customers', desc: 'Customer Master' },
-    { id: 'gatepass', label: 'Gate Pass', icon: '🎫', color: 'from-teal-600 to-teal-800', route: '/gate-pass', desc: 'Gate Pass Issue' },
-    { id: 'gadi', label: 'Gadi Challan', icon: '🚛', color: 'from-orange-600 to-orange-800', route: '/gadi-challan', desc: 'Broker Settlement' },
-    { id: 'pod', label: 'POD / Delivery', icon: '📦', color: 'from-green-600 to-green-800', route: '/pod', desc: 'Proof of Delivery' },
-    { id: 'drivers', label: 'Drivers', icon: '🚗', color: 'from-cyan-600 to-cyan-800', route: '/drivers', desc: 'Driver Master' },
-    { id: 'vehicles', label: 'Vehicles', icon: '🚚', color: 'from-blue-600 to-blue-800', route: '/vehicles', desc: 'Vehicle Master & Expiry' },
-    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-yellow-600 to-yellow-800', route: '/reports', desc: 'All Reports' },
-    { id: 'audit', label: 'Audit Log', icon: '🔍', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
-    { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-red-600 to-red-800', route: '/track', desc: 'Public Tracking' }
-  ]
+    
+    // --- 🚀 NEW TCI-LEVEL ENTERPRISE MODULES (Added Ahead) ---
+    { id: 'transit', label: 'Transit / Manifest', icon: '🔄', color: 'from-indigo-600 to-indigo-800', route: '/transit', desc: 'Hub-to-Hub Transfer (TCI Style)' },
+    { id: 'trips', label: 'Trip Management', icon: '', color: 'from-cyan-600 to-cyan-800', route: '/trips', desc: 'Vehicle Assignment & Profit' },
+    { id: 'rates', label: 'Smart Rate Engine', icon: '⚙️', color: 'from-teal-600 to-teal-800', route: '/rates', desc: 'Auto Party/Route Contracts' },
+    { id: 'accounts', label: 'Ledger & TDS', icon: '🏦', color: 'from-emerald-600 to-emerald-800', route: '/accounts', desc: 'Advanced Accounting' },
+    { id: 'eway', label: 'E-Way Bill', icon: '📄', color: 'from-yellow-600 to-yellow-800', route: '/eway', desc: 'Auto Generate & Track' },
+    { id: 'claims', label: 'Claim Management', icon: '️', color: 'from-red-600 to-red-800', route: '/claims', desc: 'Damage/Loss Tracking' },
+    { id: 'notify', label: 'WhatsApp / SMS', icon: '📱', color: 'from-pink-600 to-pink-800', route: '/notifications', desc: 'Auto Alerts & Logs' },
+    // --- END NEW MODULES ---
 
+    // --- MASTER & OPERATIONS (Aapke Existing) ---
+    { id: 'branches', label: 'Branches', icon: '', color: 'from-slate-600 to-slate-800', route: '/branches', desc: 'Multi-Branch Master' },
+    { id: 'customers', label: 'Parties', icon: '👥', color: 'from-violet-600 to-violet-800', route: '/customers', desc: 'Customer Master' },
+    { id: 'drivers', label: 'Drivers', icon: '🚗', color: 'from-orange-600 to-orange-800', route: '/drivers', desc: 'Driver Master & Expiry' },
+    { id: 'vehicles', label: 'Vehicles', icon: '🚚', color: 'from-blue-600 to-blue-800', route: '/vehicles', desc: 'Vehicle Master & Expiry' },
+    { id: 'gatepass', label: 'Gate Pass', icon: '🎫', color: 'from-amber-600 to-amber-800', route: '/gate-pass', desc: 'Gate Pass Issue' },
+    { id: 'gadi', label: 'Gadi Challan', icon: '', color: 'from-lime-600 to-lime-800', route: '/gadi-challan', desc: 'Broker Settlement' },
+    { id: 'pod', label: 'POD / Delivery', icon: '📦', color: 'from-green-600 to-green-800', route: '/pod', desc: 'Proof of Delivery' },
+    
+    // --- ANALYTICS & TRACKING (Aapke Existing) ---
+    { id: 'reports', label: 'Reports', icon: '📊', color: 'from-gray-600 to-gray-800', route: '/reports', desc: 'All Reports' },
+    { id: 'audit', label: 'Audit Log', icon: '🔍', color: 'from-zinc-600 to-zinc-800', route: '/audit', desc: 'Activity Tracker' },
+    { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-rose-600 to-rose-800', route: '/track', desc: 'Public Tracking' }
+  ]
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-gradient-to-r from-red-700 to-red-900 text-white shadow-lg">
