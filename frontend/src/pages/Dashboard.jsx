@@ -73,6 +73,7 @@ export default function Dashboard() {
     { id: 'gadi', label: 'Gadi Challan', icon: '🚛', color: 'from-orange-600 to-orange-800', route: '/gadi-challan', desc: 'Broker Settlement' },
     { id: 'pod', label: 'POD / Delivery', icon: '📦', color: 'from-green-600 to-green-800', route: '/pod', desc: 'Proof of Delivery' },
     { id: 'drivers', label: 'Drivers', icon: '🚗', color: 'from-cyan-600 to-cyan-800', route: '/drivers', desc: 'Driver Master' },
+    { id: 'vehicles', label: 'Vehicles', icon: '🚚', color: 'from-blue-600 to-blue-800', route: '/vehicles', desc: 'Vehicle Master & Expiry' },
     { id: 'reports', label: 'Reports', icon: '📊', color: 'from-yellow-600 to-yellow-800', route: '/reports', desc: 'All Reports' },
     { id: 'audit', label: 'Audit Log', icon: '🔍', color: 'from-gray-600 to-gray-800', route: '/audit', desc: 'Activity Tracker' },
     { id: 'track', label: 'Track Bilty', icon: '📍', color: 'from-red-600 to-red-800', route: '/track', desc: 'Public Tracking' }
@@ -199,7 +200,7 @@ export default function Dashboard() {
 
             {/* All Modules */}
             <h2 className="text-xl font-bold text-gray-800 mb-4">🚀 All Modules</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
               {modules.map(m => (
                 <div
                   key={m.id}
