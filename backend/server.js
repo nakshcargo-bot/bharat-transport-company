@@ -279,6 +279,10 @@ async function runMigrations() {
   await addColumnIfNotExists('drivers', 'joining_date', 'DATE');
   
   await addColumnIfNotExists('drivers', 'phone', 'TEXT');
+    // E-Way Bill Columns
+  await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
+  await addColumnIfNotExists('consignments', 'transporter_id', 'TEXT');
+  await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
 
   await addColumnIfNotExists('vehicles', 'vehicle_type', 'TEXT');
   await addColumnIfNotExists('vehicles', 'owner_name', 'TEXT');
@@ -1273,6 +1277,47 @@ app.get('/api/accounts/tds-register', authMiddleware, async (req, res) => {
       ORDER BY issue_date DESC LIMIT 200
     `);
     res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ==========================================
+// E-WAY BILL MODULE
+// ==========================================
+
+// Get consignments requiring E-Way Bill (Value > 50,000)
+app.get('/api/eway-bills', authMiddleware, async (req, res) => {
+  try {
+    const branchId = req.query.branch_id;
+    const bf = branchId ? `AND branch_id = ${parseInt(branchId)}` : '';
+    
+    const result = await pool.query(`
+      SELECT id, lr_no, lr_date, consignor_name, consignee_name, from_name, to_name, 
+             declared_value, eway_bill_no, eway_valid_upto, transporter_id, transporter_name, status
+      FROM consignments 
+      WHERE CAST(declared_value AS NUMERIC) > 50000 ${bf}
+      ORDER BY lr_date DESC LIMIT 200
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update E-Way Bill Details
+app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { eway_bill_no, eway_valid_upto, transporter_id, transporter_name } = req.body;
+    
+    const result = await pool.query(`
+      UPDATE consignments 
+      SET eway_bill_no = $1, eway_valid_upto = $2, transporter_id = $3, transporter_name = $4, updated_at = NOW()
+      WHERE id = $5 RETURNING id, lr_no, eway_bill_no
+    `, [eway_bill_no || null, eway_valid_upto || null, transporter_id || null, transporter_name || null, id]);
+    
+    await logAudit('UPDATE', 'E_WAY_BILL', id, `E-Way Bill ${eway_bill_no} updated for LR ${result.rows[0]?.lr_no}`, req.user.username);
+    res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
