@@ -23,6 +23,7 @@ const PODView = lazy(() => import('./pages/PODView'))
 const Drivers = lazy(() => import('./pages/Drivers'))
 const Transit = lazy(() => import('./pages/Transit'))
 const Vehicles = lazy(() => import('./pages/Vehicles'))
+const Trips = lazy(() => import('./pages/Trips'))
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -47,8 +48,6 @@ function App() {
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
           <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
-          
-          {/*  PUBLIC POD ROUTES (No Login Required) */}
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
           
@@ -68,6 +67,7 @@ function App() {
           <Route path="/transit" element={<PrivateRoute><Transit /></PrivateRoute>} />
           <Route path="/drivers" element={<PrivateRoute><Drivers /></PrivateRoute>} />
           <Route path="/vehicles" element={<PrivateRoute><Vehicles /></PrivateRoute>} />
+          <Route path="/trips" element={<PrivateRoute><Trips /></PrivateRoute>} />
           
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
