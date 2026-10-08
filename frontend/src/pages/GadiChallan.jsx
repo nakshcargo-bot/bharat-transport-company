@@ -72,7 +72,6 @@ export default function GadiChallan() {
       const res = await fetch(`${apiUrl}/api/consignments`, { headers })
       if (res.ok) {
         const data = await res.json()
-        // Sirf booked/in-transit bilties dikhayenge
         const activeBilties = (data.data || []).filter(b => 
           b.status === 'Booked' || b.status === 'In-Transit'
         )
@@ -102,7 +101,6 @@ export default function GadiChallan() {
       return
     }
 
-    // Find selected bilty from list
     const selectedBilty = biltyList.find(b => b.lr_no === lrNo)
     if (selectedBilty) {
       setFormData({
@@ -112,9 +110,10 @@ export default function GadiChallan() {
         consignee_name: selectedBilty.consignee_name || '',
         from_place: selectedBilty.branch_code || selectedBilty.from_name || '',
         to_place: selectedBilty.to_name || '',
-        material_desc: selectedBilty.material_desc || '',
+        // ✅ FIX: Check multiple field names for Material and Packages
+        material_desc: selectedBilty.material_desc || selectedBilty.description || selectedBilty.goods || '',
+        packages: selectedBilty.packages || selectedBilty.no_of_packages || selectedBilty.qty || '',
         weight: selectedBilty.actual_weight || selectedBilty.charged_weight || '',
-        packages: selectedBilty.packages || '',
         freight_amount: selectedBilty.grand_total || '',
         bilty_date: selectedBilty.lr_date ? selectedBilty.lr_date.split('T')[0] : ''
       })
@@ -125,7 +124,6 @@ export default function GadiChallan() {
     const { name, value } = e.target
     const updatedData = { ...formData, [name]: value }
 
-    // Auto-calculate balance_due and net_payable
     if (name === 'freight_amount' || name === 'advance_paid' || name === 'tds_deduction') {
       const freight = parseFloat(updatedData.freight_amount || 0)
       const advance = parseFloat(updatedData.advance_paid || 0)
@@ -161,32 +159,11 @@ export default function GadiChallan() {
         setShowForm(false)
         setEditId(null)
         setFormData({
-          lr_no: '',
-          vehicle_no: '',
-          driver_name: '',
-          driver_mobile: '',
-          driver_license: '',
-          owner_name: '',
-          owner_mobile: '',
-          broker_name: '',
-          broker_mobile: '',
-          broker_commission: '',
-          from_place: '',
-          to_place: '',
-          material_desc: '',
-          weight: '',
-          packages: '',
-          bilty_date: '',
-          consignor_name: '',
-          consignee_name: '',
-          freight_amount: '',
-          advance_paid: '',
-          balance_due: '',
-          toll_expense: '',
-          diesel_expense: '',
-          other_expense: '',
-          tds_deduction: '',
-          net_payable: '',
+          lr_no: '', vehicle_no: '', driver_name: '', driver_mobile: '', driver_license: '',
+          owner_name: '', owner_mobile: '', broker_name: '', broker_mobile: '', broker_commission: '',
+          from_place: '', to_place: '', material_desc: '', weight: '', packages: '', bilty_date: '',
+          consignor_name: '', consignee_name: '', freight_amount: '', advance_paid: '', balance_due: '',
+          toll_expense: '', diesel_expense: '', other_expense: '', tds_deduction: '', net_payable: '',
           issue_date: new Date().toISOString().split('T')[0]
         })
         fetchData()
@@ -213,7 +190,7 @@ export default function GadiChallan() {
   }
 
   const formatCurrency = (amount) => {
-    return '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+    return '' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
   }
 
   if (loading && challans.length === 0) {
@@ -229,7 +206,6 @@ export default function GadiChallan() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <nav className="bg-gradient-to-r from-lime-700 to-lime-900 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -252,13 +228,11 @@ export default function GadiChallan() {
 
       <div className="max-w-7xl mx-auto p-6">
         {showForm ? (
-          /* CREATE/EDIT CHALLAN FORM */
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">
-              {editId ? '✏️ Edit Gadi Challan' : ' Create New Gadi Challan'}
+              {editId ? '✏️ Edit Gadi Challan' : '📝 Create New Gadi Challan'}
             </h2>
             <form onSubmit={handleSubmit}>
-              {/* Bilty Selection - Auto Fill */}
               <div className="bg-lime-50 border-2 border-lime-300 rounded-xl p-4 mb-6">
                 <h3 className="font-bold text-lime-800 mb-3 flex items-center gap-2">
                   🔗 Select Bilty / LR (Auto-Fill Details)
@@ -283,7 +257,6 @@ export default function GadiChallan() {
                   </div>
                 </div>
 
-                {/* Auto-Filled Bilty Details */}
                 {formData.lr_no && (
                   <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div>
@@ -322,7 +295,6 @@ export default function GadiChallan() {
                 )}
               </div>
 
-              {/* Vehicle & Driver Details */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number *</label>
@@ -350,9 +322,8 @@ export default function GadiChallan() {
                 </div>
               </div>
 
-              {/* Broker Details */}
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <h3 className="font-bold text-gray-800 mb-3"> Broker / Agent Details</h3>
+                <h3 className="font-bold text-gray-800 mb-3">🤝 Broker / Agent Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Broker Name</label>
@@ -369,7 +340,6 @@ export default function GadiChallan() {
                 </div>
               </div>
 
-              {/* Payment & Expenses */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Freight Amount (₹) *</label>
@@ -388,7 +358,7 @@ export default function GadiChallan() {
                   <input type="number" step="0.01" name="tds_deduction" value={formData.tds_deduction} onChange={handleChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500" placeholder="0.00" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Net Payable (₹)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Net Payable ()</label>
                   <input type="number" step="0.01" name="net_payable" value={formData.net_payable} readOnly className="w-full border rounded-lg p-2.5 bg-gray-100 font-bold text-lime-700" placeholder="Auto-calculated" />
                 </div>
                 <div>
@@ -397,7 +367,6 @@ export default function GadiChallan() {
                 </div>
               </div>
 
-              {/* Trip Expenses */}
               <div className="bg-yellow-50 rounded-xl p-4 mb-6">
                 <h3 className="font-bold text-gray-800 mb-3">💰 Trip Expenses</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -416,19 +385,17 @@ export default function GadiChallan() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 justify-end">
                 <button type="button" onClick={() => { setShowForm(false); setEditId(null); }} className="px-6 py-2.5 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-100">
                   Cancel
                 </button>
                 <button type="submit" disabled={loading} className="px-8 py-2.5 bg-lime-700 text-white rounded-lg font-bold hover:bg-lime-800 shadow disabled:opacity-50">
-                  {loading ? 'Saving...' : editId ? ' Update Challan' : '✅ Create Challan'}
+                  {loading ? 'Saving...' : editId ? '🔄 Update Challan' : '✅ Create Challan'}
                 </button>
               </div>
             </form>
           </div>
         ) : (
-          /* CHALLAN LIST */
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="p-6 border-b flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-800">📋 Recent Gadi Challans</h2>
@@ -437,7 +404,7 @@ export default function GadiChallan() {
 
             {challans.length === 0 ? (
               <div className="p-12 text-center text-gray-500">
-                <div className="text-4xl mb-3"></div>
+                <div className="text-4xl mb-3">📭</div>
                 <p className="font-medium">No challans created yet.</p>
                 <p className="text-sm mt-1">Click "Create New Challan" to get started.</p>
               </div>
@@ -469,8 +436,15 @@ export default function GadiChallan() {
                         <td className="p-4 text-right font-bold">{formatCurrency(c.freight_amount)}</td>
                         <td className="p-4 text-right">{formatCurrency(c.advance_paid)}</td>
                         <td className="p-4 text-right font-bold text-lime-700">{formatCurrency(c.balance_due)}</td>
-                        <td className="p-4 text-center">
-                          <button onClick={() => handleEdit(c)} className="text-lime-700 hover:text-lime-900 font-medium text-xs">
+                        {/* ✅ FIXED: Added View, Print, and Edit buttons */}
+                        <td className="p-4 text-center space-y-1">
+                          <button onClick={() => navigate(`/gadi-challan-print?id=${c.id}`)} className="block w-full text-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold hover:bg-blue-200 mb-1">
+                            👁️ View
+                          </button>
+                          <button onClick={() => navigate(`/gadi-challan-print?id=${c.id}`)} className="block w-full text-center px-2 py-1 bg-lime-100 text-lime-700 rounded text-xs font-bold hover:bg-lime-200 mb-1">
+                            🖨️ Print
+                          </button>
+                          <button onClick={() => handleEdit(c)} className="block w-full text-center px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold hover:bg-yellow-200">
                             ✏️ Edit
                           </button>
                         </td>
