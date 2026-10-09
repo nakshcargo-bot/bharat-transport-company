@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -48,7 +48,7 @@ function LoadingFallback() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           {/* Public Routes */}
@@ -100,7 +100,7 @@ function App() {
           } />
         </Routes>
       </Suspense>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
