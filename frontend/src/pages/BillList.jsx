@@ -15,7 +15,6 @@ export default function BillList() {
   const loadBills = async () => {
     try {
       const res = await api.get('/api/bills')
-      // API response data.data ya data — dono handle karo
       const billsData = res.data?.data || res.data || []
       setBills(billsData)
     } catch (err) {
@@ -37,7 +36,6 @@ export default function BillList() {
           <h1 className="font-bold text-lg">📋 Bill List ({bills.length})</h1>
           <div className="flex gap-2">
             <Link to="/bill/new" className="bg-white text-red-700 px-4 py-2 rounded-lg text-sm font-medium">+ New Bill</Link>
-            <Link to="/bills" className="bg-white/20 px-4 py-2 rounded-lg text-sm">📊 Bills</Link>
             <button onClick={() => navigate('/dashboard')} className="bg-white/20 px-4 py-2 rounded-lg text-sm">← Back</button>
           </div>
         </div>
