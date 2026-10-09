@@ -25,13 +25,18 @@ export default function BiltyPrint() {
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
 
-      const res = await fetch(`${apiUrl}/api/consignments/track?lr_no=${encodeURIComponent(lrNo)}`, {
+      // ✅ Sahi endpoint - poora data milega
+      const res = await fetch(`${apiUrl}/api/consignments`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
 
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
-      setBilty(data)
+      
+      // ✅ lr_no se bilty dhundho
+      const foundBilty = data.data.find(b => b.lr_no === lrNo)
+      if (!foundBilty) throw new Error('Bilty not found')
+      setBilty(foundBilty)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -94,7 +99,6 @@ export default function BiltyPrint() {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      {/* Action Bar - Hidden in Print */}
       <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
           <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
@@ -117,10 +121,8 @@ export default function BiltyPrint() {
         </div>
       </div>
 
-      {/* A4 Print Content */}
       <div className="max-w-4xl mx-auto my-6 bg-white shadow-lg print:shadow-none print:my-0">
         <div className="p-8 print:p-6" id="print-content">
-          {/* Header */}
           <div className="text-center border-b-4 border-double border-gray-800 pb-4 mb-6">
             <div className="flex justify-between items-start mb-2">
               <div className="text-left">
@@ -139,7 +141,6 @@ export default function BiltyPrint() {
             <h2 className="text-2xl font-bold mt-4 text-gray-900 tracking-wider">TRANSPORT RECEIPT (BILTY / LR)</h2>
           </div>
 
-          {/* LR Info Row */}
           <div className="grid grid-cols-3 gap-4 mb-6 bg-gray-50 p-3 rounded border">
             <div>
               <div className="text-xs text-gray-600 font-bold">LR NUMBER</div>
@@ -155,7 +156,6 @@ export default function BiltyPrint() {
             </div>
           </div>
 
-          {/* Consignor & Consignee */}
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div className="border-2 border-blue-200 rounded p-4 bg-blue-50">
               <h3 className="font-bold text-blue-900 border-b border-blue-300 pb-1 mb-2">📤 CONSIGNOR (Booker)</h3>
@@ -171,7 +171,6 @@ export default function BiltyPrint() {
             </div>
           </div>
 
-          {/* Goods Details */}
           <div className="mb-6">
             <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">📦 GOODS DETAILS</h3>
             <table className="w-full border-collapse border border-gray-400">
@@ -212,7 +211,6 @@ export default function BiltyPrint() {
             </table>
           </div>
 
-          {/* Charges */}
           <div className="mb-6">
             <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">💰 CHARGES</h3>
             <table className="w-full border-collapse border border-gray-400">
@@ -231,7 +229,6 @@ export default function BiltyPrint() {
             </table>
           </div>
 
-          {/* Payment Mode */}
           <div className="mb-6 p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded">
             <div className="flex justify-between">
               <div><strong>Payment Mode:</strong> {bilty.basis_booking || 'TO PAY'}</div>
@@ -239,7 +236,6 @@ export default function BiltyPrint() {
             </div>
           </div>
 
-          {/* Terms */}
           <div className="mb-6 text-xs text-gray-700 border-t pt-3">
             <h4 className="font-bold mb-1">Terms & Conditions:</h4>
             <ul className="list-disc pl-5 space-y-1">
@@ -249,7 +245,6 @@ export default function BiltyPrint() {
             </ul>
           </div>
 
-          {/* Signatures */}
           <div className="grid grid-cols-3 gap-4 mt-12 pt-4 border-t-2 border-gray-400">
             <div className="text-center">
               <div className="border-b border-gray-400 h-16"></div>
@@ -265,7 +260,6 @@ export default function BiltyPrint() {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="mt-8 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
             <p className="font-bold">Bharat Transport Company • Professional Multi-Branch TMS</p>
             <p>Generated on: {new Date().toLocaleString('en-IN')}</p>
@@ -274,7 +268,6 @@ export default function BiltyPrint() {
         </div>
       </div>
 
-      {/* A4 Print Styles */}
       <style>{`
         @page { size: A4; margin: 10mm; }
         @media print {
