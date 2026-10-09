@@ -752,15 +752,60 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
 });
 app.post('/api/bills', authMiddleware, async (req, res) => {
   try {
-    const b = { ...req.body }; if (!b.branch_id) b.branch_id = req.user.branch_id;
-    if (!b.bill_date) b.bill_date = new Date().toISOString().split('T')[0];
-    if (!b.status) b.status = 'Pending'; if (!b.payment_status) b.payment_status = 'Unpaid';
-    const keys = Object.keys(b); const values = Object.values(b);
-    const result = await pool.query(`INSERT INTO bill_book (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+    const b = { ...req.body }
+    const items = b.items || []
+    delete b.items
+    
+    if (!b.branch_id) b.branch_id = req.user.branch_id
+    if (!b.bill_date) b.bill_date = new Date().toISOString().split('T')[0]
+    if (!b.status) b.status = 'Pending'
+    if (!b.payment_status) b.payment_status = 'Unpaid'
+    if (!b.bill_no) {
+      const year = String(new Date().getFullYear()).slice(-2)
+      const countRes = await pool.query(`SELECT COUNT(*) as count FROM bill_book`)
+      const nextNum = parseInt(countRes.rows[0].count || 0) + 1
+      b.bill_no = `BILL/${year}/${String(nextNum).padStart(3, '0')}`
+    }
+    
+    const keys = Object.keys(b)
+    const values = Object.values(b)
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
+    const result = await pool.query(
+      `INSERT INTO bill_book (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+      values
+    )
+    const billId = result.rows[0].id
+    
+    // ✅ Items ko bill_items table mein save karo
+    if (items && items.length > 0) {
+      for (const item of items) {
+        if (item.lr_no || item.invoice_no || item.total > 0) {
+          await pool.query(
+            `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, loading, unloading, other_charges, total)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              billId,
+              item.lr_no || null,
+              item.invoice_no || null,
+              item.from_name || null,
+              item.to_name || null,
+              parseFloat(item.weight_mt) || 0,
+              parseFloat(item.loading) || 0,
+              parseFloat(item.unloading) || 0,
+              parseFloat(item.other_charges) || 0,
+              parseFloat(item.total) || 0
+            ]
+          )
+        }
+      }
+    }
+    
+    res.json(result.rows[0])
+  } catch (err) {
+    console.error('Bill create error:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
 // ✅ FIXED MR ROUTES (No more nesting errors)
 app.get('/api/mr', authMiddleware, async (req, res) => {
   try {
