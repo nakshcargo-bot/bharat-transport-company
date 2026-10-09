@@ -8,14 +8,15 @@ export default function BiltyPrint() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const lrNo = searchParams.get('lr_no')
+
   useEffect(() => {
-    const lrNo = searchParams.get('lr_no')
     if (!lrNo) {
       navigate('/consignments')
       return
     }
     fetchBiltyData(lrNo)
-  }, [navigate, searchParams])
+  }, [lrNo, navigate])
 
   const fetchBiltyData = async (lrNo) => {
     try {
@@ -23,7 +24,7 @@ export default function BiltyPrint() {
       setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      
+
       const res = await fetch(`${apiUrl}/api/consignments/track?lr_no=${encodeURIComponent(lrNo)}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -177,11 +178,11 @@ export default function BiltyPrint() {
               <tbody>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold w-1/3 bg-gray-100">Material Description</td>
-                  <td className="p-2">{bilty.bilty.description || 'N/A'}</td>
+                  <td className="p-2">{bilty.description || 'N/A'}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">No. of Packages</td>
-                  <td className="p-2">{bilty.cft_cmt || '0'}</td>
+                  <td className="p-2">{bilty.no_of_packages || '0'}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">Actual Weight</td>
@@ -197,7 +198,7 @@ export default function BiltyPrint() {
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">Total CFT</td>
-                  <td className="p-2">{bilty.total_cft || '0'}</td>
+                  <td className="p-2">{bilty.cft_cmt || '0'}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">Declared Value</td>
@@ -218,9 +219,9 @@ export default function BiltyPrint() {
               <tbody>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Freight</td><td className="p-2">₹{bilty.freight || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">AOC / Statutory</td><td className="p-2">₹{bilty.aoc_percent || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Material Mgmt Charges</td><td className="p-2">₹{bilty.bilty.material_charges || '0'}</td></tr>
+                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Material Mgmt Charges</td><td className="p-2">₹{bilty.material_charges || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Collection Charges</td><td className="p-2">₹{bilty.collection_charges || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Door Delivery</td><td className="p-2">₹{bilty.bilty.door_delivery || '0'}</td></tr>
+                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Door Delivery</td><td className="p-2">₹{bilty.door_delivery || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Miscellaneous</td><td className="p-2">₹{bilty.misc_charges || '0'}</td></tr>
                 <tr className="bg-red-100 font-bold text-lg">
                   <td className="p-3">GRAND TOTAL</td>
