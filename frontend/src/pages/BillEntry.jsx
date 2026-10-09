@@ -35,6 +35,9 @@ export default function BillEntry() {
     remarks: ''
   })
 
+  // ✅ Master LR No. — sirf entry ke liye, print mein nahi jayega
+  const [masterLrNo, setMasterLrNo] = useState('')
+
   const [items, setItems] = useState([
     { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, packages: 0, freight: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }
   ])
@@ -72,7 +75,50 @@ export default function BillEntry() {
     calculateTotals(newItems)
   }
 
-  // ✅ Bilty select karne par saara data auto-fill karo
+  // ✅ MASTER LR NO. SELECT — saara data bill mein auto-fill karo
+  const handleMasterLrSelect = (lrNo) => {
+    setMasterLrNo(lrNo)
+    if (!lrNo) return
+
+    const bilty = consignments.find(c => c.lr_no === lrNo)
+    if (!bilty) return
+
+    // Form auto-fill
+    setForm(prev => ({
+      ...prev,
+      party_name: bilty.consignor_name || prev.party_name,
+      party_gst: bilty.consignor_gst || prev.party_gst,
+      party_address: bilty.consignor_address || prev.party_address,
+      from_name: bilty.from_name || prev.from_name,
+      to_name: bilty.to_name || prev.to_name,
+      consignor_name: bilty.consignor_name || prev.consignor_name,
+      consignee_name: bilty.consignee_name || prev.consignee_name,
+      vehicle_no: bilty.lorry_no || prev.vehicle_no, // ✅ Gadi number bhi
+      invoice_no: bilty.invoice_no || prev.invoice_no,
+      invoice_date: bilty.invoice_date || prev.invoice_date
+    }))
+
+    // Pehli row mein bilty data daalo
+    const newItems = [...items]
+    newItems[0] = {
+      ...newItems[0],
+      lr_no: bilty.lr_no,
+      invoice_no: bilty.invoice_no || '',
+      from_name: bilty.from_name || '',
+      to_name: bilty.to_name || '',
+      weight_mt: bilty.actual_weight || bilty.charged_weight || 0,
+      packages: bilty.no_of_packages || 0,
+      freight: bilty.freight || 0,
+      loading: newItems[0].loading || 0,
+      unloading: newItems[0].unloading || 0,
+      other_charges: newItems[0].other_charges || 0,
+      total: Number(bilty.freight) || 0
+    }
+    setItems(newItems)
+    calculateTotals(newItems)
+  }
+
+  // Bilty select in row (individual)
   const handleBiltySelect = (index, lrNo) => {
     if (!lrNo) {
       const newItems = [...items]
@@ -101,24 +147,6 @@ export default function BillEntry() {
       total: Number(bilty.freight) || 0
     }
     setItems(newItems)
-
-    // ✅ Party details bhi auto-fill karo (pehli bilty se)
-    if (index === 0) {
-      setForm(prev => ({
-        ...prev,
-        party_name: bilty.consignor_name || prev.party_name,
-        party_gst: bilty.consignor_gst || prev.party_gst,
-        party_address: bilty.consignor_address || prev.party_address,
-        from_name: bilty.from_name || prev.from_name,
-        to_name: bilty.to_name || prev.to_name,
-        consignor_name: bilty.consignor_name || prev.consignor_name,
-        consignee_name: bilty.consignee_name || prev.consignee_name,
-        vehicle_no: bilty.lorry_no || prev.vehicle_no,
-        invoice_no: bilty.invoice_no || prev.invoice_no,
-        invoice_date: bilty.invoice_date || prev.invoice_date
-      }))
-    }
-
     calculateTotals(newItems)
   }
 
@@ -127,11 +155,11 @@ export default function BillEntry() {
       const rowTotal = Number(item.total) || (Number(item.loading) + Number(item.unloading) + Number(item.other_charges) + Number(item.freight))
       return sum + rowTotal
     }, 0)
-    
+
     const gstAmount = (subtotal * Number(form.gst_percent)) / 100
     const grandTotal = subtotal + gstAmount
     const netBalance = grandTotal - Number(form.advance_received)
-    
+
     setForm(prev => ({
       ...prev,
       trip_subtotal: subtotal,
@@ -173,20 +201,19 @@ export default function BillEntry() {
     e.preventDefault()
     setLoading(true)
     try {
-      // ✅ LR numbers ko comma-separated string mein convert karo
       const lr_nos = items
         .filter(i => i.lr_no && i.lr_no.trim())
         .map(i => i.lr_no.trim())
         .join(',')
 
-      const payload = { 
-        ...form, 
-        items, 
+      const payload = {
+        ...form,
+        items,
         lr_nos,
         party_address: form.party_address,
         remarks: form.remarks
       }
-      
+
       const res = await api.post('/api/bills', payload)
       toast.success('Bill created successfully!')
       navigate(`/bill-print/${res.data.bill_no}`)
@@ -210,10 +237,32 @@ export default function BillEntry() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Bill Info */}
+
+          {/* ✅ Bill Information — Master LR No. ke saath */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="font-bold text-lg mb-4 text-gray-800">Bill Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Master LR No. — sirf entry ke liye */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1 text-blue-700">
+                  🔗 LR No. (Auto-fill Bill) — Print mein nahi aayega
+                </label>
+                <select
+                  value={masterLrNo}
+                  onChange={(e) => handleMasterLrSelect(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-blue-500 rounded-lg bg-blue-50 font-bold"
+                >
+                  <option value="">-- Select Bilty to Auto-Fill --</option>
+                  {consignments.map(c => (
+                    <option key={c.id} value={c.lr_no}>
+                      {c.lr_no} — {c.consignor_name} → {c.consignee_name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-blue-600 mt-1">
+                  💡 Bilty select karo — saara data automatic aa jayega
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Bill Date *</label>
                 <input type="date" value={form.bill_date} onChange={(e) => updateForm('bill_date', e.target.value)} className="w-full px-3 py-2 border rounded-lg" required />
@@ -315,10 +364,11 @@ export default function BillEntry() {
                     <th className="px-2 py-2 text-left">To</th>
                     <th className="px-2 py-2 text-right">Pkgs</th>
                     <th className="px-2 py-2 text-right">Wt (MT)</th>
-                    <th className="px-2 py-2 text-right">Freight</th>
                     <th className="px-2 py-2 text-right">Loading</th>
                     <th className="px-2 py-2 text-right">Unloading</th>
                     <th className="px-2 py-2 text-right">Other</th>
+                    {/* ✅ Freight ab Total se pehle */}
+                    <th className="px-2 py-2 text-right">Freight</th>
                     <th className="px-2 py-2 text-right">Total</th>
                     <th className="px-2 py-2"></th>
                   </tr>
@@ -345,10 +395,10 @@ export default function BillEntry() {
                       <td className="px-2 py-1"><input type="text" value={item.to_name} onChange={(e) => updateItem(i, 'to_name', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.packages} onChange={(e) => updateItem(i, 'packages', e.target.value)} className="w-16 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.weight_mt} onChange={(e) => updateItem(i, 'weight_mt', e.target.value)} className="w-20 px-2 py-1 border rounded text-right" /></td>
-                      <td className="px-2 py-1"><input type="number" value={item.freight} onChange={(e) => { updateItem(i, 'freight', e.target.value); updateItem(i, 'total', Number(e.target.value) + Number(item.loading) + Number(item.unloading) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.loading} onChange={(e) => { updateItem(i, 'loading', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(e.target.value) + Number(item.unloading) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.unloading} onChange={(e) => { updateItem(i, 'unloading', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(item.loading) + Number(e.target.value) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.other_charges} onChange={(e) => { updateItem(i, 'other_charges', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(item.loading) + Number(item.unloading) + Number(e.target.value)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.freight} onChange={(e) => { updateItem(i, 'freight', e.target.value); updateItem(i, 'total', Number(e.target.value) + Number(item.loading) + Number(item.unloading) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.total} onChange={(e) => updateItem(i, 'total', e.target.value)} className="w-24 px-2 py-1 border rounded text-right font-bold" /></td>
                       <td className="px-2 py-1">
                         <button type="button" onClick={() => removeItem(i)} className="text-red-600 hover:text-red-800">✕</button>
