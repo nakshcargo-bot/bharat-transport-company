@@ -211,9 +211,9 @@ export default function Consignments({ isNew }) {
         finalConsigneeCode = getNextPartyCode(existingCodes)
       }
 
-      const biltyData = { 
-        ...formData, 
-        consignor_code: finalConsignorCode, 
+      const biltyData = {
+        ...formData,
+        consignor_code: finalConsignorCode,
         consignee_code: finalConsigneeCode,
         payment_status: formData.basis_booking === 'PAID' ? 'Paid' : 'Unpaid'
       }
@@ -274,9 +274,14 @@ export default function Consignments({ isNew }) {
           }
         }
 
-        alert('✅ Bilty saved successfully!' + (formData.basis_booking === 'PAID' ? '\n💰 MR also created!' : ''))
-        setShowForm(false)
-        navigate('/consignments')
+        // ✅ Save ke baad Print ka option
+        const shouldPrint = window.confirm('✅ Bilty saved successfully!\n\nKya aap isko print karna chahte hain?')
+        if (shouldPrint) {
+          navigate(`/bilty-print?lr_no=${savedBilty.lr_no}`)
+        } else {
+          setShowForm(false)
+          navigate('/consignments')
+        }
       } else {
         const err = await res.json()
         alert('Error: ' + (err.error || err.message))
@@ -583,7 +588,7 @@ export default function Consignments({ isNew }) {
                 {bilties.map(b => (
                   <tr key={b.id} className="border-t hover:bg-gray-50">
                     <td className="p-3 font-bold text-red-700">{b.lr_no}</td>
-                    <td className="p-3 text-sm">{b.lr_date}</td>
+                    <td className="p-3 text-sm">{b.lr_date ? new Date(b.lr_date).toLocaleDateString('en-IN') : '-'}</td>
                     <td className="p-3 text-sm">{b.from_name} → {b.to_name}</td>
                     <td className="p-3 text-sm">{b.consignor_name}</td>
                     <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
