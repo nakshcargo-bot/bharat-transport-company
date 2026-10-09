@@ -67,7 +67,7 @@ function App() {
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
 
           {/* Bills */}
-          <Route path="/bills" element={<PrivateRoute><Bills /></PrivateRoute>} />
+          <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill-print/:billNo" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
