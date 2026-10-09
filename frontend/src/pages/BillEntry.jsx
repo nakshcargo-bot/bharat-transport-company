@@ -8,6 +8,7 @@ export default function BillEntry() {
   const [loading, setLoading] = useState(false)
   const [customers, setCustomers] = useState([])
   const [branches, setBranches] = useState([])
+  const [consignments, setConsignments] = useState([])
 
   const [form, setForm] = useState({
     bill_date: new Date().toISOString().split('T')[0],
@@ -35,7 +36,7 @@ export default function BillEntry() {
   })
 
   const [items, setItems] = useState([
-    { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }
+    { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, packages: 0, freight: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }
   ])
 
   useEffect(() => {
@@ -44,12 +45,17 @@ export default function BillEntry() {
 
   const loadMasters = async () => {
     try {
-      const [c, b] = await Promise.all([
+      const token = localStorage.getItem('token')
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+
+      const [c, b, cons] = await Promise.all([
         api.get('/api/customers'),
-        api.get('/api/branches')
+        api.get('/api/branches'),
+        fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json())
       ])
       setCustomers(c.data?.data || c.data || [])
       setBranches(b.data?.data || b.data || [])
+      setConsignments(cons.data || [])
     } catch (err) {
       console.error(err)
     }
@@ -66,9 +72,59 @@ export default function BillEntry() {
     calculateTotals(newItems)
   }
 
+  // ✅ Bilty select karne par saara data auto-fill karo
+  const handleBiltySelect = (index, lrNo) => {
+    if (!lrNo) {
+      const newItems = [...items]
+      newItems[index] = { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, packages: 0, freight: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }
+      setItems(newItems)
+      calculateTotals(newItems)
+      return
+    }
+
+    const bilty = consignments.find(c => c.lr_no === lrNo)
+    if (!bilty) return
+
+    const newItems = [...items]
+    newItems[index] = {
+      ...newItems[index],
+      lr_no: bilty.lr_no,
+      invoice_no: bilty.invoice_no || '',
+      from_name: bilty.from_name || '',
+      to_name: bilty.to_name || '',
+      weight_mt: bilty.actual_weight || bilty.charged_weight || 0,
+      packages: bilty.no_of_packages || 0,
+      freight: bilty.freight || 0,
+      loading: newItems[index].loading || 0,
+      unloading: newItems[index].unloading || 0,
+      other_charges: newItems[index].other_charges || 0,
+      total: Number(bilty.freight) || 0
+    }
+    setItems(newItems)
+
+    // ✅ Party details bhi auto-fill karo (pehli bilty se)
+    if (index === 0) {
+      setForm(prev => ({
+        ...prev,
+        party_name: bilty.consignor_name || prev.party_name,
+        party_gst: bilty.consignor_gst || prev.party_gst,
+        party_address: bilty.consignor_address || prev.party_address,
+        from_name: bilty.from_name || prev.from_name,
+        to_name: bilty.to_name || prev.to_name,
+        consignor_name: bilty.consignor_name || prev.consignor_name,
+        consignee_name: bilty.consignee_name || prev.consignee_name,
+        vehicle_no: bilty.lorry_no || prev.vehicle_no,
+        invoice_no: bilty.invoice_no || prev.invoice_no,
+        invoice_date: bilty.invoice_date || prev.invoice_date
+      }))
+    }
+
+    calculateTotals(newItems)
+  }
+
   const calculateTotals = (itemList) => {
     const subtotal = itemList.reduce((sum, item) => {
-      const rowTotal = Number(item.total) || (Number(item.loading) + Number(item.unloading) + Number(item.other_charges))
+      const rowTotal = Number(item.total) || (Number(item.loading) + Number(item.unloading) + Number(item.other_charges) + Number(item.freight))
       return sum + rowTotal
     }, 0)
     
@@ -86,7 +142,7 @@ export default function BillEntry() {
   }
 
   const addItem = () => {
-    setItems([...items, { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }])
+    setItems([...items, { lr_no: '', invoice_no: '', from_name: '', to_name: '', weight_mt: 0, packages: 0, freight: 0, loading: 0, unloading: 0, other_charges: 0, total: 0 }])
   }
 
   const removeItem = (index) => {
@@ -257,7 +313,9 @@ export default function BillEntry() {
                     <th className="px-2 py-2 text-left">Invoice No.</th>
                     <th className="px-2 py-2 text-left">From</th>
                     <th className="px-2 py-2 text-left">To</th>
+                    <th className="px-2 py-2 text-right">Pkgs</th>
                     <th className="px-2 py-2 text-right">Wt (MT)</th>
+                    <th className="px-2 py-2 text-right">Freight</th>
                     <th className="px-2 py-2 text-right">Loading</th>
                     <th className="px-2 py-2 text-right">Unloading</th>
                     <th className="px-2 py-2 text-right">Other</th>
@@ -268,14 +326,29 @@ export default function BillEntry() {
                 <tbody>
                   {items.map((item, i) => (
                     <tr key={i} className="border-b">
-                      <td className="px-2 py-1"><input type="text" value={item.lr_no} onChange={(e) => updateItem(i, 'lr_no', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                      <td className="px-2 py-1">
+                        <select
+                          value={item.lr_no}
+                          onChange={(e) => handleBiltySelect(i, e.target.value)}
+                          className="w-full px-2 py-1 border rounded bg-white"
+                        >
+                          <option value="">-- Select Bilty --</option>
+                          {consignments.map(c => (
+                            <option key={c.id} value={c.lr_no}>
+                              {c.lr_no} - {c.consignor_name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="px-2 py-1"><input type="text" value={item.invoice_no} onChange={(e) => updateItem(i, 'invoice_no', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
                       <td className="px-2 py-1"><input type="text" value={item.from_name} onChange={(e) => updateItem(i, 'from_name', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
                       <td className="px-2 py-1"><input type="text" value={item.to_name} onChange={(e) => updateItem(i, 'to_name', e.target.value)} className="w-full px-2 py-1 border rounded" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.packages} onChange={(e) => updateItem(i, 'packages', e.target.value)} className="w-16 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.weight_mt} onChange={(e) => updateItem(i, 'weight_mt', e.target.value)} className="w-20 px-2 py-1 border rounded text-right" /></td>
-                      <td className="px-2 py-1"><input type="number" value={item.loading} onChange={(e) => updateItem(i, 'loading', e.target.value)} className="w-20 px-2 py-1 border rounded text-right" /></td>
-                      <td className="px-2 py-1"><input type="number" value={item.unloading} onChange={(e) => updateItem(i, 'unloading', e.target.value)} className="w-20 px-2 py-1 border rounded text-right" /></td>
-                      <td className="px-2 py-1"><input type="number" value={item.other_charges} onChange={(e) => updateItem(i, 'other_charges', e.target.value)} className="w-20 px-2 py-1 border rounded text-right" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.freight} onChange={(e) => { updateItem(i, 'freight', e.target.value); updateItem(i, 'total', Number(e.target.value) + Number(item.loading) + Number(item.unloading) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.loading} onChange={(e) => { updateItem(i, 'loading', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(e.target.value) + Number(item.unloading) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.unloading} onChange={(e) => { updateItem(i, 'unloading', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(item.loading) + Number(e.target.value) + Number(item.other_charges)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
+                      <td className="px-2 py-1"><input type="number" value={item.other_charges} onChange={(e) => { updateItem(i, 'other_charges', e.target.value); updateItem(i, 'total', Number(item.freight) + Number(item.loading) + Number(item.unloading) + Number(e.target.value)) }} className="w-20 px-2 py-1 border rounded text-right" /></td>
                       <td className="px-2 py-1"><input type="number" value={item.total} onChange={(e) => updateItem(i, 'total', e.target.value)} className="w-24 px-2 py-1 border rounded text-right font-bold" /></td>
                       <td className="px-2 py-1">
                         <button type="button" onClick={() => removeItem(i)} className="text-red-600 hover:text-red-800">✕</button>
