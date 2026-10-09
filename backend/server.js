@@ -781,21 +781,24 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
       for (const item of items) {
         if (item.lr_no || item.invoice_no || item.total > 0) {
           await pool.query(
-            `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, loading, unloading, other_charges, total)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [
-              billId,
-              item.lr_no || null,
-              item.invoice_no || null,
-              item.from_name || null,
-              item.to_name || null,
-              parseFloat(item.weight_mt) || 0,
-              parseFloat(item.loading) || 0,
-              parseFloat(item.unloading) || 0,
-              parseFloat(item.other_charges) || 0,
-              parseFloat(item.total) || 0
-            ]
-          )
+            await pool.query(
+  `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+  [
+    billId,
+    item.lr_no || null,
+    item.invoice_no || null,
+    item.from_name || null,
+    item.to_name || null,
+    parseFloat(item.weight_mt) || 0,
+    parseInt(item.packages) || 0,
+    parseFloat(item.freight) || 0,
+    parseFloat(item.loading) || 0,
+    parseFloat(item.unloading) || 0,
+    parseFloat(item.other_charges) || 0,
+    parseFloat(item.total) || 0
+  ]
+)
         }
       }
     }
