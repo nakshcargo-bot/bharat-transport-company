@@ -521,4 +521,96 @@ export default function Consignments({ isNew }) {
                     <select name="mr_payment_mode" value={formData.mr_payment_mode} onChange={handleChange} className="w-full border-2 border-green-500 p-2 rounded mt-1" required>
                       <option>Cash</option><option>Cheque</option><option>Bank Transfer</option><option>UPI</option><option>DD</option>
                     </select>
-                 
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="text-sm font-bold text-gray-700">Remarks</label>
+                  <textarea name="mr_remarks" value={formData.mr_remarks} onChange={handleChange} rows="2" className="w-full border p-2 rounded mt-1" placeholder="MR के लिए कोई note..."></textarea>
+                </div>
+              </div>
+            )}
+
+            {mrError && (
+              <div className="bg-red-100 border-2 border-red-500 text-red-800 p-4 rounded-lg font-bold text-center">
+                {mrError}
+              </div>
+            )}
+
+            <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-yellow-900">
+                <span className="font-bold text-lg"> Summary:</span>
+                <p className="text-sm">LR: <b>{formData.lr_no || 'Auto'}</b> | RV: <b>{formData.rv_no || 'Auto'}</b> | Total: <b>₹{formData.grand_total || '0'}</b></p>
+              </div>
+              <button type="submit" disabled={submitting} className="bg-red-700 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-red-800 disabled:bg-gray-400 shadow-lg min-w-[200px]">
+                {submitting ? 'Saving...' : '✅ Save Bilty'}
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-red-700 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+          <h1 className="font-bold text-lg">📋 Bilty List ({bilties.length})</h1>
+          <div className="flex gap-2">
+            <button onClick={() => setShowForm(true)} className="bg-white text-red-700 px-4 py-1 rounded font-bold text-sm">+ New Bilty</button>
+            <button onClick={() => navigate('/mr')} className="bg-yellow-500 text-white px-4 py-1 rounded font-bold text-sm">💰 Money Receipts</button>
+            <button onClick={() => navigate('/')} className="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm">← Dashboard</button>
+          </div>
+        </div>
+      </nav>
+      <div className="max-w-7xl mx-auto p-6">
+        {loading ? <div className="text-center py-20 text-xl font-bold">Loading...</div> : (
+          <div className="bg-white rounded-xl shadow overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3 text-left text-sm font-bold">LR No</th>
+                  <th className="p-3 text-left text-sm font-bold">Date</th>
+                  <th className="p-3 text-left text-sm font-bold">From → To</th>
+                  <th className="p-3 text-left text-sm font-bold">Consignor</th>
+                  <th className="p-3 text-left text-sm font-bold">Amount</th>
+                  <th className="p-3 text-left text-sm font-bold">Status</th>
+                  <th className="p-3 text-left text-sm font-bold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bilties.map(b => (
+                  <tr key={b.id} className="border-t hover:bg-gray-50">
+                    <td className="p-3 font-bold text-red-700">{b.lr_no}</td>
+                    <td className="p-3 text-sm">{b.lr_date}</td>
+                    <td className="p-3 text-sm">{b.from_name} → {b.to_name}</td>
+                    <td className="p-3 text-sm">{b.consignor_name}</td>
+                    <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
+                    <td className="p-3">
+                      {b.basis_booking === 'PAID' || b.payment_status === 'Paid' ? (
+                        <span className="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700">✅ PAID {b.mr_no && `(${b.mr_no})`}</span>
+                      ) : (
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {b.mr_no ? (
+                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center">MR: {b.mr_no}</div>
+                      ) : (b.basis_booking !== 'PAID' && (
+                        <button onClick={() => navigate(`/mr/create?biltyId=${b.id}`)} className="bg-green-600 text-white px-2 py-1 rounded text-xs mb-1 hover:bg-green-700 w-full font-bold">💰 Create MR</button>
+                      ))}
+                      <div className="flex gap-1">
+                        <button onClick={() => navigate('/bilty-print', { state: { bilty: b } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 flex-1">🖨️ Print</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
