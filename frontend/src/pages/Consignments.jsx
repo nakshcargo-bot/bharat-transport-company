@@ -14,13 +14,13 @@ export default function Consignments({ isNew }) {
     consignor_code: '', consignor_name: '', consignor_address: '', consignor_gst: '', invoice_no: '', invoice_date: '',
     consignee_code: '', consignee_name: '', consignee_address: '', consignee_gst: '', po_no: '',
     lorry_no: '', driver_mobile: '', delivery_type: 'DOOR DELIVERY',
-    packages: '', method_of_packing: '', hsn_code: '', actual_weight: '', charged_weight: '',
-    material_desc: '', eway_bill_no: '',
-    length: '', width: '', height: '', total_cft: '',
+    no_of_packages: '', method_of_packing: '', hsn_code: '', actual_weight: '', charged_weight: '',
+    description: '', eway_bill_no: '',
+    length: '', width: '', height: '', cft_cmt: '',
     declared_value: '', basis_party: '', basis_booking: 'TO PAY',
     rv_no: '', rv_dt: '', rv_am: '',
     insurance_company: '', policy_no: '', insurance_amount: '',
-    freight: '', aoc_percent: '', material_mgmt_ch: '', collection_charges: '', door_dly_charges: '', misc_charges: '', grand_total: '',
+    freight: '', aoc_percent: '', material_charges: '', collection_charges: '', door_delivery: '', misc_charges: '', grand_total: '',
     status: 'Booked',
     mr_party_name: '', mr_amount: '', mr_payment_mode: 'Cash', mr_remarks: ''
   })
@@ -81,7 +81,6 @@ export default function Consignments({ isNew }) {
     }
   }
 
-  // ✅ RV Auto Serial
   const fetchNextRVNo = async () => {
     try {
       const token = localStorage.getItem('token')
@@ -153,7 +152,7 @@ export default function Consignments({ isNew }) {
     const newData = { ...formData, [name]: type === 'checkbox' ? checked : value }
     setFormData(newData)
 
-    if (['freight', 'aoc_percent', 'material_mgmt_ch', 'collection_charges', 'door_dly_charges', 'misc_charges'].includes(name)) {
+    if (['freight', 'aoc_percent', 'material_charges', 'collection_charges', 'door_delivery', 'misc_charges'].includes(name)) {
       setTimeout(() => calculateTotal(newData), 0)
     }
 
@@ -175,9 +174,9 @@ export default function Consignments({ isNew }) {
     const freight = parseFloat(currentData.freight || 0)
     const aoc = parseFloat(currentData.aoc_percent || 0)
     const aocAmt = (freight * aoc) / 100
-    const handling = parseFloat(currentData.material_mgmt_ch || 0)
+    const handling = parseFloat(currentData.material_charges || 0)
     const collect = parseFloat(currentData.collection_charges || 0)
-    const doorDly = parseFloat(currentData.door_dly_charges || 0)
+    const doorDly = parseFloat(currentData.door_delivery || 0)
     const other = parseFloat(currentData.misc_charges || 0)
     const total = freight + aocAmt + handling + collect + doorDly + other
     setFormData(prev => ({ ...prev, grand_total: total.toFixed(2), rv_am: total.toFixed(2) }))
@@ -411,7 +410,7 @@ export default function Consignments({ isNew }) {
                 <div><label className="text-sm font-bold text-gray-700">E-Way Bill No.</label><input name="eway_bill_no" value={formData.eway_bill_no} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
               </div>
               <div className="grid md:grid-cols-5 gap-4">
-                <div><label className="text-sm font-bold text-gray-700">Packages *</label><input name="packages" value={formData.packages} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" required /></div>
+                <div><label className="text-sm font-bold text-gray-700">Packages *</label><input name="no_of_packages" value={formData.no_of_packages} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" required /></div>
                 <div><label className="text-sm font-bold text-gray-700">Method</label><input name="method_of_packing" value={formData.method_of_packing} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">HSN Code</label><input name="hsn_code" value={formData.hsn_code} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Actual Wt. (kg)</label><input name="actual_weight" value={formData.actual_weight} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
@@ -419,7 +418,7 @@ export default function Consignments({ isNew }) {
               </div>
               <div className="mt-4">
                 <label className="text-sm font-bold text-gray-700">Material Description</label>
-                <textarea name="material_desc" value={formData.material_desc} onChange={handleChange} rows="2" className="w-full border p-2 rounded mt-1"></textarea>
+                <textarea name="description" value={formData.description} onChange={handleChange} rows="2" className="w-full border p-2 rounded mt-1"></textarea>
               </div>
             </div>
 
@@ -430,7 +429,7 @@ export default function Consignments({ isNew }) {
                   <div><label className="text-xs font-bold">Length</label><input name="length" value={formData.length} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                   <div><label className="text-xs font-bold">Width</label><input name="width" value={formData.width} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                   <div><label className="text-xs font-bold">Height</label><input name="height" value={formData.height} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
-                  <div><label className="text-xs font-bold">Total CFT</label><input name="total_cft" value={formData.total_cft} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" /></div>
+                  <div><label className="text-xs font-bold">Total CFT</label><input name="cft_cmt" value={formData.cft_cmt} onChange={handleChange} className="w-full border p-2 rounded mt-1 font-bold" /></div>
                 </div>
               </div>
               <div>
@@ -460,7 +459,6 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {/* ✅ RV Auto Serial */}
             <div className="grid md:grid-cols-2 gap-6 border-b pb-4">
               <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
                 <h3 className="font-bold text-indigo-900 mb-3"> Receipt Voucher (Auto Serial)</h3>
@@ -494,9 +492,9 @@ export default function Consignments({ isNew }) {
               <div className="grid md:grid-cols-6 gap-4">
                 <div><label className="text-sm font-bold text-gray-700">Freight *</label><input name="freight" type="number" value={formData.freight} onChange={handleChange} className="w-full border p-2 rounded mt-1" required /></div>
                 <div><label className="text-sm font-bold text-gray-700">A.O.C (%)</label><input name="aoc_percent" type="number" step="0.01" value={formData.aoc_percent} onChange={handleChange} className="w-full border p-2 rounded mt-1" placeholder="e.g., 2" /></div>
-                <div><label className="text-sm font-bold text-gray-700">Handling</label><input name="material_mgmt_ch" type="number" value={formData.material_mgmt_ch} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
+                <div><label className="text-sm font-bold text-gray-700">Handling</label><input name="material_charges" type="number" value={formData.material_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Collection</label><input name="collection_charges" type="number" value={formData.collection_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
-                <div><label className="text-sm font-bold text-gray-700">Door Dly</label><input name="door_dly_charges" type="number" value={formData.door_dly_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
+                <div><label className="text-sm font-bold text-gray-700">Door Dly</label><input name="door_delivery" type="number" value={formData.door_delivery} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
                 <div><label className="text-sm font-bold text-gray-700">Other/Misc</label><input name="misc_charges" type="number" value={formData.misc_charges} onChange={handleChange} className="w-full border p-2 rounded mt-1" /></div>
               </div>
               <div className="mt-4 flex items-center gap-4 flex-wrap">
@@ -523,96 +521,4 @@ export default function Consignments({ isNew }) {
                     <select name="mr_payment_mode" value={formData.mr_payment_mode} onChange={handleChange} className="w-full border-2 border-green-500 p-2 rounded mt-1" required>
                       <option>Cash</option><option>Cheque</option><option>Bank Transfer</option><option>UPI</option><option>DD</option>
                     </select>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <label className="text-sm font-bold text-gray-700">Remarks</label>
-                  <textarea name="mr_remarks" value={formData.mr_remarks} onChange={handleChange} rows="2" className="w-full border p-2 rounded mt-1" placeholder="MR के लिए कोई note..."></textarea>
-                </div>
-              </div>
-            )}
-
-            {mrError && (
-              <div className="bg-red-100 border-2 border-red-500 text-red-800 p-4 rounded-lg font-bold text-center">
-                {mrError}
-              </div>
-            )}
-
-            <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-yellow-900">
-                <span className="font-bold text-lg"> Summary:</span>
-                <p className="text-sm">LR: <b>{formData.lr_no || 'Auto'}</b> | RV: <b>{formData.rv_no || 'Auto'}</b> | Total: <b>₹{formData.grand_total || '0'}</b></p>
-              </div>
-              <button type="submit" disabled={submitting} className="bg-red-700 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-red-800 disabled:bg-gray-400 shadow-lg min-w-[200px]">
-                {submitting ? 'Saving...' : '✅ Save Bilty'}
-              </button>
-            </div>
-
-          </form>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-red-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="font-bold text-lg">📋 Bilty List ({bilties.length})</h1>
-          <div className="flex gap-2">
-            <button onClick={() => setShowForm(true)} className="bg-white text-red-700 px-4 py-1 rounded font-bold text-sm">+ New Bilty</button>
-            <button onClick={() => navigate('/mr')} className="bg-yellow-500 text-white px-4 py-1 rounded font-bold text-sm">💰 Money Receipts</button>
-            <button onClick={() => navigate('/')} className="bg-red-800 text-white px-4 py-1 rounded font-bold text-sm">← Dashboard</button>
-          </div>
-        </div>
-      </nav>
-      <div className="max-w-7xl mx-auto p-6">
-        {loading ? <div className="text-center py-20 text-xl font-bold">Loading...</div> : (
-          <div className="bg-white rounded-xl shadow overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-3 text-left text-sm font-bold">LR No</th>
-                  <th className="p-3 text-left text-sm font-bold">Date</th>
-                  <th className="p-3 text-left text-sm font-bold">From → To</th>
-                  <th className="p-3 text-left text-sm font-bold">Consignor</th>
-                  <th className="p-3 text-left text-sm font-bold">Amount</th>
-                  <th className="p-3 text-left text-sm font-bold">Status</th>
-                  <th className="p-3 text-left text-sm font-bold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bilties.map(b => (
-                  <tr key={b.id} className="border-t hover:bg-gray-50">
-                    <td className="p-3 font-bold text-red-700">{b.lr_no}</td>
-                    <td className="p-3 text-sm">{b.lr_date}</td>
-                    <td className="p-3 text-sm">{b.from_name} → {b.to_name}</td>
-                    <td className="p-3 text-sm">{b.consignor_name}</td>
-                    <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>
-                    <td className="p-3">
-                      {b.basis_booking === 'PAID' || b.payment_status === 'Paid' ? (
-                        <span className="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-700">✅ PAID {b.mr_no && `(${b.mr_no})`}</span>
-                      ) : (
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : b.status === 'In-Transit' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>{b.status}</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {b.mr_no ? (
-                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center">MR: {b.mr_no}</div>
-                      ) : (b.basis_booking !== 'PAID' && (
-                        <button onClick={() => navigate(`/mr/create?biltyId=${b.id}`)} className="bg-green-600 text-white px-2 py-1 rounded text-xs mb-1 hover:bg-green-700 w-full font-bold">💰 Create MR</button>
-                      ))}
-                      <div className="flex gap-1">
-                        <button onClick={() => navigate('/bilty-print', { state: { bilty: b } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 flex-1">🖨️ Print</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+                 
