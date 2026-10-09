@@ -11,37 +11,23 @@ export default function BiltyPrint() {
   const lrNo = searchParams.get('lr_no')
 
   useEffect(() => {
-    if (!lrNo) {
-      navigate('/consignments')
-      return
-    }
+    if (!lrNo) { navigate('/consignments'); return }
     fetchBiltyData(lrNo)
   }, [lrNo, navigate])
 
   const fetchBiltyData = async (lrNo) => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true); setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-
-      // ✅ Sahi endpoint - poora data milega
-      const res = await fetch(`${apiUrl}/api/consignments`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-
+      const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
-      
-      // ✅ lr_no se bilty dhundho
       const foundBilty = data.data.find(b => b.lr_no === lrNo)
       if (!foundBilty) throw new Error('Bilty not found')
       setBilty(foundBilty)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   const handlePrint = () => window.print()
@@ -51,11 +37,12 @@ export default function BiltyPrint() {
     const msg = `🚛 *BILTY DETAILS*%0A%0A` +
       `📋 LR No: ${bilty.lr_no}%0A` +
       `📅 Date: ${bilty.lr_date || 'N/A'}%0A` +
-      ` Consignor: ${bilty.consignor_name || 'N/A'}%0A` +
+      `👤 Consignor: ${bilty.consignor_name || 'N/A'}%0A` +
       `📍 From: ${bilty.from_name || 'N/A'}%0A` +
       `👤 Consignee: ${bilty.consignee_name || 'N/A'}%0A` +
       `📍 To: ${bilty.to_name || 'N/A'}%0A` +
-      `📦 Status: ${bilty.status || 'Booked'}%0A%0A` +
+      `💰 Freight: ₹${bilty.freight || '0'}%0A` +
+      `💵 Grand Total: ₹${bilty.grand_total || '0'}%0A%0A` +
       `— Bharat Transport Company`
     window.open(`https://wa.me/?text=${msg}`, '_blank')
   }
@@ -67,215 +54,300 @@ export default function BiltyPrint() {
       `LR No: ${bilty.lr_no}%0D%0A` +
       `Date: ${bilty.lr_date || 'N/A'}%0D%0A` +
       `Consignor: ${bilty.consignor_name || 'N/A'}%0D%0A` +
-      `From: ${bilty.from_name || 'N/A'}%0D%0A` +
       `Consignee: ${bilty.consignee_name || 'N/A'}%0D%0A` +
-      `To: ${bilty.to_name || 'N/A'}%0D%0A` +
-      `Status: ${bilty.status || 'Booked'}%0D%0A%0D%0A` +
+      `Grand Total: Rs.${bilty.grand_total || '0'}%0D%0A%0D%0A` +
       `— Bharat Transport Company`
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
-          <p className="mt-4 text-gray-600">Loading Bilty...</p>
-        </div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div></div>
+  if (error || !bilty) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg shadow text-center">
+        <p className="text-red-600 mb-4">{error || 'Bilty not found'}</p>
+        <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-blue-600 text-white rounded">← Back</button>
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (error || !bilty) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white p-6 rounded-lg shadow text-center">
-          <p className="text-red-600 mb-4">{error || 'Bilty not found'}</p>
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-blue-600 text-white rounded">← Back</button>
-        </div>
-      </div>
-    )
+  const copies = [
+    { label: 'CONSIGNOR COPY', theme: 'consignor' },
+    { label: 'CONSIGNEE COPY', theme: 'consignee' },
+    { label: 'LORRY COPY', theme: 'lorry' },
+    { label: 'HO COPY', theme: 'ho' },
+  ]
+
+  const themes = {
+    consignor: { primary: '#0d47a1', bgAccent: '#e3f2fd' },
+    consignee: { primary: '#b71c1c', bgAccent: '#ffebee' },
+    lorry: { primary: '#1b5e20', bgAccent: '#e8f5e9' },
+    ho: { primary: '#e65100', bgAccent: '#fff3e0' },
   }
 
   return (
     <div className="min-h-screen bg-gray-200">
+      {/* Action Bar */}
       <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
-            ← Back to List
-          </button>
+          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back to List</button>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-1">
-              ️ Print / Save PDF
-            </button>
-            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-1">
-              📱 WhatsApp
-            </button>
-            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium flex items-center gap-1">
-              📧 Email
-            </button>
+            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print / Save PDF</button>
+            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">📱 WhatsApp</button>
+            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium">📧 Email</button>
           </div>
         </div>
-        <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800 print:hidden">
-          💡 <strong>Tip:</strong> "Print / Save PDF" button dabao → Destination mein "Save as PDF" select karo → A4 size PDF ban jayega!
+        <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800">
+          💡 "Print / Save PDF" dabao → "Save as PDF" select karo → A4 PDF ban jayega!
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto my-6 bg-white shadow-lg print:shadow-none print:my-0">
-        <div className="p-8 print:p-6" id="print-content">
-          <div className="text-center border-b-4 border-double border-gray-800 pb-4 mb-6">
-            <div className="flex justify-between items-start mb-2">
-              <div className="text-left">
-                <div className="text-xs text-gray-600">GSTIN: _______________</div>
-                <div className="text-xs text-gray-600 mt-1">CIN: _______________</div>
+      {/* A4 Content - 4 Copies */}
+      <div className="max-w-[210mm] mx-auto my-6 bg-white shadow-lg print:shadow-none print:my-0">
+        {copies.map((copy, idx) => {
+          const theme = themes[copy.theme]
+          return (
+            <div
+              key={idx}
+              className="bilty-container"
+              style={{
+                width: '190mm',
+                minHeight: '250mm',
+                background: '#fff',
+                margin: '10px auto',
+                border: '2px solid #000',
+                padding: '4mm',
+                pageBreakAfter: idx < copies.length - 1 ? 'always' : 'auto',
+                position: 'relative',
+                overflow: 'hidden',
+                fontFamily: "'Segoe UI', Arial, sans-serif",
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* Watermark */}
+              <div style={{
+                position: 'absolute', top: '50%', left: '50%',
+                transform: 'translate(-50%, -50%) rotate(-35deg)',
+                fontSize: '80px', fontWeight: 900,
+                fontFamily: "'Arial Black', Arial, sans-serif",
+                color: 'rgba(100,100,100,0.16)',
+                letterSpacing: '12px', zIndex: 11,
+                pointerEvents: 'none', userSelect: 'none'
+              }}>BTC</div>
+
+              {/* Header */}
+              <div style={{
+                textAlign: 'center', borderBottom: '1.5px solid #000',
+                padding: '5px 0', background: theme.bgAccent,
+                position: 'relative', zIndex: 2
+              }}>
+                <h1 style={{ margin: 0, fontSize: '24px', color: theme.primary }}>BHARAT TRANSPORT COMPANY</h1>
+                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan 331023</p>
+                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>GST NO: 08CMRPP0955N1Z5 | PAN NO: CMRPP0955N</p>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-red-800">BHARAT TRANSPORT</h1>
-                <p className="text-sm text-gray-700">Professional Multi-Branch TMS</p>
-                <p className="text-xs text-gray-600 mt-1">📞 +91-XXXXXXXXXX | ✉️ info@bharattransport.com</p>
+
+              {/* Copy Label */}
+              <div style={{ textAlign: 'center', margin: '5px 0', position: 'relative', zIndex: 2 }}>
+                <div style={{
+                  border: '1px solid #000', padding: '2px 20px', fontWeight: 'bold',
+                  display: 'inline-block', background: theme.bgAccent, fontSize: '11px'
+                }}>Goods Carried At Owner's Risk</div>
+                <br />
+                <div style={{
+                  border: `2px solid ${theme.primary}`, padding: '2px 25px',
+                  fontWeight: 'bold', display: 'inline-block', fontSize: '14px',
+                  color: theme.primary, minWidth: '200px', background: 'rgba(255,255,255,0.9)'
+                }}>{copy.label}</div>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-gray-600">Branch: {bilty.branch_code || 'Main'}</div>
+
+              {/* Top Grid - Parties + Route */}
+              <div style={{ display: 'flex', borderBottom: '1.5px solid #000', position: 'relative', zIndex: 2 }}>
+                {/* Left - Parties */}
+                <div style={{ width: '58%', borderRight: '1.5px solid #000', padding: '5px' }}>
+                  {/* Consignor */}
+                  <div style={{ border: '1px solid #000', padding: '5px', marginBottom: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.9)' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '10px', textDecoration: 'underline', display: 'block', marginBottom: '2px', color: theme.primary }}>CONSIGNOR:</span>
+                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '3px' }}>M/s.</span>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', width: '85%', textTransform: 'uppercase', paddingLeft: '5px' }}>{bilty.consignor_name || 'N/A'}</div>
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px', fontWeight: 600 }}>{bilty.consignor_address || ''}</div>
+                    <div style={{ borderBottom: '1px dotted #666', padding: '2px', fontSize: '12px', fontWeight: 600 }}>GST: {bilty.consignor_gst || 'N/A'}</div>
+                    <div style={{ display: 'flex', gap: '15px', marginTop: '4px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Inv No: <span style={{ borderBottom: '1px dotted #666', padding: '0 20px' }}>{bilty.invoice_no || ''}</span></div>
+                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Date: <span style={{ borderBottom: '1px dotted #666', padding: '0 15px' }}>{bilty.invoice_date || ''}</span></div>
+                    </div>
+                  </div>
+                  {/* Consignee */}
+                  <div style={{ border: '1px solid #000', padding: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.9)' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '10px', textDecoration: 'underline', display: 'block', marginBottom: '2px', color: theme.primary }}>CONSIGNEE:</span>
+                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '3px' }}>M/s.</span>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', width: '85%', textTransform: 'uppercase', paddingLeft: '5px' }}>{bilty.consignee_name || 'N/A'}</div>
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px', fontWeight: 600 }}>{bilty.consignee_address || ''}</div>
+                    <div style={{ borderBottom: '1px dotted #666', padding: '2px', fontSize: '12px', fontWeight: 600 }}>GST: {bilty.consignee_gst || 'N/A'}</div>
+                    <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>P.O. NO: <span style={{ borderBottom: '1px dotted #666', padding: '0 30px' }}>{bilty.po_no || ''}</span></div>
+                  </div>
+                </div>
+
+                {/* Right - Route */}
+                <div style={{ width: '42%', padding: '5px', background: 'rgba(250,250,250,0.7)' }}>
+                  <div style={{ border: `1.5px solid ${theme.primary}`, padding: '4px', textAlign: 'center', marginBottom: '5px', background: 'rgba(255,255,255,0.95)' }}>
+                    <label style={{ color: theme.primary, fontWeight: 'bold', fontSize: '11px' }}>CONSIGNMENT NO:</label>
+                    <div style={{ fontWeight: 'bold', fontSize: '20px', textAlign: 'center' }}>{bilty.lr_no}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>DATE:</label>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>FROM:</label>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.from_name || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>TO:</label>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.to_name || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>LORRY NO:</label>
+                    <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>{bilty.lorry_no || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
+                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>DRIVER PH:</label>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.driver_mobile || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', marginTop: '5px', border: `1.5px solid ${theme.primary}`, padding: '4px', background: 'rgba(255,255,255,0.7)' }}>
+                    <label style={{ color: theme.primary, fontWeight: 'bold', fontSize: '10px', width: '100px' }}>DELIVERY TYPE:</label>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{bilty.delivery_type || 'DOOR DELIVERY'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '3px', position: 'relative', zIndex: 2 }}>
+                <thead>
+                  <tr>
+                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Pkgs</th>
+                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Method</th>
+                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>HSN</th>
+                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Act Wt.</th>
+                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Chg Wt.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.no_of_packages || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.method_of_packing || 'N/A'}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.hsn_code || 'N/A'}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.actual_weight || '0'}</td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.charged_weight || '0'}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Middle Container */}
+              <div style={{ display: 'flex', borderTop: '1.5px solid #000', marginTop: '5px', position: 'relative', zIndex: 2 }}>
+                {/* Left Column */}
+                <div style={{ width: '42%', borderRight: '1.5px solid #000', padding: '5px' }}>
+                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
+                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>DESCRIPTION</label>
+                    <div style={{ fontSize: '11px', fontWeight: 600, minHeight: '35px' }}>{bilty.description || 'N/A'}</div>
+                  </div>
+                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
+                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>E-WAY BILL NO.</label>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{bilty.eway_bill_no || 'N/A'}</div>
+                  </div>
+                  <div style={{ border: '1px solid #000', marginBottom: '8px', background: 'rgba(255,255,255,0.9)' }}>
+                    <div style={{ background: theme.bgAccent, textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '2px', display: 'flex', justifyContent: 'space-around' }}>
+                      <span>L</span><span>W</span><span>H</span><span>PACKGE</span>
+                    </div>
+                    <table style={{ width: '100%', borderTop: '1px solid #000' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.length || '-'}</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.width || '-'}</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.height || '-'}</td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold' }}>{bilty.cft_cmt || '0'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', position: 'relative', marginBottom: '8px', background: 'rgba(255,255,255,0.9)' }}>
+                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>VALUATION</label>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold' }}>Value Rs: <span style={{ fontSize: '14px', fontWeight: 900 }}>{bilty.declared_value || '0'}</span></div>
+                  </div>
+                  <div style={{ border: `1.5px solid ${theme.primary}`, padding: '8px 5px', marginTop: '5px', background: 'rgba(255,255,255,0.95)' }}>
+                    <strong style={{ fontSize: '11px', display: 'block', marginBottom: '8px', textDecoration: 'underline', color: theme.primary }}>BASIS OF BOOKING:</strong>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '5px' }}>Bill M/s: <span style={{ fontWeight: 'bold', fontSize: '11px' }}>{bilty.basis_party || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, marginTop: '8px', borderTop: '1px dashed #666', paddingTop: '8px' }}>
+                      <span>{bilty.basis_booking === 'TO PAY' ? '☑' : '☐'} TO PAY</span>
+                      <span>{bilty.basis_booking === 'PAID' ? '☑' : '☐'} PAID</span>
+                      <span>{bilty.basis_booking === 'TO BB' ? '☑' : '☐'} TO BB</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Center Column */}
+                <div style={{ width: '28%', borderRight: '1.5px solid #000', padding: '5px' }}>
+                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
+                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>RECEIPT VOUCHER</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>No: <span style={{ fontWeight: 'bold' }}>{bilty.rv_no || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>Dt: <span style={{ fontWeight: 'bold' }}>{bilty.rv_dt || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>Amt: <span style={{ fontWeight: 'bold' }}>{bilty.rv_am || '0'}</span></div>
+                  </div>
+                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
+                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>INSURANCE</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>CO: <span style={{ fontWeight: 'bold' }}>{bilty.insurance_company || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>POL: <span style={{ fontWeight: 'bold' }}>{bilty.policy_no || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>AMT: <span style={{ fontWeight: 'bold' }}>{bilty.insurance_amount || '0'}</span></div>
+                  </div>
+                </div>
+
+                {/* Right Column - Charges */}
+                <div style={{ width: '30%', padding: '5px' }}>
+                  {[
+                    { label: 'Freight:', value: bilty.freight },
+                    { label: 'A.O.C:', value: bilty.aoc_percent },
+                    { label: 'Handling:', value: bilty.material_charges },
+                    { label: 'Collect:', value: bilty.collection_charges },
+                    { label: 'Door Del:', value: bilty.door_delivery },
+                    { label: 'Other:', value: bilty.misc_charges },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                      <label>{item.label}</label>
+                      <span style={{ border: '1px solid #999', padding: '3px 4px', minWidth: '90px', textAlign: 'right', background: '#fff' }}>₹{item.value || '0'}</span>
+                    </div>
+                  ))}
+                  <hr style={{ margin: '5px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '15px', color: theme.primary, fontWeight: 900 }}>
+                    <span>TOTAL:</span>
+                    <span style={{ border: '2px solid #000', padding: '3px 6px', background: '#ffffcc', minWidth: '90px', textAlign: 'right' }}>₹{bilty.grand_total || '0'}/-</span>
+                  </div>
+                  <div style={{ border: '1px solid #000', marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.95)' }}>
+                    <strong style={{ fontSize: '10px' }}>For BHARAT TRANSPORT COMPANY</strong>
+                    <br /><br />
+                    <p style={{ borderTop: '1px solid #000', margin: 0, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>Signature</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{ marginTop: '5px', paddingTop: '5px', fontSize: '10px', borderTop: '1px solid #000', position: 'relative', zIndex: 2 }}>
+                • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
               </div>
             </div>
-            <h2 className="text-2xl font-bold mt-4 text-gray-900 tracking-wider">TRANSPORT RECEIPT (BILTY / LR)</h2>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mb-6 bg-gray-50 p-3 rounded border">
-            <div>
-              <div className="text-xs text-gray-600 font-bold">LR NUMBER</div>
-              <div className="text-lg font-bold text-blue-800">{bilty.lr_no}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 font-bold">DATE</div>
-              <div className="text-lg font-bold">{bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : 'N/A'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 font-bold">STATUS</div>
-              <div className="text-lg font-bold text-green-700">{bilty.status || 'Booked'}</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div className="border-2 border-blue-200 rounded p-4 bg-blue-50">
-              <h3 className="font-bold text-blue-900 border-b border-blue-300 pb-1 mb-2">📤 CONSIGNOR (Booker)</h3>
-              <p className="font-bold text-lg">{bilty.consignor_name || 'N/A'}</p>
-              <p className="text-sm text-gray-700 mt-1">{bilty.from_name || 'N/A'}</p>
-              {bilty.consignor_gst && <p className="text-xs text-gray-600 mt-1">GST: {bilty.consignor_gst}</p>}
-            </div>
-            <div className="border-2 border-green-200 rounded p-4 bg-green-50">
-              <h3 className="font-bold text-green-900 border-b border-green-300 pb-1 mb-2">📥 CONSIGNEE (Receiver)</h3>
-              <p className="font-bold text-lg">{bilty.consignee_name || 'N/A'}</p>
-              <p className="text-sm text-gray-700 mt-1">{bilty.to_name || 'N/A'}</p>
-              {bilty.consignee_gst && <p className="text-xs text-gray-600 mt-1">GST: {bilty.consignee_gst}</p>}
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">📦 GOODS DETAILS</h3>
-            <table className="w-full border-collapse border border-gray-400">
-              <tbody>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold w-1/3 bg-gray-100">Material Description</td>
-                  <td className="p-2">{bilty.description || 'N/A'}</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">No. of Packages</td>
-                  <td className="p-2">{bilty.no_of_packages || '0'}</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">Actual Weight</td>
-                  <td className="p-2">{bilty.actual_weight || '0'} {bilty.actual_weight ? 'Kg' : ''}</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">Charged Weight</td>
-                  <td className="p-2">{bilty.charged_weight || bilty.actual_weight || '0'} Kg</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">Dimensions (L x W x H)</td>
-                  <td className="p-2">{bilty.length || '-'} x {bilty.width || '-'} x {bilty.height || '-'}</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">Total CFT</td>
-                  <td className="p-2">{bilty.cft_cmt || '0'}</td>
-                </tr>
-                <tr className="border-b border-gray-300">
-                  <td className="p-2 font-bold bg-gray-100">Declared Value</td>
-                  <td className="p-2 font-bold text-green-700">₹{bilty.declared_value || '0'}</td>
-                </tr>
-                <tr>
-                  <td className="p-2 font-bold bg-gray-100">HSN Code</td>
-                  <td className="p-2">{bilty.hsn_code || 'N/A'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">💰 CHARGES</h3>
-            <table className="w-full border-collapse border border-gray-400">
-              <tbody>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Freight</td><td className="p-2">₹{bilty.freight || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">AOC / Statutory</td><td className="p-2">₹{bilty.aoc_percent || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Material Mgmt Charges</td><td className="p-2">₹{bilty.material_charges || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Collection Charges</td><td className="p-2">₹{bilty.collection_charges || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Door Delivery</td><td className="p-2">₹{bilty.door_delivery || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Miscellaneous</td><td className="p-2">₹{bilty.misc_charges || '0'}</td></tr>
-                <tr className="bg-red-100 font-bold text-lg">
-                  <td className="p-3">GRAND TOTAL</td>
-                  <td className="p-3 text-right text-red-800">₹{bilty.grand_total || '0'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mb-6 p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded">
-            <div className="flex justify-between">
-              <div><strong>Payment Mode:</strong> {bilty.basis_booking || 'TO PAY'}</div>
-              <div><strong>Delivery Type:</strong> {bilty.delivery_type || 'DOOR DELIVERY'}</div>
-            </div>
-          </div>
-
-          <div className="mb-6 text-xs text-gray-700 border-t pt-3">
-            <h4 className="font-bold mb-1">Terms & Conditions:</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Goods are carried at owner's risk. Insurance is optional.</li>
-              <li>Any claim for loss/damage must be made within 7 days of delivery.</li>
-              <li>Subject to local jurisdiction only.</li>
-            </ul>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mt-12 pt-4 border-t-2 border-gray-400">
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16"></div>
-              <p className="text-xs font-bold mt-1">Consignor Signature</p>
-            </div>
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16"></div>
-              <p className="text-xs font-bold mt-1">Transporter Signature</p>
-            </div>
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16"></div>
-              <p className="text-xs font-bold mt-1">Consignee Signature</p>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
-            <p className="font-bold">Bharat Transport Company • Professional Multi-Branch TMS</p>
-            <p>Generated on: {new Date().toLocaleString('en-IN')}</p>
-            <p className="mt-1">This is a computer generated document and does not require physical signature.</p>
-          </div>
-        </div>
+          )
+        })}
       </div>
 
+      {/* Print Styles */}
       <style>{`
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4; margin: 5mm; }
         @media print {
           body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print\\:hidden { display: none !important; }
           .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:my-0 { margin-top: 0; margin-bottom: 0; }
-          .print\\:p-6 { padding: 1.5rem; }
+          .print\\:my-0 { margin: 0 !important; }
           * { box-shadow: none !important; }
         }
       `}</style>
