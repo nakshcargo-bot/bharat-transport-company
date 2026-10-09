@@ -9,7 +9,7 @@ export default function MRPrint() {
   const [error, setError] = useState(null)
 
   const mrNo = searchParams.get('mr_no')
-  
+
   useEffect(() => {
     if (!mrNo) { navigate('/mr'); return }
     fetchMRData(mrNo)
