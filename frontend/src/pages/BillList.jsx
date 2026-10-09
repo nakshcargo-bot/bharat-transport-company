@@ -84,7 +84,7 @@ export default function BillList() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <Link 
-                      to={`/bill-print/${bill.bill_no}`} 
+                      to={`/bill-print/${bill.id}`} 
                       className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium inline-block"
                     >
                       🖨️ View / Print
