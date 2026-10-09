@@ -8,12 +8,12 @@ export default function GadiChallanPrint() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const id = searchParams.get('id')
-    if (!id) { navigate('/gadi-challan'); return }
-    fetchChallanData(id)
-  }, [navigate, searchParams])
-
+  const id = searchParams.get('id')
+useEffect(() => {
+  if (!id) { navigate('/gadi-challan'); return }
+  fetchChallanData(id)
+}, [id, navigate])
+  
   const fetchChallanData = async (id) => {
     try {
       setLoading(true); setError(null)
