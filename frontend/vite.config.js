@@ -1,14 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-   // trigger redeploy
+
 export default defineConfig({
   plugins: [react()],
+  publicDir: 'public',
   server: {
     port: 3000,
     host: true
   },
   build: {
     outDir: 'dist',
-    sourcemap: false
+    sourcemap: false,
+    copyPublicDir: true
   }
 })
