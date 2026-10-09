@@ -22,7 +22,7 @@ const pool = new Pool({
 });
 
 // ==========================================
-// SAFE MIGRATION - Adds ALL columns safely
+// SAFE MIGRATION
 // ==========================================
 async function addColumnIfNotExists(table, column, definition) {
   try {
@@ -89,11 +89,11 @@ async function runMigrations() {
       from_name TEXT, to_name TEXT, consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT,
       consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT, invoice_no TEXT, invoice_date TEXT, po_no TEXT,
       lorry_no TEXT, driver_name TEXT, driver_mobile TEXT, delivery_type TEXT DEFAULT 'DOOR DELIVERY',
-      packages TEXT, method_of_packing TEXT, hsn_code TEXT, actual_weight TEXT, charged_weight TEXT,
-      material_desc TEXT, eway_bill_no TEXT, length TEXT, width TEXT, height TEXT, total_cft TEXT,
+      packages TEXT, no_of_packages TEXT, method_of_packing TEXT, hsn_code TEXT, actual_weight TEXT, charged_weight TEXT,
+      material_desc TEXT, description TEXT, eway_bill_no TEXT, length TEXT, width TEXT, height TEXT, total_cft TEXT, cft_cmt TEXT,
       declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY', rv_no TEXT, rv_dt TEXT, rv_am TEXT,
-      insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT,
-      collection_charges TEXT, door_dly_charges TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked',
+      insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT, material_charges TEXT,
+      collection_charges TEXT, door_dly_charges TEXT, door_delivery TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked',
       payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT,
       from_state TEXT, to_state TEXT, transporter_id TEXT, transporter_name TEXT, eway_valid_upto DATE,
       created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
@@ -105,8 +105,20 @@ async function runMigrations() {
     )`,
     `CREATE TABLE IF NOT EXISTS bill_book (
       id SERIAL PRIMARY KEY, bill_no TEXT UNIQUE, bill_date DATE, branch_id INTEGER, party_name TEXT, party_code TEXT,
-      lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT, status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid',
-      mr_no TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+      party_gst TEXT, party_address TEXT, from_name TEXT, to_name TEXT, consignor_name TEXT, consignee_name TEXT,
+      vehicle_no TEXT, lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT, grand_total NUMERIC DEFAULT 0,
+      advance_received NUMERIC DEFAULT 0, balance_due NUMERIC DEFAULT 0, net_balance NUMERIC DEFAULT 0,
+      trip_subtotal NUMERIC DEFAULT 0, gst_percent NUMERIC DEFAULT 0, invoice_no TEXT, invoice_date DATE,
+      amount_in_words TEXT, payment_mode TEXT, payment_details TEXT, remarks TEXT,
+      status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid',
+      mr_no TEXT, branch_code TEXT, customer_id INTEGER, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS bill_items (
+      id SERIAL PRIMARY KEY, bill_id INTEGER REFERENCES bill_book(id) ON DELETE CASCADE,
+      lr_no TEXT, invoice_no TEXT, from_name TEXT, to_name TEXT,
+      weight_mt NUMERIC DEFAULT 0, packages INTEGER DEFAULT 0, freight NUMERIC DEFAULT 0,
+      loading NUMERIC DEFAULT 0, unloading NUMERIC DEFAULT 0, other_charges NUMERIC DEFAULT 0, total NUMERIC DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS money_receipts (
       id SERIAL PRIMARY KEY, mr_no TEXT UNIQUE NOT NULL, mr_date DATE NOT NULL, branch_id INTEGER,
@@ -179,7 +191,7 @@ async function runMigrations() {
       from_branch TEXT, to_branch TEXT, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT,
       status TEXT DEFAULT 'Created', remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
     )`);
-  
+
   await pool.query(`CREATE TABLE IF NOT EXISTS manifest_items (
       id SERIAL PRIMARY KEY, manifest_id INTEGER REFERENCES manifests(id) ON DELETE CASCADE,
       lr_no TEXT NOT NULL, branch_id INTEGER, created_at TIMESTAMP DEFAULT NOW()
@@ -187,7 +199,7 @@ async function runMigrations() {
   console.log('✅ Manifests tables created successfully');
 
   console.log('🔧 Adding missing columns...');
-  
+
   await addColumnIfNotExists('branches', 'address', 'TEXT');
   await addColumnIfNotExists('branches', 'city', 'TEXT');
   await addColumnIfNotExists('branches', 'state', 'TEXT');
@@ -239,10 +251,43 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
 
+  // ✅ Missing columns jo frontend bhej raha hai
+  await addColumnIfNotExists('consignments', 'no_of_packages', 'TEXT');
+  await addColumnIfNotExists('consignments', 'description', 'TEXT');
+  await addColumnIfNotExists('consignments', 'cft_cmt', 'TEXT');
+  await addColumnIfNotExists('consignments', 'material_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'door_delivery', 'TEXT');
+
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('bill_book', 'payment_status', "TEXT DEFAULT 'Unpaid'");
-  
+  await addColumnIfNotExists('bill_book', 'party_gst', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'party_address', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'from_name', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'to_name', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'consignor_name', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'consignee_name', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'vehicle_no', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'grand_total', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'advance_received', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'balance_due', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'net_balance', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'trip_subtotal', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'gst_percent', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_book', 'gst_amount', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'amount_in_words', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'payment_mode', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'payment_details', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'remarks', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'invoice_no', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'invoice_date', 'DATE');
+  await addColumnIfNotExists('bill_book', 'branch_code', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'customer_id', 'INTEGER');
+  await addColumnIfNotExists('bill_book', 'lr_nos', 'TEXT');
+
+  await addColumnIfNotExists('bill_items', 'packages', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('bill_items', 'freight', 'NUMERIC DEFAULT 0');
+
   await addColumnIfNotExists('party_ledger', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('expenses', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('claims', 'branch_id', 'INTEGER');
@@ -251,7 +296,7 @@ async function runMigrations() {
   await addColumnIfNotExists('gate_passes', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('gadi_challans', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('pod_records', 'branch_id', 'INTEGER');
-  
+
   await addColumnIfNotExists('freight_rates', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('materials', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('routes', 'is_active', 'BOOLEAN DEFAULT TRUE');
@@ -276,9 +321,6 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ==========================================
-// AUDIT HELPER
-// ==========================================
 async function logAudit(action, module, recordId, details, performedBy, branchId = null) {
   try {
     await pool.query(
@@ -299,30 +341,30 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-    
+
     const result = await pool.query(
       `SELECT u.*, b.branch_code, b.branch_name FROM users u 
        LEFT JOIN branches b ON u.branch_id = b.id 
        WHERE u.username = $1`, [username]
     );
-    
+
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const user = result.rows[0];
-    
+
     let valid = false;
     if (user.password && user.password.startsWith('$2')) {
       valid = await bcrypt.compare(password, user.password).catch(() => false);
     } else {
       valid = (password === user.password);
     }
-    
+
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    
+
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code },
       process.env.JWT_SECRET, { expiresIn: '7d' }
     );
-    
+
     res.json({
       success: true, token,
       user: { id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name }
@@ -339,12 +381,12 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
-    
+
     const userRole = req.user?.role || 'admin';
     const branchId = req.user?.branch_id ? parseInt(req.user.branch_id) : null;
     const branchCode = req.user?.branch_code || 'All';
     const isAdmin = userRole === 'admin' || !branchId;
-    
+
     const whereBranch = isAdmin ? '' : `WHERE branch_id = ${branchId}`;
     const andBranch = isAdmin ? '' : `AND branch_id = ${branchId}`;
 
@@ -391,7 +433,7 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
       user_role: userRole, user_branch: branchCode, success: true
     });
   } catch (err) {
-    console.error(' Dashboard stats error:', err.message, err.stack);
+    console.error('Dashboard stats error:', err.message, err.stack);
     res.status(500).json({ error: err.message });
   }
 });
@@ -750,12 +792,23 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.get('/api/bills/:billNo', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM bill_book WHERE bill_no = $1`, [req.params.billNo]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Bill not found' });
+    const bill = result.rows[0];
+    const itemsResult = await pool.query(`SELECT * FROM bill_items WHERE bill_id = $1`, [bill.id]);
+    res.json({ ...bill, items: itemsResult.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/bills', authMiddleware, async (req, res) => {
   try {
     const b = { ...req.body }
     const items = b.items || []
     delete b.items
-    
+
     if (!b.branch_id) b.branch_id = req.user.branch_id
     if (!b.bill_date) b.bill_date = new Date().toISOString().split('T')[0]
     if (!b.status) b.status = 'Pending'
@@ -766,7 +819,7 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
       const nextNum = parseInt(countRes.rows[0].count || 0) + 1
       b.bill_no = `BILL/${year}/${String(nextNum).padStart(3, '0')}`
     }
-    
+
     const keys = Object.keys(b)
     const values = Object.values(b)
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ')
@@ -775,41 +828,41 @@ app.post('/api/bills', authMiddleware, async (req, res) => {
       values
     )
     const billId = result.rows[0].id
-    
-    // ✅ Items ko bill_items table mein save karo
+
     if (items && items.length > 0) {
       for (const item of items) {
         if (item.lr_no || item.invoice_no || item.total > 0) {
           await pool.query(
-            await pool.query(
-  `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total)
-   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-  [
-    billId,
-    item.lr_no || null,
-    item.invoice_no || null,
-    item.from_name || null,
-    item.to_name || null,
-    parseFloat(item.weight_mt) || 0,
-    parseInt(item.packages) || 0,
-    parseFloat(item.freight) || 0,
-    parseFloat(item.loading) || 0,
-    parseFloat(item.unloading) || 0,
-    parseFloat(item.other_charges) || 0,
-    parseFloat(item.total) || 0
-  ]
-)
+            `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+              billId,
+              item.lr_no || null,
+              item.invoice_no || null,
+              item.from_name || null,
+              item.to_name || null,
+              parseFloat(item.weight_mt) || 0,
+              parseInt(item.packages) || 0,
+              parseFloat(item.freight) || 0,
+              parseFloat(item.loading) || 0,
+              parseFloat(item.unloading) || 0,
+              parseFloat(item.other_charges) || 0,
+              parseFloat(item.total) || 0
+            ]
+          )
         }
       }
     }
-    
+
     res.json(result.rows[0])
   } catch (err) {
     console.error('Bill create error:', err.message)
     res.status(500).json({ error: err.message })
   }
-})
-// ✅ FIXED MR ROUTES (No more nesting errors)
+});
+
+// ==========================================
+// MR (MONEY RECEIPTS)
+// ==========================================
 app.get('/api/mr', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
@@ -859,7 +912,7 @@ app.delete('/api/mr/:id', authMiddleware, async (req, res) => {
 });
 
 // ==========================================
-// AUDIT, CUSTOMERS, GATE PASS, GADI CHALLAN, TRACKING
+// AUDIT, CUSTOMERS, GATE PASS, GADI CHALLAN
 // ==========================================
 app.get('/api/audit', authMiddleware, async (req, res) => {
   try {
@@ -903,7 +956,7 @@ app.post('/api/gate-pass', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ FIXED GADI CHALLAN ROUTES
+// GADI CHALLAN
 app.get('/api/gadi-challan', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
