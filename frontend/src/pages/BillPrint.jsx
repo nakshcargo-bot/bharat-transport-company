@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 export default function BillPrint() {
-  const { billNo } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
   const [bill, setBill] = useState(null)
   const [items, setItems] = useState([])
@@ -13,11 +11,11 @@ export default function BillPrint() {
   const printRef = useRef()
 
   useEffect(() => {
-    if (!billNo) { navigate('/bills'); return }
-    fetchBillData(billNo)
-  }, [billNo, navigate])
+    if (!id) { navigate('/bills'); return }
+    fetchBillData(id)
+  }, [id, navigate])
 
-  const fetchBillData = async (billNo) => {
+  const fetchBillData = async (id) => {
     try {
       setLoading(true); setError(null)
       const token = localStorage.getItem('token')
@@ -27,37 +25,20 @@ export default function BillPrint() {
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
       
-      const foundBill = data.data.find(b => b.bill_no === billNo)
+      const foundBill = data.data.find(b => b.id === parseInt(id))
       if (!foundBill) throw new Error('Bill not found')
       setBill(foundBill)
 
-      // Items fetch karo
-      if (foundBill.lr_nos) {
-        const lrArray = foundBill.lr_nos.split(',').map(lr => lr.trim())
-        const consRes = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
-        const consData = await consRes.json()
-        const billItems = consData.data.filter(c => lrArray.includes(c.lr_no))
-        setItems(billItems)
+      const itemsRes = await fetch(`${apiUrl}/api/bills/${foundBill.bill_no}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      if (itemsRes.ok) {
+        const itemsData = await itemsRes.json()
+        setItems(itemsData.items || [])
       }
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
 
   const handlePrint = () => window.print()
-
-  const handlePDF = async () => {
-    try {
-      const canvas = await html2canvas(printRef.current, { scale: 2 })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
-      pdf.save(`${bill.bill_no}.pdf`)
-    } catch (err) {
-      alert('PDF failed: ' + err.message)
-    }
-  }
 
   const handleWhatsApp = () => {
     if (!bill) return
@@ -79,34 +60,25 @@ export default function BillPrint() {
 
   return (
     <div className="min-h-screen bg-gray-200">
-      {/* Action Bar */}
       <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/bills')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back to Bills</button>
+          <button onClick={() => navigate('/bills')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back</button>
           <div className="flex flex-wrap gap-2">
             <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print / Save PDF</button>
-            <button onClick={handlePDF} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">📄 Download PDF</button>
             <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium">📱 WhatsApp</button>
           </div>
         </div>
-        <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800">
-          💡 "Print / Save PDF" dabao → "Save as PDF" select karo → A4 PDF ban jayega!
-        </div>
       </div>
 
-      {/* A4 Content */}
       <div className="p-4 flex justify-center print:p-0" ref={printRef}>
         <div className="bg-white shadow-lg print:shadow-none" style={{ width: '210mm', minHeight: '297mm', padding: '8mm' }}>
           
-          {/* ORIGINAL COPY */}
           <BillCopy bill={bill} items={items} copyType="ORIGINAL COPY (RECIPIENT)" />
           
-          {/* Cut Line */}
           <div style={{ borderTop: '2px dashed #999', margin: '5mm 0', textAlign: 'center' }}>
             <span style={{ background: 'white', padding: '0 10px', fontSize: '10px', color: '#666' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - -</span>
           </div>
 
-          {/* DUPLICATE COPY */}
           <BillCopy bill={bill} items={items} copyType="DUPLICATE COPY (OFFICE)" />
         </div>
       </div>
@@ -125,24 +97,18 @@ export default function BillPrint() {
   )
 }
 
-// ============================================
-// BILL COPY COMPONENT
-// ============================================
 function BillCopy({ bill, items, copyType }) {
   return (
     <div style={{ fontFamily: 'Segoe UI, Arial, sans-serif', fontSize: '10px', color: '#000' }}>
       
-      {/* Copy Type */}
       <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 'bold', color: '#d32f2f', marginBottom: '2mm', textTransform: 'uppercase', borderBottom: '1px solid #ddd' }}>
         {copyType}
       </div>
 
-      {/* Top ID Header */}
       <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 800, marginBottom: '5px' }}>
         GSTIN: 08CMRPP0955N1Z5 | PAN: CMRPP0955N
       </div>
 
-      {/* Company Header */}
       <div style={{ textAlign: 'center', marginBottom: '10px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#d32f2f', margin: '0' }}>BHARAT TRANSPORT COMPANY</h1>
         <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 600 }}>Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023</p>
@@ -152,39 +118,35 @@ function BillCopy({ bill, items, copyType }) {
         </div>
       </div>
 
-      {/* Info Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '2.1fr 0.9fr', gap: '10px', marginBottom: '10px' }}>
         <div>
-          {/* Bill To */}
           <div style={{ border: '2px solid #0d1b3e', borderRadius: '6px', overflow: 'hidden', marginBottom: '8px' }}>
             <div style={{ background: '#0d1b3e', color: 'white', padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>BILL TO (PARTY DETAILS)</div>
             <div style={{ padding: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>{bill.party_name || '-'}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', wordBreak: 'break-word' }}>{bill.party_name || '-'}</div>
               <div style={{ fontSize: '11px', fontWeight: 700 }}>GST: {bill.party_gst || 'N/A'}</div>
             </div>
           </div>
-          {/* Shipment */}
           <div style={{ border: '2px solid #555', borderRadius: '6px', overflow: 'hidden' }}>
             <div style={{ background: '#555', color: 'white', padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>SHIPMENT (CONSIGNOR/CONSIGNEE)</div>
             <div style={{ padding: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
                 <div style={{ fontSize: '9px', fontWeight: 900, color: '#d32f2f', textTransform: 'uppercase', marginBottom: '2px' }}>FROM (CONSIGNOR):</div>
-                <div style={{ fontSize: '11px', fontWeight: 700 }}>{bill.from_name || bill.consignor_name || '-'}</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, wordBreak: 'break-word' }}>{bill.from_name || bill.consignor_name || '-'}</div>
               </div>
               <div style={{ borderLeft: '1.5px solid #eee', paddingLeft: '8px' }}>
                 <div style={{ fontSize: '9px', fontWeight: 900, color: '#d32f2f', textTransform: 'uppercase', marginBottom: '2px' }}>TO (CONSIGNEE):</div>
-                <div style={{ fontSize: '11px', fontWeight: 700 }}>{bill.to_name || bill.consignee_name || '-'}</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, wordBreak: 'break-word' }}>{bill.to_name || bill.consignee_name || '-'}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bill No Box */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ border: '2.5px solid #0d1b3e', background: '#f1f4f9', borderRadius: '6px', padding: '8px' }}>
             <div style={{ marginBottom: '5px' }}>
               <label style={{ fontSize: '9px', fontWeight: 900, color: '#0d1b3e', textTransform: 'uppercase', display: 'block', borderBottom: '1px solid #ccc', marginBottom: '2px' }}>Invoice No.</label>
-              <div style={{ fontSize: '15px', fontWeight: 900, color: '#d32f2f', background: '#fff', border: '1.2px solid #000', borderRadius: '4px', padding: '3px 0', textAlign: 'center' }}>{bill.bill_no}</div>
+              <div style={{ fontSize: '15px', fontWeight: 900, color: '#d32f2f', background: '#fff', border: '1.2px solid #000', borderRadius: '4px', padding: '3px 0', textAlign: 'center', wordBreak: 'break-word' }}>{bill.bill_no}</div>
             </div>
             <div style={{ marginBottom: '5px' }}>
               <label style={{ fontSize: '9px', fontWeight: 900, color: '#0d1b3e', textTransform: 'uppercase', display: 'block', borderBottom: '1px solid #ccc', marginBottom: '2px' }}>Date</label>
@@ -192,13 +154,12 @@ function BillCopy({ bill, items, copyType }) {
             </div>
             <div>
               <label style={{ fontSize: '9px', fontWeight: 900, color: '#0d1b3e', textTransform: 'uppercase', display: 'block', borderBottom: '1px solid #ccc', marginBottom: '2px' }}>Vehicle No.</label>
-              <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 900 }}>{bill.vehicle_no || 'N/A'}</div>
+              <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 900, wordBreak: 'break-word' }}>{bill.vehicle_no || 'N/A'}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Dashboard Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
         <div style={{ padding: '6px', background: '#f1f4f9', borderRadius: '6px', textAlign: 'center', borderBottom: '3px solid #0d1b3e' }}>
           <span style={{ fontSize: '8px', textTransform: 'uppercase', fontWeight: 900, display: 'block' }}>Grand Total</span>
@@ -214,7 +175,6 @@ function BillCopy({ bill, items, copyType }) {
         </div>
       </div>
 
-      {/* Items Table */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', tableLayout: 'fixed' }}>
         <thead>
           <tr>
@@ -234,17 +194,17 @@ function BillCopy({ bill, items, copyType }) {
         <tbody>
           {items.length > 0 ? items.map((item, i) => (
             <tr key={i}>
-              <td style={tdStyle}>{formatDate(item.lr_date)}</td>
+              <td style={tdStyle}>{formatDate(bill.bill_date)}</td>
               <td style={tdStyle}>{item.lr_no || '-'}</td>
               <td style={tdStyle}>{item.invoice_no || '-'}</td>
               <td style={tdStyle}>{item.from_name || '-'}</td>
               <td style={tdStyle}>{item.to_name || '-'}</td>
-              <td style={tdStyle}>{item.actual_weight || '0'}</td>
-              <td style={tdStyle}>{item.material_charges || '0'}</td>
-              <td style={tdStyle}>{item.door_delivery || '0'}</td>
-              <td style={tdStyle}>{item.misc_charges || '0'}</td>
+              <td style={tdStyle}>{item.weight_mt || '0'}</td>
+              <td style={tdStyle}>{item.loading || '0'}</td>
+              <td style={tdStyle}>{item.unloading || '0'}</td>
+              <td style={tdStyle}>{item.other_charges || '0'}</td>
               <td style={tdStyle}>{item.freight || '0'}</td>
-              <td style={{ ...tdStyle, fontWeight: 900 }}>{item.grand_total || '0'}</td>
+              <td style={{ ...tdStyle, fontWeight: 900 }}>{item.total || '0'}</td>
             </tr>
           )) : (
             <tr>
@@ -254,9 +214,7 @@ function BillCopy({ bill, items, copyType }) {
         </tbody>
       </table>
 
-      {/* Bottom Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '15px' }}>
-        {/* Left Info */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ background: '#f1f4f9', border: '2px solid #0d1b3e', padding: '8px', borderRadius: '6px' }}>
             <h4 style={{ margin: '0 0 4px', color: '#0d1b3e', fontSize: '12px', borderBottom: '1.5px solid #ccc', textTransform: 'uppercase' }}>BANK ACCOUNT DETAILS</h4>
@@ -276,7 +234,6 @@ function BillCopy({ bill, items, copyType }) {
           </div>
         </div>
 
-        {/* Right Summary */}
         <div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <tbody>
@@ -316,37 +273,12 @@ function BillCopy({ bill, items, copyType }) {
           </div>
         </div>
       </div>
-
-      {/* Remarks */}
-      {bill.remarks && (
-        <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '8px' }}>
-          <label style={{ fontSize: '10px', fontWeight: 900, color: '#0d1b3e', textTransform: 'uppercase' }}>REMARKS:</label>
-          <div style={{ fontSize: '11px', fontWeight: 600, paddingTop: '4px' }}>{bill.remarks}</div>
-        </div>
-      )}
     </div>
   )
 }
 
-// ============================================
-// HELPERS
-// ============================================
-const thStyle = {
-  background: '#0d1b3e',
-  color: '#fff',
-  padding: '6px 2px',
-  fontSize: '9px',
-  textTransform: 'uppercase',
-  border: '1px solid #fff',
-  fontWeight: 700
-}
-
-const tdStyle = {
-  border: '1px solid #ccc',
-  padding: '4px 2px',
-  fontSize: '10px',
-  textAlign: 'center'
-}
+const thStyle = { background: '#0d1b3e', color: '#fff', padding: '6px 2px', fontSize: '9px', textTransform: 'uppercase', border: '1px solid #fff', fontWeight: 700 }
+const tdStyle = { border: '1px solid #ccc', padding: '4px 2px', fontSize: '10px', textAlign: 'center', wordBreak: 'break-word' }
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
