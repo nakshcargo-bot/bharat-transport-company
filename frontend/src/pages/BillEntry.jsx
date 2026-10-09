@@ -48,8 +48,8 @@ export default function BillEntry() {
         api.get('/api/customers'),
         api.get('/api/branches')
       ])
-      setCustomers(c.data)
-      setBranches(b.data)
+      setCustomers(c.data?.data || c.data || [])
+      setBranches(b.data?.data || b.data || [])
     } catch (err) {
       console.error(err)
     }
@@ -108,21 +108,39 @@ export default function BillEntry() {
     }
   }
 
+  const autoExpand = (e) => {
+    e.target.style.height = 'auto'
+    e.target.style.height = e.target.scrollHeight + 'px'
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const lr_nos = items.filter(i => i.lr_no).map(i => i.lr_no).join(',')
-const payload = { ...form, items, lr_nos }
+      // ✅ LR numbers ko comma-separated string mein convert karo
+      const lr_nos = items
+        .filter(i => i.lr_no && i.lr_no.trim())
+        .map(i => i.lr_no.trim())
+        .join(',')
+
+      const payload = { 
+        ...form, 
+        items, 
+        lr_nos,
+        party_address: form.party_address,
+        remarks: form.remarks
+      }
+      
       const res = await api.post('/api/bills', payload)
       toast.success('Bill created successfully!')
-      navigate(`/bill/print/${res.data.bill_no}`)
+      navigate(`/bill-print/${res.data.bill_no}`)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create bill')
     } finally {
       setLoading(false)
     }
-    
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-red-700 text-white shadow-lg">
@@ -171,7 +189,13 @@ const payload = { ...form, items, lr_nos }
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Party Name *</label>
-                <input type="text" value={form.party_name} onChange={(e) => updateForm('party_name', e.target.value)} className="w-full px-3 py-2 border rounded-lg" required />
+                <textarea
+                  value={form.party_name}
+                  onChange={(e) => { updateForm('party_name', e.target.value); autoExpand(e); }}
+                  className="w-full px-3 py-2 border rounded-lg resize-none overflow-hidden"
+                  rows="1"
+                  required
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">GST No.</label>
@@ -179,7 +203,12 @@ const payload = { ...form, items, lr_nos }
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">Address</label>
-                <input type="text" value={form.party_address} onChange={(e) => updateForm('party_address', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+                <textarea
+                  value={form.party_address}
+                  onChange={(e) => { updateForm('party_address', e.target.value); autoExpand(e); }}
+                  className="w-full px-3 py-2 border rounded-lg resize-none overflow-hidden"
+                  rows="1"
+                />
               </div>
             </div>
           </div>
@@ -310,7 +339,12 @@ const payload = { ...form, items, lr_nos }
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Remarks</label>
-                  <textarea value={form.remarks} onChange={(e) => updateForm('remarks', e.target.value)} className="w-full px-3 py-2 border rounded-lg" rows="2"></textarea>
+                  <textarea
+                    value={form.remarks}
+                    onChange={(e) => { updateForm('remarks', e.target.value); autoExpand(e); }}
+                    className="w-full px-3 py-2 border rounded-lg resize-none overflow-hidden"
+                    rows="2"
+                  />
                 </div>
               </div>
             </div>
@@ -330,4 +364,3 @@ const payload = { ...form, items, lr_nos }
     </div>
   )
 }
-  }
