@@ -4,9 +4,9 @@ import { lazy, Suspense } from 'react'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
 const Bills = lazy(() => import('./pages/Bills'))
-const BillPrint = lazy(() => import('./pages/BillPrint'))
 const BillEntry = lazy(() => import('./pages/BillEntry'))
 const BillList = lazy(() => import('./pages/BillList'))
+const BillPrint = lazy(() => import('./pages/BillPrint'))
 const Customers = lazy(() => import('./pages/Customers'))
 const GatePass = lazy(() => import('./pages/GatePass'))
 const GadiChallan = lazy(() => import('./pages/GadiChallan'))
@@ -59,19 +59,19 @@ function App() {
           <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
-          
+
           {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
-          
+
           {/* Bills */}
           <Route path="/bills" element={<PrivateRoute><Bills /></PrivateRoute>} />
           <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill-print/:billNo" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
-          
+
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
@@ -90,7 +90,7 @@ function App() {
           <Route path="/eway" element={<PrivateRoute><EwayBill /></PrivateRoute>} />
           <Route path="/claims" element={<PrivateRoute><Claims /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
-          
+
           {/* 404 */}
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
