@@ -112,7 +112,8 @@ export default function BillEntry() {
     e.preventDefault()
     setLoading(true)
     try {
-      const payload = { ...form, items }
+      const lr_nos = items.filter(i => i.lr_no).map(i => i.lr_no).join(',')
+const payload = { ...form, items, lr_nos }
       const res = await api.post('/api/bills', payload)
       toast.success('Bill created successfully!')
       navigate(`/bill/print/${res.data.bill_no}`)
