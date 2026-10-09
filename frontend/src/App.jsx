@@ -4,6 +4,9 @@ import { lazy, Suspense } from 'react'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
 const Bills = lazy(() => import('./pages/Bills'))
+const BillPrint = lazy(() => import('./pages/BillPrint'))
+const BillEntry = lazy(() => import('./pages/BillEntry'))
+const BillList = lazy(() => import('./pages/BillList'))
 const Customers = lazy(() => import('./pages/Customers'))
 const GatePass = lazy(() => import('./pages/GatePass'))
 const GadiChallan = lazy(() => import('./pages/GadiChallan'))
@@ -48,6 +51,7 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print" element={<BiltyPrint />} />
@@ -56,11 +60,18 @@ function App() {
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
           
+          {/* Protected Routes */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
+          
+          {/* Bills */}
           <Route path="/bills" element={<PrivateRoute><Bills /></PrivateRoute>} />
+          <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
+          <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
+          <Route path="/bill-print/:billNo" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
+          
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
@@ -80,6 +91,7 @@ function App() {
           <Route path="/claims" element={<PrivateRoute><Claims /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
           
+          {/* 404 */}
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
               <h1>404 - Page Not Found</h1>
