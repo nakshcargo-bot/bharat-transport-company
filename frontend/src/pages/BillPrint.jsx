@@ -20,20 +20,12 @@ export default function BillPrint() {
       setLoading(true); setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      
-      const res = await fetch(`${apiUrl}/api/bills`, { headers: { 'Authorization': `Bearer ${token}` } })
+
+      const res = await fetch(`${apiUrl}/api/bills/id/${id}`, { headers: { 'Authorization': `Bearer ${token}` } })
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
-      
-      const foundBill = data.data.find(b => b.id === parseInt(id))
-      if (!foundBill) throw new Error('Bill not found')
-      setBill(foundBill)
-
-      const itemsRes = await fetch(`${apiUrl}/api/bills/${foundBill.bill_no}`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (itemsRes.ok) {
-        const itemsData = await itemsRes.json()
-        setItems(itemsData.items || [])
-      }
+      setBill(data)
+      setItems(data.items || [])
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
@@ -72,9 +64,9 @@ export default function BillPrint() {
 
       <div className="p-4 flex justify-center print:p-0" ref={printRef}>
         <div className="bg-white shadow-lg print:shadow-none" style={{ width: '210mm', minHeight: '297mm', padding: '8mm' }}>
-          
+
           <BillCopy bill={bill} items={items} copyType="ORIGINAL COPY (RECIPIENT)" />
-          
+
           <div style={{ borderTop: '2px dashed #999', margin: '5mm 0', textAlign: 'center' }}>
             <span style={{ background: 'white', padding: '0 10px', fontSize: '10px', color: '#666' }}>✂ - - - - - - - - - - - - - - - - - - - - - - - - -</span>
           </div>
@@ -90,7 +82,7 @@ export default function BillPrint() {
           .print\\:hidden { display: none !important; }
           .print\\:shadow-none { box-shadow: none !important; }
           .print\\:p-0 { padding: 0 !important; }
-          * { box-shadow: none !important; }
+          * { box-shadow: none !important; overflow: visible !important; }
         }
       `}</style>
     </div>
@@ -98,9 +90,24 @@ export default function BillPrint() {
 }
 
 function BillCopy({ bill, items, copyType }) {
+  // ✅ Consignor/Consignee name: bill se lega, ya items se fallback
+  const consignorName = bill.consignor_name || bill.party_name || (items[0]?.consignor_name) || '-'
+  const consigneeName = bill.consignee_name || (items[0]?.consignee_name) || '-'
+  const fromCity = bill.from_name || (items[0]?.from_name) || '-'
+  const toCity = bill.to_name || (items[0]?.to_name) || '-'
+
+  // ✅ Advance/Balance calculation
+  const grandTotal = Number(bill.grand_total || 0)
+  const advanceReceived = Number(bill.advance_received || 0)
+  const balanceDue = Number(bill.balance_due || (grandTotal - advanceReceived) || 0)
+  const netBalance = Number(bill.net_balance || balanceDue || 0)
+  const tripSubtotal = Number(bill.trip_subtotal || grandTotal || 0)
+  const gstPercent = Number(bill.gst_percent || 0)
+  const gstAmount = Number(bill.gst_amount || 0)
+
   return (
     <div style={{ fontFamily: 'Segoe UI, Arial, sans-serif', fontSize: '10px', color: '#000' }}>
-      
+
       <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 'bold', color: '#d32f2f', marginBottom: '2mm', textTransform: 'uppercase', borderBottom: '1px solid #ddd' }}>
         {copyType}
       </div>
@@ -123,7 +130,7 @@ function BillCopy({ bill, items, copyType }) {
           <div style={{ border: '2px solid #0d1b3e', borderRadius: '6px', overflow: 'hidden', marginBottom: '8px' }}>
             <div style={{ background: '#0d1b3e', color: 'white', padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>BILL TO (PARTY DETAILS)</div>
             <div style={{ padding: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', wordBreak: 'break-word' }}>{bill.party_name || '-'}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', wordBreak: 'break-word', whiteSpace: 'normal' }}>{bill.party_name || '-'}</div>
               <div style={{ fontSize: '11px', fontWeight: 700 }}>GST: {bill.party_gst || 'N/A'}</div>
             </div>
           </div>
@@ -132,11 +139,13 @@ function BillCopy({ bill, items, copyType }) {
             <div style={{ padding: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
                 <div style={{ fontSize: '9px', fontWeight: 900, color: '#d32f2f', textTransform: 'uppercase', marginBottom: '2px' }}>FROM (CONSIGNOR):</div>
-                <div style={{ fontSize: '11px', fontWeight: 700, wordBreak: 'break-word' }}>{bill.from_name || bill.consignor_name || '-'}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, wordBreak: 'break-word', whiteSpace: 'normal', marginBottom: '2px' }}>{consignorName}</div>
+                <div style={{ fontSize: '10px', color: '#555' }}>{fromCity}</div>
               </div>
               <div style={{ borderLeft: '1.5px solid #eee', paddingLeft: '8px' }}>
                 <div style={{ fontSize: '9px', fontWeight: 900, color: '#d32f2f', textTransform: 'uppercase', marginBottom: '2px' }}>TO (CONSIGNEE):</div>
-                <div style={{ fontSize: '11px', fontWeight: 700, wordBreak: 'break-word' }}>{bill.to_name || bill.consignee_name || '-'}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, wordBreak: 'break-word', whiteSpace: 'normal', marginBottom: '2px' }}>{consigneeName}</div>
+                <div style={{ fontSize: '10px', color: '#555' }}>{toCity}</div>
               </div>
             </div>
           </div>
@@ -163,15 +172,15 @@ function BillCopy({ bill, items, copyType }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
         <div style={{ padding: '6px', background: '#f1f4f9', borderRadius: '6px', textAlign: 'center', borderBottom: '3px solid #0d1b3e' }}>
           <span style={{ fontSize: '8px', textTransform: 'uppercase', fontWeight: 900, display: 'block' }}>Grand Total</span>
-          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {Number(bill.grand_total || 0).toLocaleString('en-IN')}</strong>
+          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {grandTotal.toLocaleString('en-IN')}</strong>
         </div>
         <div style={{ padding: '6px', background: '#f1f4f9', borderRadius: '6px', textAlign: 'center', borderBottom: '3px solid #0d1b3e' }}>
           <span style={{ fontSize: '8px', textTransform: 'uppercase', fontWeight: 900, display: 'block' }}>Advance Received</span>
-          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {Number(bill.advance_received || 0).toLocaleString('en-IN')}</strong>
+          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {advanceReceived.toLocaleString('en-IN')}</strong>
         </div>
         <div style={{ padding: '6px', background: '#f1f4f9', borderRadius: '6px', textAlign: 'center', borderBottom: '3px solid #0d1b3e' }}>
           <span style={{ fontSize: '8px', textTransform: 'uppercase', fontWeight: 900, display: 'block' }}>Balance Due</span>
-          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {Number(bill.balance_due || bill.net_balance || 0).toLocaleString('en-IN')}</strong>
+          <strong style={{ fontSize: '16px', color: '#0d1b3e' }}>₹ {balanceDue.toLocaleString('en-IN')}</strong>
         </div>
       </div>
 
@@ -239,30 +248,30 @@ function BillCopy({ bill, items, copyType }) {
             <tbody>
               <tr>
                 <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>Trip Sub-Total:</td>
-                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>{Number(bill.trip_subtotal || bill.grand_total || 0).toLocaleString('en-IN')}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>{tripSubtotal.toLocaleString('en-IN')}</td>
               </tr>
               <tr>
-                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>GST ({bill.gst_percent || 0}%):</td>
-                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>{Number(bill.gst_amount || 0).toLocaleString('en-IN')}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>GST ({gstPercent}%):</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', borderBottom: '1px solid #eee', fontWeight: 700 }}>{gstAmount.toLocaleString('en-IN')}</td>
               </tr>
               <tr style={{ background: '#0d1b3e', color: '#fff' }}>
                 <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900 }}>Grand Total:</td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900 }}>{Number(bill.grand_total || 0).toLocaleString('en-IN')}</td>
+                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900 }}>{grandTotal.toLocaleString('en-IN')}</td>
               </tr>
               <tr>
                 <td style={{ padding: '4px 8px', textAlign: 'right', color: '#d32f2f', fontWeight: 900, borderBottom: '1px solid #eee' }}>Advance Rcvd:</td>
-                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#d32f2f', fontWeight: 900, borderBottom: '1px solid #eee' }}>-{Number(bill.advance_received || 0).toLocaleString('en-IN')}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', color: '#d32f2f', fontWeight: 900, borderBottom: '1px solid #eee' }}>-{advanceReceived.toLocaleString('en-IN')}</td>
               </tr>
               <tr style={{ background: '#e8f5e9' }}>
                 <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900, color: '#2e7d32' }}>NET BALANCE:</td>
-                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900, color: '#2e7d32' }}>{Number(bill.net_balance || bill.balance_due || 0).toLocaleString('en-IN')}</td>
+                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 900, color: '#2e7d32' }}>{netBalance.toLocaleString('en-IN')}</td>
               </tr>
             </tbody>
           </table>
           <div style={{ marginTop: '8px', textAlign: 'right', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
             <span style={{ fontSize: '9px', fontWeight: 900, color: '#d32f2f' }}>Amount in Words:</span>
-            <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', marginTop: '2px' }}>
-              {bill.amount_in_words || numberToWords(bill.net_balance || 0)}
+            <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', marginTop: '2px', wordBreak: 'break-word' }}>
+              {bill.amount_in_words || numberToWords(netBalance)}
             </div>
           </div>
           <div style={{ marginTop: '15px', textAlign: 'right' }}>
