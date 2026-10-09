@@ -15,7 +15,9 @@ export default function BillList() {
   const loadBills = async () => {
     try {
       const res = await api.get('/api/bills')
-      setBills(res.data)
+      // API response data.data ya data — dono handle karo
+      const billsData = res.data?.data || res.data || []
+      setBills(billsData)
     } catch (err) {
       console.error(err)
     } finally {
@@ -32,9 +34,10 @@ export default function BillList() {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-red-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="font-bold text-lg">📋 Bill List</h1>
+          <h1 className="font-bold text-lg">📋 Bill List ({bills.length})</h1>
           <div className="flex gap-2">
             <Link to="/bill/new" className="bg-white text-red-700 px-4 py-2 rounded-lg text-sm font-medium">+ New Bill</Link>
+            <Link to="/bills" className="bg-white/20 px-4 py-2 rounded-lg text-sm">📊 Bills</Link>
             <button onClick={() => navigate('/dashboard')} className="bg-white/20 px-4 py-2 rounded-lg text-sm">← Back</button>
           </div>
         </div>
@@ -68,13 +71,26 @@ export default function BillList() {
                 <tr><td colSpan="6" className="text-center py-8 text-gray-500">No bills found</td></tr>
               ) : filtered.map(bill => (
                 <tr key={bill.id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-red-700">{bill.bill_no}</td>
-                  <td className="px-4 py-3 text-sm">{bill.bill_date?.split('T')[0]}</td>
-                  <td className="px-4 py-3 text-sm">{bill.party_name}</td>
-                  <td className="px-4 py-3 text-right font-medium">₹{Number(bill.grand_total || 0).toLocaleString('en-IN')}</td>
-                  <td className="px-4 py-3 text-right font-medium text-red-600">₹{Number(bill.net_balance || 0).toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3 font-medium text-red-700" style={{ wordBreak: 'break-word' }}>
+                    {bill.bill_no || 'N/A'}
+                  </td>
+                  <td className="px-4 py-3 text-sm">{bill.bill_date?.split('T')[0] || '-'}</td>
+                  <td className="px-4 py-3 text-sm" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                    {bill.party_name || 'N/A'}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    ₹{Number(bill.grand_total || 0).toLocaleString('en-IN')}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium text-red-600">
+                    ₹{Number(bill.net_balance || bill.balance_due || 0).toLocaleString('en-IN')}
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    <Link to={`/bill/print/${bill.bill_no}`} className="text-blue-600 hover:underline text-sm">View / Print</Link>
+                    <Link 
+                      to={`/bill-print/${bill.bill_no}`} 
+                      className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium inline-block"
+                    >
+                      🖨️ View / Print
+                    </Link>
                   </td>
                 </tr>
               ))}
