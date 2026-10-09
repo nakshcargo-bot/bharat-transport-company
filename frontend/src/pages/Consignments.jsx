@@ -596,12 +596,12 @@ export default function Consignments({ isNew }) {
                     </td>
                     <td className="p-3">
                       {b.mr_no ? (
-                        <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center">MR: {b.mr_no}</div>
+                        <button onClick={() => navigate(`/mr/print?mr_no=${b.mr_no}`)} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold mb-1 text-center w-full hover:bg-green-200">MR: {b.mr_no} 🖨️</button>
                       ) : (b.basis_booking !== 'PAID' && (
                         <button onClick={() => navigate(`/mr/create?biltyId=${b.id}`)} className="bg-green-600 text-white px-2 py-1 rounded text-xs mb-1 hover:bg-green-700 w-full font-bold">💰 Create MR</button>
                       ))}
                       <div className="flex gap-1">
-                        <button onClick={() => navigate('/bilty-print', { state: { bilty: b } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 flex-1">🖨️ Print</button>
+                        <button onClick={() => navigate(`/bilty-print?lr_no=${b.lr_no}`)} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700 flex-1">🖨️ Print</button>
                       </div>
                     </td>
                   </tr>
