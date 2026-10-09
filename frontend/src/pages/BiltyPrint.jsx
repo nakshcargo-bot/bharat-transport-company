@@ -177,11 +177,11 @@ export default function BiltyPrint() {
               <tbody>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold w-1/3 bg-gray-100">Material Description</td>
-                  <td className="p-2">{bilty.material_desc || 'N/A'}</td>
+                  <td className="p-2">{bilty.bilty.description || 'N/A'}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">No. of Packages</td>
-                  <td className="p-2">{bilty.packages || '0'}</td>
+                  <td className="p-2">{bilty.cft_cmt || '0'}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="p-2 font-bold bg-gray-100">Actual Weight</td>
@@ -218,9 +218,9 @@ export default function BiltyPrint() {
               <tbody>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Freight</td><td className="p-2">₹{bilty.freight || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">AOC / Statutory</td><td className="p-2">₹{bilty.aoc_percent || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Material Mgmt Charges</td><td className="p-2">₹{bilty.material_mgmt_ch || '0'}</td></tr>
+                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Material Mgmt Charges</td><td className="p-2">₹{bilty.bilty.material_charges || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Collection Charges</td><td className="p-2">₹{bilty.collection_charges || '0'}</td></tr>
-                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Door Delivery</td><td className="p-2">₹{bilty.door_dly_charges || '0'}</td></tr>
+                <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Door Delivery</td><td className="p-2">₹{bilty.bilty.door_delivery || '0'}</td></tr>
                 <tr className="border-b border-gray-300"><td className="p-2 font-bold bg-gray-100">Miscellaneous</td><td className="p-2">₹{bilty.misc_charges || '0'}</td></tr>
                 <tr className="bg-red-100 font-bold text-lg">
                   <td className="p-3">GRAND TOTAL</td>
