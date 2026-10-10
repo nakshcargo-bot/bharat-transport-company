@@ -5,15 +5,38 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-if (process.env.NODE_ENV !== 'production') require('dotenv').config();
+// ✅ .env हमेशा load करो (production में भी)
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
-app.use(cors());
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+// ✅ CORS - सिर्फ allowed origins
+app.use(cors({
+  origin: [
+    'https://bharat-transport.pages.dev',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:4173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+// ✅ Env variables check
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is missing!');
+  process.exit(1);
+}
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET is missing!');
+  process.exit(1);
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -251,7 +274,6 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
 
-  // ✅ Missing columns jo frontend bhej raha hai
   await addColumnIfNotExists('consignments', 'no_of_packages', 'TEXT');
   await addColumnIfNotExists('consignments', 'description', 'TEXT');
   await addColumnIfNotExists('consignments', 'cft_cmt', 'TEXT');
@@ -508,6 +530,17 @@ async function generateBiltyNo(branchCode) {
   }
   return `${prefix}/${year}/${String(nextSerial).padStart(4, '0')}`;
 }
+
+// ✅ TRACK route को :id से ऊपर रखा (bug fix)
+app.get('/api/consignments/track', async (req, res) => {
+  try {
+    const lr_no = req.query.lr_no;
+    if (!lr_no) return res.status(400).json({ error: 'LR number required' });
+    const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1', [lr_no]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 app.get('/api/consignments', authMiddleware, async (req, res) => {
   try {
@@ -991,16 +1024,6 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
     const keys = Object.keys(c); const values = Object.values(c);
     const row = await pool.query(`INSERT INTO gadi_challans (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(row.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/consignments/track', async (req, res) => {
-  try {
-    const lr_no = req.query.lr_no;
-    if (!lr_no) return res.status(400).json({ error: 'LR number required' });
-    const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1', [lr_no]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
-    res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
