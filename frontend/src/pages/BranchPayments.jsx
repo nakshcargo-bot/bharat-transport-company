@@ -3,25 +3,31 @@ import { branchAPI } from '../api'
 
 export default function BranchPayments() {
   const [branches, setBranches] = useState([])
-  const [transactions, setTransactions] = useState([])
-  const [activeTab, setActiveTab] = useState('send') // 'send' or 'receive'
   
-  // Form States
+  // ✅ FIX: LocalStorage se data load karo taaki refresh par delete na ho
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem('branchTransactions')
+    return saved ? JSON.parse(saved) : []
+  })
+  
+  const [activeTab, setActiveTab] = useState('send')
+  
   const [sendForm, setSendForm] = useState({
-    branch_id: '', branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0]
+    branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0]
   })
   
   const [receiveForm, setReceiveForm] = useState({
-    branch_id: '', branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0]
+    branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0]
   })
-
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetchBranches()
-    // Note: In a real scenario, fetch transactions from API here. 
-    // For now, using local state to ensure no backend bugs.
   }, [])
+
+  // ✅ FIX: Jab bhi transactions update ho, LocalStorage mein save karo
+  useEffect(() => {
+    localStorage.setItem('branchTransactions', JSON.stringify(transactions))
+  }, [transactions])
 
   const fetchBranches = async () => {
     try {
@@ -40,15 +46,15 @@ export default function BranchPayments() {
     }
     
     const newTransaction = {
-      id: Date.now(),
+      id: Date.now().toString(),
       type: 'SENT',
       ...sendForm,
       timestamp: new Date().toLocaleString('en-IN')
     }
     
-    setTransactions([newTransaction, ...transactions])
-    setSendForm({ branch_id: '', branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0] })
-    alert('Payment record saved successfully!')
+    setTransactions(prev => [newTransaction, ...prev])
+    setSendForm({ branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0] })
+    alert('✅ Payment record saved successfully!')
   }
 
   const handleReceiveSubmit = (e) => {
@@ -59,16 +65,25 @@ export default function BranchPayments() {
     }
     
     const newTransaction = {
-      id: Date.now(),
+      id: Date.now().toString(),
       type: 'RECEIVED',
       ...receiveForm,
       timestamp: new Date().toLocaleString('en-IN')
     }
     
-    setTransactions([newTransaction, ...transactions])
-    setReceiveForm({ branch_id: '', branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0] })
-    alert('Branch payment receipt recorded successfully!')
+    setTransactions(prev => [newTransaction, ...prev])
+    setReceiveForm({ branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0] })
+    alert('✅ Branch payment receipt recorded successfully!')
   }
+
+  const clearHistory = () => {
+    if (window.confirm('Are you sure you want to clear all transaction history? This cannot be undone.')) {
+      setTransactions([])
+    }
+  }
+
+  // ✅ FIX: Ensure transactions is ALWAYS an array before .map()
+  const safeTransactions = Array.isArray(transactions) ? transactions : []
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -99,19 +114,14 @@ export default function BranchPayments() {
               <form onSubmit={handleSendSubmit} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Select Branch *</label>
-                  <select 
-                    required
-                    value={sendForm.branch_name}
-                    onChange={(e) => setSendForm({...sendForm, branch_name: e.target.value})}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  >
+                  <select required value={sendForm.branch_name} onChange={(e) => setSendForm({...sendForm, branch_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Select Branch --</option>
                     {branches.map(b => <option key={b.id || b._id} value={b.name}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Amount (₹) *</label>
-                  <input type="number" required value={sendForm.amount} onChange={(e) => setSendForm({...sendForm, amount: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" />
+                  <input type="number" required value={sendForm.amount} onChange={(e) => setSendForm({...sendForm, amount: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Vehicle No / Transport Details</label>
@@ -125,7 +135,7 @@ export default function BranchPayments() {
                   <label className="block text-sm font-medium text-gray-700">Date</label>
                   <input type="date" value={sendForm.date} onChange={(e) => setSendForm({...sendForm, date: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" />
                 </div>
-                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700 font-medium">Record Payment Sent</button>
+                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md hover:bg-blue-700 font-medium transition">Record Payment Sent</button>
               </form>
             </div>
           ) : (
@@ -134,29 +144,24 @@ export default function BranchPayments() {
               <form onSubmit={handleReceiveSubmit} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Select Branch *</label>
-                  <select 
-                    required
-                    value={receiveForm.branch_name}
-                    onChange={(e) => setReceiveForm({...receiveForm, branch_name: e.target.value})}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
-                  >
+                  <select required value={receiveForm.branch_name} onChange={(e) => setReceiveForm({...receiveForm, branch_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-green-500">
                     <option value="">-- Select Branch --</option>
                     {branches.map(b => <option key={b.id || b._id} value={b.name}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Branch Incharge Name *</label>
-                  <input type="text" required value={receiveForm.incharge_name} onChange={(e) => setReceiveForm({...receiveForm, incharge_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="Name of the person returning payment" />
+                  <input type="text" required value={receiveForm.incharge_name} onChange={(e) => setReceiveForm({...receiveForm, incharge_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-green-500" placeholder="Name of the person returning payment" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Amount Received (₹) *</label>
-                  <input type="number" required value={receiveForm.amount} onChange={(e) => setReceiveForm({...receiveForm, amount: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" />
+                  <input type="number" required value={receiveForm.amount} onChange={(e) => setReceiveForm({...receiveForm, amount: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-green-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Date</label>
                   <input type="date" value={receiveForm.date} onChange={(e) => setReceiveForm({...receiveForm, date: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" />
                 </div>
-                <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-md hover:bg-green-700 font-medium">Record Payment Received</button>
+                <button type="submit" className="w-full bg-green-600 text-white py-2.5 rounded-md hover:bg-green-700 font-medium transition">Record Payment Received</button>
               </form>
             </div>
           )}
@@ -166,7 +171,14 @@ export default function BranchPayments() {
         <div className="lg:col-span-2 bg-white rounded-lg shadow-md border overflow-hidden">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-700">Transaction History</h2>
-            <span className="text-sm text-gray-500 bg-gray-200 px-3 py-1 rounded-full">{transactions.length} Records</span>
+            <div className="flex gap-2">
+              <span className="text-sm text-gray-500 bg-gray-200 px-3 py-1 rounded-full">{safeTransactions.length} Records</span>
+              {safeTransactions.length > 0 && (
+                <button onClick={clearHistory} className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 border border-red-200 rounded hover:bg-red-50 transition">
+                  🗑️ Clear All
+                </button>
+              )}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -180,16 +192,16 @@ export default function BranchPayments() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.length === 0 ? (
+                {safeTransactions.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">No transactions recorded yet.</td>
                   </tr>
                 ) : (
-                  transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-50">
+                  safeTransactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50 transition">
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-bold rounded-full ${t.type === 'SENT' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                          {t.type === 'SENT' ? '📤 SENT' : ' RECEIVED'}
+                          {t.type === 'SENT' ? '📤 SENT' : '📥 RECEIVED'}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{t.branch_name}</td>
@@ -207,7 +219,7 @@ export default function BranchPayments() {
                         )}
                       </td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-bold text-right ${t.type === 'SENT' ? 'text-red-600' : 'text-green-600'}`}>
-                        {t.type === 'SENT' ? '-' : '+'}₹{parseFloat(t.amount).toLocaleString('en-IN')}
+                        {t.type === 'SENT' ? '-' : '+'}₹{parseFloat(t.amount || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{t.timestamp}</td>
                     </tr>
