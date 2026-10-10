@@ -152,6 +152,7 @@ export default function Dashboard() {
     { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' }, // ✅ ADDED
     { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches' },
    { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true) },
+   { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock' },
     { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
@@ -279,7 +280,44 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        
+                {/* ✅ NEW: Low Stationery Stock Alert Banner */}
+        {(() => {
+          try {
+            const savedStock = localStorage.getItem('btc_stationery_stock')
+            const currentStock = savedStock ? JSON.parse(savedStock) : []
+            const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
+            
+            if (lowStockItems.length > 0) {
+              return (
+                <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <p className="font-bold text-red-800 text-lg flex items-center gap-2">
+                        ⚠️ Low Stationery Stock Alert!
+                      </p>
+                      <p className="text-sm text-red-700 mt-1">
+                        The following items are running low (≤ 50): <span className="font-bold underline">{lowStockItems.map(i => i.name).join(', ')}</span>. 
+                        Please order new print stock and update the system.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => navigate('/stock')} 
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm shadow transition flex items-center gap-2"
+                    >
+                      📦 Manage Stock Now →
+                    </button>
+                  </div>
+                </div>
+              )
+            }
+          } catch (e) {
+            console.error("Stock alert error:", e)
+          }
+          return null
+        })()}
 
+        {/* Role & Branch Badges */}
         {/* Role & Branch Badges */}
         <div className="mb-6 flex items-center gap-3 flex-wrap">
           <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${user.role === 'admin' ? 'bg-red-100 text-red-700' : user.role === 'Manager' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
