@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// ⚠️ IMPORTANT: Render pe deploy karne ke baad yahan apna backend URL daalna
-const API_URL = 'https://bharat-transport-api.onrender.com'
+// ✅ Environment variable se URL lo, fallback ke saath
+const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -231,7 +231,7 @@ export const stockAPI = {
 // ============================================
 export const dashboardAPI = {
   getStats: () => api.get('/api/dashboard/stats'),
-  recentBilties: () => api.get('/api/dashboard/recent-bilties'),
+  recentBilties: () => api.get('/api/dashboard/recent'),
   topParties: () => api.get('/api/dashboard/top-parties'),
   revenueChart: () => api.get('/api/dashboard/revenue-chart'),
   lrChart: () => api.get('/api/dashboard/lr-chart')
@@ -242,7 +242,7 @@ export const dashboardAPI = {
 // ============================================
 export const reportAPI = {
   monthly: (params) => api.get('/api/reports/monthly', { params }),
-  outstanding: () => api.get('/api/reports/outstanding'),
+  outstanding: () => api.get('/api/accounts/summary'),
   pendingLR: () => api.get('/api/reports/pending-lr'),
   partyWise: (params) => api.get('/api/reports/party-wise', { params }),
   branchWise: (params) => api.get('/api/reports/branch-wise', { params }),
@@ -265,14 +265,14 @@ export const settingsAPI = {
 // AUDIT LOG API
 // ============================================
 export const auditAPI = {
-  getAll: () => api.get('/api/audit-log')
+  getAll: () => api.get('/api/audit')
 }
 
 // ============================================
 // PUBLIC TRACKING API (No auth needed)
 // ============================================
 export const trackAPI = {
-  track: (lr_no) => axios.get(`${API_URL}/api/track/${lr_no}`)
+  track: (lr_no) => axios.get(`${API_URL}/api/consignments/track?lr_no=${lr_no}`)
 }
 
 // ============================================
