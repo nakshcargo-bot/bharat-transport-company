@@ -128,6 +128,7 @@ export default function Dashboard() {
       items: [
         { name: 'Reports', path: '/reports', icon: '📈' },
         { name: 'Audit & CA Logs', path: '/audit', icon: '🔍' },
+        { name: 'Backup & Restore', path: '/backup', icon: '💾', adminOnly: true },
       ]
     },
     {
