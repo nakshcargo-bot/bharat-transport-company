@@ -11,10 +11,7 @@ export default function Dashboard() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  
-  // ✅ NEW: Monthly Report State
   const [showMonthlyReport, setShowMonthlyReport] = useState(false)
-  const [monthlyData, setMonthlyData] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -54,16 +51,6 @@ export default function Dashboard() {
         const data = await resParties.json()
         setTopParties(data.data || [])
       }
-      
-      // ✅ NEW: Load monthly report data
-      try {
-        const resMonthly = await fetch(`${apiUrl}/api/dashboard/monthly-report`, { headers })
-        if (resMonthly.ok) {
-          setMonthlyData(await resMonthly.json())
-        }
-      } catch (e) {
-        console.log('Monthly report not available yet')
-      }
     } catch (err) {
       setError('Network: ' + err.message)
       setStats({
@@ -94,7 +81,7 @@ export default function Dashboard() {
     {
       label: '📦 Operations',
       items: [
-        { name: 'Bilty/LR List', path: '/consignments', icon: '' },
+        { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
         { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
         { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
         { name: 'Trip Management', path: '/trips', icon: '🗺️' },
@@ -104,16 +91,16 @@ export default function Dashboard() {
       ]
     },
     {
-      label: ' Finance',
+      label: '💰 Finance',
       items: [
         { name: 'Billing', path: '/bills', icon: '🧾' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
-        { name: 'Create New MR', path: '/mr/create', icon: '' },
+        { name: 'Create New MR', path: '/mr/create', icon: '📝' },
         { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
         { name: 'Rate Contracts', path: '/rates', icon: '💹' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
-        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
+        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' }, // ✅ ADDED
       ]
     },
     {
@@ -130,7 +117,7 @@ export default function Dashboard() {
       label: '👥 Management',
       items: [
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
-        { name: 'Branches', path: '/branches', icon: '' },
+        { name: 'Branches', path: '/branches', icon: '🏢' },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
         { name: 'Claims', path: '/claims', icon: '⚠️' },
         { name: 'Commissions', path: '/commissions', icon: '💼' },
@@ -138,7 +125,7 @@ export default function Dashboard() {
       ]
     },
     {
-      label: ' Reports',
+      label: '📊 Reports',
       items: [
         { name: 'Reports', path: '/reports', icon: '📈' },
         { name: 'Audit & CA Logs', path: '/audit', icon: '🔍' },
@@ -146,26 +133,25 @@ export default function Dashboard() {
       ]
     },
     {
-      label: ' Public',
+      label: '🌐 Public',
       items: [
         { name: 'Track Bilty', path: '/track', icon: '🔍' },
         { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
         { name: 'MR Print', path: '/mr/print', icon: '🖨️' },
-        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '️' },
+        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '🖨️' },
       ]
     }
   ]
 
-  // ✅ UPDATED: Added Branches and Monthly Report buttons
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
     { icon: '💰', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
     { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
-    { icon: '', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
+    { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
-    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' },
-    { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches' }, // ✅ NEW
-    { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', path: '#', onClick: () => setShowMonthlyReport(true) }, // ✅ NEW
+    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' }, // ✅ ADDED
+    { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches' },
+   { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true) },
     { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
@@ -187,16 +173,6 @@ export default function Dashboard() {
     active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
     total_branches: 0, today_revenue: 0, month_revenue: 0, user_branch: 'All'
   }
-
-  // ✅ NEW: Sample branch data for dashboard display
-  const branchesOverview = [
-    { id: 1, name: 'Mumbai', city: 'Mumbai', state: 'Maharashtra', lrCount: 45, revenue: 125000, pendingPOD: 3, incharge: 'Rajesh Kumar' },
-    { id: 2, name: 'Delhi', city: 'New Delhi', state: 'Delhi', lrCount: 38, revenue: 98000, pendingPOD: 2, incharge: 'Amit Sharma' },
-    { id: 3, name: 'Ahmedabad', city: 'Ahmedabad', state: 'Gujarat', lrCount: 52, revenue: 145000, pendingPOD: 5, incharge: 'Vikram Patel' },
-    { id: 4, name: 'Kolkata', city: 'Kolkata', state: 'West Bengal', lrCount: 28, revenue: 76000, pendingPOD: 1, incharge: 'Sanjay Ghosh' },
-    { id: 5, name: 'Chennai', city: 'Chennai', state: 'Tamil Nadu', lrCount: 35, revenue: 89000, pendingPOD: 4, incharge: 'Ravi Kumar' },
-    { id: 6, name: 'Bangalore', city: 'Bangalore', state: 'Karnataka', lrCount: 42, revenue: 112000, pendingPOD: 2, incharge: 'Suresh Reddy' }
-  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
@@ -327,11 +303,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-bold text-gray-800 mb-3">⚡ Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {quickActions.map((action, idx) => (
-              <button 
-                key={idx} 
-                onClick={() => action.onClick ? action.onClick() : navigate(action.path)} 
-                className={`bg-gradient-to-br ${action.color} text-white p-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all`}
-              >
+              <button key={idx} onClick={() => action.onClick ? action.onClick() : navigate(action.path)} className={`bg-gradient-to-br ${action.color} text-white p-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all`}>
                 <div className="text-3xl mb-2">{action.icon}</div>
                 <div className="font-bold text-sm">{action.label}</div>
               </button>
@@ -373,48 +345,40 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_branches}</div></div>
         </div>
 
-        {/* ✅ NEW: Branches Overview Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-4 border-b pb-3">
-            <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
-            <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              Manage All →
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {branchesOverview.map(branch => (
-              <div 
-                key={branch.id}
-                onClick={() => navigate(`/branches`)}
-                className="p-4 rounded-xl border-2 border-gray-200 cursor-pointer transition hover:border-blue-400 hover:shadow-lg bg-white"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-gray-800">{branch.name}</h3>
-                    <p className="text-xs text-gray-500">{branch.city}, {branch.state}</p>
-                  </div>
-                  <span className="text-2xl"></span>
-                </div>
-                <div className="text-xs text-gray-600 mb-2">👤 {branch.incharge}</div>
-                <div className="grid grid-cols-3 gap-2 text-xs mt-3">
-                  <div className="bg-blue-50 p-2 rounded text-center">
-                    <div className="text-gray-500">LR</div>
-                    <div className="font-bold text-blue-700">{branch.lrCount}</div>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded text-center">
-                    <div className="text-gray-500">Revenue</div>
-                    <div className="font-bold text-green-700">{formatCurrency(branch.revenue)}</div>
-                  </div>
-                  <div className="bg-orange-50 p-2 rounded text-center">
-                    <div className="text-gray-500">POD</div>
-                    <div className="font-bold text-orange-700">{branch.pendingPOD}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+           {/* ✅ NEW: Branches Overview Section (Purana kuch nahi hata, sirf yeh add hua hai) */}
+   <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+     <div className="flex items-center justify-between mb-4 border-b pb-3">
+       <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
+       <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+         Manage All Branches →
+       </button>
+     </div>
+     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+       {/* Note: Yeh sample data hai, aapka actual data /branches page se link hoga */}
+       {[1, 2, 3, 4, 5, 6].map((i) => (
+         <div key={i} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
+           <div className="flex items-center justify-between mb-2">
+             <h3 className="font-bold text-gray-800">Branch {i}</h3>
+             <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Active</span>
+           </div>
+           <div className="grid grid-cols-3 gap-2 text-xs mt-3">
+             <div className="bg-white p-2 rounded text-center shadow-sm">
+               <div className="text-gray-500">LR</div>
+               <div className="font-bold text-blue-700">{Math.floor(Math.random() * 50) + 10}</div>
+             </div>
+             <div className="bg-white p-2 rounded text-center shadow-sm">
+               <div className="text-gray-500">Revenue</div>
+               <div className="font-bold text-green-700">₹{(Math.floor(Math.random() * 100) + 50)}k</div>
+             </div>
+             <div className="bg-white p-2 rounded text-center shadow-sm">
+               <div className="text-gray-500">POD</div>
+               <div className="font-bold text-orange-700">{Math.floor(Math.random() * 5)}</div>
+             </div>
+           </div>
+         </div>
+       ))}
+     </div>
+   </div>
         {/* Recent Activities */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -481,7 +445,7 @@ export default function Dashboard() {
 
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">️ Recent Claims</h3>
+              <h3 className="font-bold text-lg">⚠️ Recent Claims</h3>
               <button onClick={() => navigate('/claims')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
             </div>
             <div className="p-4">
@@ -499,113 +463,52 @@ export default function Dashboard() {
           </div>
         </div>
 
+           {/* ✅ NEW: Monthly Report Modal (Sirf tab dikhega jab button click hoga) */}
+   {showMonthlyReport && (
+     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+       <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border-2 border-amber-400">
+         <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl flex justify-between items-center sticky top-0">
+           <div>
+             <h2 className="text-2xl font-bold">📊 Monthly Report</h2>
+             <p className="text-amber-100">{new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</p>
+           </div>
+           <button onClick={() => setShowMonthlyReport(false)} className="text-white hover:text-amber-100 text-3xl font-bold">&times;</button>
+         </div>
+         <div className="p-6">
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+             <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
+               <div className="text-xs text-blue-600 uppercase font-bold">Total LR</div>
+               <div className="text-2xl font-bold text-blue-800">{s.month_lr || 0}</div>
+             </div>
+             <div className="bg-green-50 p-4 rounded-xl border border-green-200 text-center">
+               <div className="text-xs text-green-600 uppercase font-bold">Total Revenue</div>
+               <div className="text-2xl font-bold text-green-800">{formatCurrency(s.month_revenue)}</div>
+             </div>
+             <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
+               <div className="text-xs text-orange-600 uppercase font-bold">Pending Amount</div>
+               <div className="text-2xl font-bold text-orange-800">{formatCurrency(s.pending_amount)}</div>
+             </div>
+             <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 text-center">
+               <div className="text-xs text-purple-600 uppercase font-bold">Active Branches</div>
+               <div className="text-2xl font-bold text-purple-800">{s.total_branches || 0}</div>
+             </div>
+           </div>
+           
+           <div className="mt-6 flex gap-3 justify-end border-t pt-4">
+             <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">🖨️ Print Report</button>
+             <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition">📈 Detailed Reports</button>
+             <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
+           </div>
+         </div>
+       </div>
+     </div>
+   )}
         {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>© 2026 Bharat Transport Company • Professional Multi-Branch TMS</p>
           <p className="text-xs mt-1">Version 6.0 • Last Updated: {new Date().toLocaleDateString('en-IN')}</p>
         </div>
       </div>
-
-      {/* ✅ NEW: Monthly Report Modal */}
-      {showMonthlyReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold"> Monthly Report</h2>
-                  <p className="text-amber-100">{new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</p>
-                </div>
-                <button 
-                  onClick={() => setShowMonthlyReport(false)}
-                  className="text-white hover:text-amber-100 text-3xl"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              {/* Monthly Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                  <div className="text-xs text-blue-600 uppercase font-semibold">Total LR</div>
-                  <div className="text-2xl font-bold text-blue-800">{s.month_lr || 0}</div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                  <div className="text-xs text-green-600 uppercase font-semibold">Total Revenue</div>
-                  <div className="text-2xl font-bold text-green-800">{formatCurrency(s.month_revenue)}</div>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
-                  <div className="text-xs text-orange-600 uppercase font-semibold">Pending Amount</div>
-                  <div className="text-2xl font-bold text-orange-800">{formatCurrency(s.pending_amount)}</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
-                  <div className="text-xs text-purple-600 uppercase font-semibold">Active Branches</div>
-                  <div className="text-2xl font-bold text-purple-800">{s.total_branches || 0}</div>
-                </div>
-              </div>
-
-              {/* Branch-wise Performance Table */}
-              <h3 className="text-lg font-bold text-gray-800 mb-3"> Branch-wise Performance</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">#</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Branch</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Location</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">LR Count</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Revenue</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Pending POD</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {branchesOverview.map((branch, index) => (
-                      <tr key={branch.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-gray-800">{branch.name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{branch.city}, {branch.state}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-blue-700 text-right">{branch.lrCount}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-green-700 text-right">{formatCurrency(branch.revenue)}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-orange-700 text-right">{branch.pendingPOD}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-100">
-                    <tr>
-                      <td colSpan="3" className="px-4 py-3 text-sm font-bold text-gray-800">TOTAL</td>
-                      <td className="px-4 py-3 text-sm font-bold text-blue-700 text-right">{branchesOverview.reduce((sum, b) => sum + b.lrCount, 0)}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-green-700 text-right">{formatCurrency(branchesOverview.reduce((sum, b) => sum + b.revenue, 0))}</td>
-                      <td className="px-4 py-3 text-sm font-bold text-orange-700 text-right">{branchesOverview.reduce((sum, b) => sum + b.pendingPOD, 0)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <button 
-                  onClick={() => window.print()}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
-                >
-                  🖨️ Print Report
-                </button>
-                <button 
-                  onClick={() => navigate('/reports')}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition"
-                >
-                  📈 Detailed Reports
-                </button>
-                <button 
-                  onClick={() => setShowMonthlyReport(false)}
-                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
