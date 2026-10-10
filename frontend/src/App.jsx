@@ -34,6 +34,7 @@ const Claims = lazy(() => import('./pages/Claims'))
 const Users = lazy(() => import('./pages/Users'))
 const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
+const StockManagement = lazy(() => import('./pages/StockManagement')) // ✅ NEW: Stock Management
 
 // --- Naye Pages Added (Fix 404) ---
 const Ledger = lazy(() => import('./pages/Ledger'))
@@ -49,7 +50,7 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2>⏳ Loading...</h2>
+      <h2> Loading...</h2>
     </div>
   )
 }
@@ -97,6 +98,7 @@ function App() {
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
           <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
           <Route path="/branch-payments" element={<PrivateRoute><BranchPayments /></PrivateRoute>} />
+          <Route path="/stock" element={<PrivateRoute><StockManagement /></PrivateRoute>} /> {/* ✅ NEW: Stock Route */}
 
           {/* --- Naye Routes Added (Fix 404) --- */}
           <Route path="/ledger" element={<PrivateRoute><Ledger /></PrivateRoute>} />
