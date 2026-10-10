@@ -1321,5 +1321,92 @@ async function startServer() {
   });
 }
 
+// ==========================================
+// 💾 BACKUP & RESTORE MODULE (Local D: Drive Support)
+// ==========================================
+app.get('/api/backup/export', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can backup data' });
+    
+    console.log('📦 Starting full database backup...');
+    
+    // Fetch data from all major tables
+    const tables = [
+      'branches', 'users', 'parties', 'customers', 'drivers', 'vehicles', 
+      'freight_rates', 'materials', 'routes', 'consignments', 'bill_book', 
+      'bill_items', 'money_receipts', 'party_ledger', 'expenses', 'claims', 
+      'commissions', 'audit_logs', 'gate_passes', 'gadi_challans', 'trips', 
+      'rate_contracts', 'manifests', 'manifest_items', 'pod_records'
+    ];
+
+    const backupData = {
+      backup_date: new Date().toISOString(),
+      software_version: '6.0',
+      taken_by: req.user.username,
+      data: {}
+    };
+
+    for (const table of tables) {
+      try {
+        const result = await pool.query(`SELECT * FROM ${table}`);
+        backupData.data[table] = result.rows;
+        console.log(`  ✅ Backed up ${table}: ${result.rows.length} records`);
+      } catch (err) {
+        console.warn(`  ⚠️ Skipped ${table}:`, err.message);
+        backupData.data[table] = [];
+      }
+    }
+
+    res.json({ success: true, message: 'Backup generated successfully', data: backupData });
+  } catch (err) {
+    console.error('Backup error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/backup/import', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can restore data' });
+    
+    const backupData = req.body.data;
+    if (!backupData || !backupData.data) {
+      return res.status(400).json({ error: 'Invalid backup file format' });
+    }
+
+    console.log('🔄 Starting data restore...');
+    let totalRecords = 0;
+
+    // Simple restore logic (Note: For production, we should handle foreign keys carefully)
+    for (const [table, rows] of Object.entries(backupData.data)) {
+      if (Array.isArray(rows) && rows.length > 0) {
+        try {
+          // Clear existing data for this table before restoring to avoid duplicates
+          await pool.query(`DELETE FROM ${table}`);
+          
+          if (rows.length > 0) {
+            const keys = Object.keys(rows[0]);
+            for (const row of rows) {
+              const values = keys.map(k => row[k]);
+              const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+              await pool.query(
+                `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`,
+                values
+              );
+            }
+            totalRecords += rows.length;
+            console.log(`  ✅ Restored ${table}: ${rows.length} records`);
+          }
+        } catch (err) {
+          console.error(`  ❌ Error restoring ${table}:`, err.message);
+        }
+      }
+    }
+
+    res.json({ success: true, message: `Restore completed! Total ${totalRecords} records imported.` });
+  } catch (err) {
+    console.error('Restore error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 startServer();
 module.exports = app;
