@@ -33,6 +33,12 @@ const EwayBill = lazy(() => import('./pages/EwayBill'))
 const Claims = lazy(() => import('./pages/Claims'))
 const Users = lazy(() => import('./pages/Users'))
 
+// --- Naye Pages Added (Fix 404) ---
+const Ledger = lazy(() => import('./pages/Ledger'))
+const Outstanding = lazy(() => import('./pages/Outstanding'))
+const Commissions = lazy(() => import('./pages/Commissions'))
+const Expenses = lazy(() => import('./pages/Expenses'))
+
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
   return token ? children : <Navigate to="/login" replace />
@@ -87,6 +93,12 @@ function App() {
           <Route path="/eway" element={<PrivateRoute><EwayBill /></PrivateRoute>} />
           <Route path="/claims" element={<PrivateRoute><Claims /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
+
+          {/* --- Naye Routes Added (Fix 404) --- */}
+          <Route path="/ledger" element={<PrivateRoute><Ledger /></PrivateRoute>} />
+          <Route path="/outstanding" element={<PrivateRoute><Outstanding /></PrivateRoute>} />
+          <Route path="/commissions" element={<PrivateRoute><Commissions /></PrivateRoute>} />
+          <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
 
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center'}}>
