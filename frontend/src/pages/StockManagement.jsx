@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 
 export default function StockManagement() {
   const navigate = useNavigate()
+  
+  // 🔒 ADMIN ONLY CHECK
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />
+  }
+
   const [stock, setStock] = useState([])
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [addQuantity, setAddQuantity] = useState('')
 
-  // Default Stock Items
   const defaultStock = [
     { id: 1, name: 'Bilty / LR', currentStock: 500, threshold: 50, unit: 'Books' },
     { id: 2, name: 'Money Receipt (MR)', currentStock: 500, threshold: 50, unit: 'Books' },
@@ -17,7 +23,6 @@ export default function StockManagement() {
   ]
 
   useEffect(() => {
-    // Load from localStorage or use default
     const savedStock = localStorage.getItem('btc_stationery_stock')
     if (savedStock) {
       setStock(JSON.parse(savedStock))
@@ -44,14 +49,12 @@ export default function StockManagement() {
       alert('Please enter a valid quantity to add!')
       return
     }
-
     const updatedStock = stock.map(item => {
       if (item.id === selectedItem.id) {
         return { ...item, currentStock: item.currentStock + parseInt(addQuantity) }
       }
       return item
     })
-
     saveStock(updatedStock)
     setShowUpdateModal(false)
     alert(`✅ Successfully added ${addQuantity} ${selectedItem.unit} of ${selectedItem.name}!`)
@@ -69,14 +72,11 @@ export default function StockManagement() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">📦 Stationery Stock Management</h1>
-            <p className="text-gray-500 mt-1">Track and update your physical printing stock (Bilty, MR, Challan, etc.)</p>
+            <p className="text-gray-500 mt-1">Track and update your physical printing stock</p>
           </div>
-          <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
-            ← Back to Dashboard
-          </button>
+          <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">← Back to Dashboard</button>
         </div>
 
-        {/* Stock Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {stock.map(item => {
             const status = getStockStatus(item.currentStock, item.threshold)
@@ -87,57 +87,32 @@ export default function StockManagement() {
                     <h3 className="text-xl font-bold text-gray-800">{item.name}</h3>
                     <p className="text-sm text-gray-500">Unit: {item.unit}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${status.color}`}>
-                    {status.text}
-                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${status.color}`}>{status.text}</span>
                 </div>
-                
                 <div className="flex items-end justify-between mt-6">
                   <div>
                     <div className="text-sm text-gray-500">Current Stock</div>
-                    <div className={`text-4xl font-bold ${item.currentStock <= item.threshold ? 'text-red-600' : 'text-gray-800'}`}>
-                      {item.currentStock}
-                    </div>
+                    <div className={`text-4xl font-bold ${item.currentStock <= item.threshold ? 'text-red-600' : 'text-gray-800'}`}>{item.currentStock}</div>
                     <div className="text-xs text-gray-400 mt-1">Alert Threshold: {item.threshold}</div>
                   </div>
-                  <button 
-                    onClick={() => openUpdateModal(item)}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md transition flex items-center gap-2"
-                  >
-                    ➕ Add Stock
-                  </button>
+                  <button onClick={() => openUpdateModal(item)} className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md transition flex items-center gap-2">➕ Add Stock</button>
                 </div>
               </div>
             )
           })}
         </div>
 
-        {/* Update Stock Modal */}
         {showUpdateModal && selectedItem && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border-2 border-blue-500">
               <h3 className="text-xl font-bold text-gray-800 mb-4">➕ Add New Stock: {selectedItem.name}</h3>
               <p className="text-sm text-gray-600 mb-4">Current Stock: <span className="font-bold">{selectedItem.currentStock}</span> {selectedItem.unit}</p>
-              
               <form onSubmit={handleUpdateStock}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Quantity to Add *</label>
-                <input 
-                  type="number" 
-                  required 
-                  min="1"
-                  value={addQuantity}
-                  onChange={(e) => setAddQuantity(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg font-bold mb-4"
-                  placeholder="e.g., 100"
-                  autoFocus
-                />
+                <input type="number" required min="1" value={addQuantity} onChange={(e) => setAddQuantity(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg font-bold mb-4" placeholder="e.g., 100" autoFocus />
                 <div className="flex gap-3">
-                  <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition">
-                    ✅ Update Stock
-                  </button>
-                  <button type="button" onClick={() => setShowUpdateModal(false)} className="flex-1 py-3 bg-gray-400 text-white rounded-lg font-bold hover:bg-gray-500 transition">
-                    Cancel
-                  </button>
+                  <button type="submit" className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition">✅ Update Stock</button>
+                  <button type="button" onClick={() => setShowUpdateModal(false)} className="flex-1 py-3 bg-gray-400 text-white rounded-lg font-bold hover:bg-gray-500 transition">Cancel</button>
                 </div>
               </form>
             </div>
