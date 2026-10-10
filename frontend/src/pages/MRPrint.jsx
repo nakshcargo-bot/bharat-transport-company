@@ -11,23 +11,46 @@ export default function MRPrint() {
   const mrNo = searchParams.get('mr_no')
 
   useEffect(() => {
-    if (!mrNo) { navigate('/mr'); return }
+    if (!mrNo) { 
+      navigate('/mr')
+      return 
+    }
     fetchMRData(mrNo)
   }, [mrNo, navigate])
 
-  const fetchMRData = async (mrNo) => {
+  const fetchMRData = async (targetMrNo) => {
     try {
-      setLoading(true); setError(null)
+      setLoading(true)
+      setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const res = await fetch(`${apiUrl}/api/mr`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      const foundMR = data.data.find(m => m.mr_no === mrNo)
-      if (!foundMR) throw new Error('MR not found')
+      
+      const res = await fetch(`${apiUrl}/api/mr`, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      })
+      
+      if (!res.ok) throw new Error('Failed to fetch data from server')
+      
+      const result = await res.json()
+      
+      // Safely extract the array from various possible API response formats
+      const mrList = result.data || result.mrs || result.records || (Array.isArray(result) ? result : [])
+      
+      // Find the MR, trimming spaces to avoid "MR/26/0003 " !== "MR/26/0003" issues
+      const foundMR = mrList.find(m => m.mr_no && m.mr_no.toString().trim() === targetMrNo.toString().trim())
+      
+      if (!foundMR) {
+        console.warn("Available MRs in system:", mrList.map(m => m.mr_no))
+        throw new Error(`MR not found: ${targetMrNo}`)
+      }
+      
       setMr(foundMR)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+    } catch (err) { 
+      console.error("MR Fetch Error:", err)
+      setError(err.message) 
+    } finally { 
+      setLoading(false) 
+    }
   }
 
   const handlePrint = () => window.print()
@@ -57,12 +80,18 @@ export default function MRPrint() {
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700"></div></div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700"></div>
+    </div>
+  )
+
   if (error || !mr) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="bg-white p-6 rounded-lg shadow text-center">
-        <p className="text-red-600 mb-4">{error || 'MR not found'}</p>
-        <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded">← Back</button>
+        <p className="text-red-600 mb-4 font-medium">{error || 'MR not found'}</p>
+        <p className="text-xs text-gray-500 mb-4">Check console (F12) for available MR numbers</p>
+        <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">← Back to MR List</button>
       </div>
     </div>
   )
@@ -71,11 +100,11 @@ export default function MRPrint() {
     <div className="min-h-screen bg-gray-200">
       <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back</button>
+          <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700">← Back</button>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print / Save PDF</button>
-            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">📱 WhatsApp</button>
-            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium">📧 Email</button>
+            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">🖨️ Print / Save PDF</button>
+            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 WhatsApp</button>
+            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">📧 Email</button>
           </div>
         </div>
         <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800">
@@ -92,8 +121,14 @@ export default function MRPrint() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded border">
-            <div><div className="text-xs text-gray-600 font-bold">MR NUMBER</div><div className="text-xl font-bold text-green-800">{mr.mr_no}</div></div>
-            <div><div className="text-xs text-gray-600 font-bold">DATE</div><div className="text-xl font-bold">{mr.mr_date ? new Date(mr.mr_date).toLocaleDateString('en-IN') : 'N/A'}</div></div>
+            <div>
+              <div className="text-xs text-gray-600 font-bold">MR NUMBER</div>
+              <div className="text-xl font-bold text-green-800">{mr.mr_no}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-600 font-bold">DATE</div>
+              <div className="text-xl font-bold">{mr.mr_date ? new Date(mr.mr_date).toLocaleDateString('en-IN') : 'N/A'}</div>
+            </div>
           </div>
 
           <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded">
@@ -106,10 +141,26 @@ export default function MRPrint() {
             <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">PAYMENT DETAILS</h3>
             <table className="w-full border-collapse border border-gray-400">
               <tbody>
-                <tr className="border-b border-gray-300"><td className="p-3 font-bold bg-gray-100 w-1/2">Payment Mode</td><td className="p-3 font-semibold">{mr.payment_mode || 'Cash'}</td></tr>
-                {mr.bilty_lr_no && <tr className="border-b border-gray-300"><td className="p-3 font-bold bg-gray-100">Against LR / Bilty No</td><td className="p-3 font-semibold text-blue-700">{mr.bilty_lr_no}</td></tr>}
-                {mr.bill_no && <tr className="border-b border-gray-300"><td className="p-3 font-bold bg-gray-100">Against Bill No</td><td className="p-3 font-semibold text-blue-700">{mr.bill_no}</td></tr>}
-                <tr className="border-b border-gray-300"><td className="p-3 font-bold bg-gray-100">Advance Payment</td><td className="p-3 font-semibold">{mr.is_advance ? 'Yes' : 'No'}</td></tr>
+                <tr className="border-b border-gray-300">
+                  <td className="p-3 font-bold bg-gray-100 w-1/2">Payment Mode</td>
+                  <td className="p-3 font-semibold">{mr.payment_mode || 'Cash'}</td>
+                </tr>
+                {mr.bilty_lr_no && (
+                  <tr className="border-b border-gray-300">
+                    <td className="p-3 font-bold bg-gray-100">Against LR / Bilty No</td>
+                    <td className="p-3 font-semibold text-blue-700">{mr.bilty_lr_no}</td>
+                  </tr>
+                )}
+                {mr.bill_no && (
+                  <tr className="border-b border-gray-300">
+                    <td className="p-3 font-bold bg-gray-100">Against Bill No</td>
+                    <td className="p-3 font-semibold text-blue-700">{mr.bill_no}</td>
+                  </tr>
+                )}
+                <tr className="border-b border-gray-300">
+                  <td className="p-3 font-bold bg-gray-100">Advance Payment</td>
+                  <td className="p-3 font-semibold">{mr.is_advance ? 'Yes' : 'No'}</td>
+                </tr>
                 <tr className="bg-green-100 font-bold text-xl">
                   <td className="p-4 text-green-900">AMOUNT RECEIVED</td>
                   <td className="p-4 text-right text-green-900">₹{parseFloat(mr.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
