@@ -34,7 +34,11 @@ const Claims = lazy(() => import('./pages/Claims'))
 const Users = lazy(() => import('./pages/Users'))
 const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
-const StockManagement = lazy(() => import('./pages/StockManagement')) // ✅ NEW: Stock Management
+const StockManagement = lazy(() => import('./pages/StockManagement'))
+
+// ✅ NEW: Branch Portal & Login Routes
+const BranchPortal = lazy(() => import('./pages/BranchPortal'))
+const BranchLogin = lazy(() => import('./pages/BranchLogin'))
 
 // --- Naye Pages Added (Fix 404) ---
 const Ledger = lazy(() => import('./pages/Ledger'))
@@ -50,7 +54,7 @@ function PrivateRoute({ children }) {
 function LoadingFallback() {
   return (
     <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2> Loading...</h2>
+      <h2>⏳ Loading...</h2>
     </div>
   )
 }
@@ -67,6 +71,10 @@ function App() {
           <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
+
+          {/* ✅ NEW: Branch Portal & Login Routes (Public access for branch incharge) */}
+          <Route path="/branch/:branchSlug" element={<BranchPortal />} />
+          <Route path="/branch-login/:branchSlug" element={<BranchLogin />} />
 
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -98,7 +106,7 @@ function App() {
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
           <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
           <Route path="/branch-payments" element={<PrivateRoute><BranchPayments /></PrivateRoute>} />
-          <Route path="/stock" element={<PrivateRoute><StockManagement /></PrivateRoute>} /> {/* ✅ NEW: Stock Route */}
+          <Route path="/stock" element={<PrivateRoute><StockManagement /></PrivateRoute>} />
 
           {/* --- Naye Routes Added (Fix 404) --- */}
           <Route path="/ledger" element={<PrivateRoute><Ledger /></PrivateRoute>} />
