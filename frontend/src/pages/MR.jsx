@@ -43,13 +43,23 @@ export default function MR() {
     }
   }
 
+  // ✅ FIX 1: Date ko Indian Format (DD/MM/YYYY) mein convert karna
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
+    return new Date(dateString).toLocaleDateString('en-IN', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    })
+  }
+
   const filteredMRs = mrs.filter(mr => {
     if (filter === 'advance') return mr.is_advance
     if (filter === 'bilty') return mr.bilty_lr_no
     if (filter === 'bill') return mr.bill_no
     if (filter === 'today') {
       const today = new Date().toISOString().split('T')[0]
-      return mr.mr_date === today
+      return mr.mr_date && mr.mr_date.startsWith(today)
     }
     if (filter === 'month') {
       const thisMonth = new Date().toISOString().substring(0, 7)
@@ -87,7 +97,7 @@ export default function MR() {
           <div className="flex flex-wrap gap-3 items-center">
             <input
               type="text"
-              placeholder=" Search by MR No, Party Name, LR No..."
+              placeholder="🔍 Search by MR No, Party Name, LR No..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 min-w-[250px] border p-2 rounded"
@@ -135,7 +145,10 @@ export default function MR() {
                   ) : filteredMRs.map(mr => (
                     <tr key={mr.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 font-bold text-purple-700">{mr.mr_no}</td>
-                      <td className="p-3 text-sm">{mr.mr_date}</td>
+                      
+                      {/* ✅ FIX 1 Applied Here: Proper Date Format */}
+                      <td className="p-3 text-sm">{formatDate(mr.mr_date)}</td>
+                      
                       <td className="p-3 text-sm font-medium">{mr.party_name}</td>
                       <td className="p-3">
                         <span className={`px-2 py-1 rounded text-xs font-bold ${mr.is_advance ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
@@ -151,8 +164,21 @@ export default function MR() {
                       <td className="p-3 text-sm">{mr.payment_mode}</td>
                       <td className="p-3">
                         <div className="flex gap-1">
-                          <button onClick={() => navigate('/mr/print', { state: { mr } })} className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700">🖨️</button>
-                          <button onClick={() => handleDelete(mr.id)} className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700">️</button>
+                          {/* ✅ FIX 2 Applied Here: Pass mr_no in URL so MRPrint.jsx can read it */}
+                          <button 
+                            onClick={() => navigate(`/mr/print?mr_no=${encodeURIComponent(mr.mr_no)}`)} 
+                            className="bg-blue-600 text-white px-2 py-1 rounded text-xs hover:bg-blue-700"
+                            title="Print MR"
+                          >
+                            🖨️
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(mr.id)} 
+                            className="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700"
+                            title="Delete MR"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
