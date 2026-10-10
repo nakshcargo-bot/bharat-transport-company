@@ -1,30 +1,44 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 
 export default function GadiChallanPrint() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { id } = useParams()
   const [challan, setChallan] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (id) fetchChallan()
-  }, [id])
+    const challanId = id || searchParams.get('id')
+    if (challanId) {
+      fetchChallan(challanId)
+    } else {
+      setError('Challan ID not found')
+      setLoading(false)
+    }
+  }, [id, searchParams])
 
-  const fetchChallan = async () => {
+  const fetchChallan = async (challanId) => {
     try {
       setLoading(true)
+      setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const res = await fetch(`${apiUrl}/api/gadi-challan/${id}`, {
+      const res = await fetch(`${apiUrl}/api/gadi-challan/${challanId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      if (res.ok) {
-        const data = await res.json()
-        setChallan(data)
+      
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('Challan not found')
+        throw new Error('Failed to fetch challan')
       }
+      
+      const data = await res.json()
+      setChallan(data)
     } catch (err) {
-      console.error('Error:', err)
+      console.error('Error fetching challan:', err)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -51,27 +65,62 @@ export default function GadiChallanPrint() {
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}`
   }
 
-  if (loading) return <div className="p-8 text-center">⏳ Loading...</div>
-  if (!challan) return <div className="p-8 text-center text-red-600">Challan not found</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-700 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading Challan...</p>
+          <p className="text-xs text-gray-400 mt-2">If stuck, please refresh the page</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !challan) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
+          <div className="text-red-600 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Challan Not Found</h2>
+          <p className="text-gray-600 mb-4">{error || 'The requested challan does not exist or has been deleted.'}</p>
+          <div className="flex gap-2 justify-center">
+            <button 
+              onClick={() => navigate('/gadi-challan')} 
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+            >
+              ← Back to Challan List
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
       {/* Action Buttons - Print Only */}
       <div className="max-w-5xl mx-auto mb-4 flex gap-2 print:hidden">
-        <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded">← Back</button>
+        <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">← Back</button>
         <div className="flex-1"></div>
-        <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded">🖨️ Print / Save PDF</button>
-        <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded">📱 WhatsApp</button>
-        <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded">📧 Email</button>
+        <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">🖨️ Print / Save PDF</button>
+        <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">📱 WhatsApp</button>
+        <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"> Email</button>
       </div>
 
       {/* Challan Content */}
       <div className="max-w-5xl mx-auto bg-white shadow-lg p-8 print:shadow-none print:p-4">
         {/* Header */}
-        <div className="border-b-4 border-red-800 pb-4 mb-6">
+        <div className="border-b-4 border-purple-800 pb-4 mb-6">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-4xl font-bold text-red-800">BHARAT TRANSPORT</h1>
+              <h1 className="text-4xl font-bold text-purple-800">BHARAT TRANSPORT</h1>
               <p className="text-gray-600 mt-1">Professional Multi-Branch Transport Management System</p>
               <p className="text-sm text-gray-500 mt-1">GST: 27AAAAA0000A1Z5 | PAN: AAAAA0000A</p>
             </div>
@@ -100,7 +149,7 @@ export default function GadiChallanPrint() {
 
           <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
             <h3 className="font-bold text-green-900 mb-3 flex items-center gap-2">
-              <span className="text-2xl">👷</span> DRIVER DETAILS
+              <span className="text-2xl"></span> DRIVER DETAILS
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-gray-600">Driver Name:</span><span className="font-bold">{challan.driver_name}</span></div>
@@ -248,7 +297,7 @@ export default function GadiChallanPrint() {
         <div className="mt-8 text-center text-xs text-gray-500 border-t pt-4">
           <p>This is a computer generated challan.</p>
           <p className="mt-1">© 2026 Bharat Transport Company • Generated: {new Date().toLocaleString('en-IN')}</p>
-          <p className="mt-2 text-red-600 font-bold">Thank you for your business!</p>
+          <p className="mt-2 text-purple-600 font-bold">Thank you for your business!</p>
         </div>
       </div>
 
