@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { billAPI, branchAPI } from '../api'
+import { useNavigate } from 'react-router-dom'
 
 export default function Audit() {
+  const navigate = useNavigate()
   const [bills, setBills] = useState([])
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,24 +19,35 @@ export default function Audit() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      // Fetch Bills and Branches concurrently
+      setError(null)
+      const token = localStorage.getItem('token')
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const headers = { 'Authorization': `Bearer ${token}` }
+
+      // Fetch Bills and Branches
       const [billsRes, branchesRes] = await Promise.all([
-        billAPI.getAll(),
-        branchAPI.getAll()
+        fetch(`${apiUrl}/api/bills`, { headers }),
+        fetch(`${apiUrl}/api/branches`, { headers })
       ])
       
-      setBills(billsRes.data || billsRes.bills || [])
-      setBranches(branchesRes.data || branchesRes.branches || [])
+      const billsData = await billsRes.json()
+      const branchesData = await branchesRes.json()
+      
+      // ✅ FIX: Ensure data is always an array
+      setBills(Array.isArray(billsData.data) ? billsData.data : [])
+      setBranches(Array.isArray(branchesData.data) ? branchesData.data : [])
     } catch (err) {
-      setError('Failed to fetch audit data')
+      setError('Failed to fetch audit data: ' + err.message)
       console.error(err)
+      setBills([])
+      setBranches([])
     } finally {
       setLoading(false)
     }
   }
 
-  // Filter bills based on Branch and Search Term
-  const filteredBills = bills.filter(bill => {
+  // ✅ FIX: Safe filter - check if bills is array before filtering
+  const filteredBills = Array.isArray(bills) ? bills.filter(bill => {
     const matchesBranch = selectedBranch === 'ALL' || bill.branch_name === selectedBranch || bill.branch_id === selectedBranch
     const matchesSearch = searchTerm === '' || 
       (bill.party_name && bill.party_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -43,7 +55,7 @@ export default function Audit() {
       (bill.gst_number && bill.gst_number.toLowerCase().includes(searchTerm.toLowerCase()))
     
     return matchesBranch && matchesSearch
-  })
+  }) : []
 
   // Excel (CSV) Export Function for CA
   const exportToExcel = () => {
@@ -66,7 +78,7 @@ export default function Audit() {
       bill.status || 'Completed'
     ])
 
-    // Convert to CSV string with UTF-8 BOM (\uFEFF) so Excel opens Hindi/Special chars correctly
+    // Convert to CSV string
     const csvContent = [
       headers.join(","),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
@@ -86,7 +98,16 @@ export default function Audit() {
   }
 
   if (loading) return <div className="p-8 text-center text-gray-600">⏳ Loading Audit Data...</div>
-  if (error) return <div className="p-8 text-center text-red-600">⚠️ {error}</div>
+  if (error) return (
+    <div className="p-8 text-center text-red-600">
+      <div className="text-4xl mb-4">⚠️</div>
+      <h2 className="text-xl font-bold mb-2">Error Loading Audit Data</h2>
+      <p className="mb-4">{error}</p>
+      <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+         Retry
+      </button>
+    </div>
+  )
 
   // Calculate Total Amount for visible data
   const totalAmount = filteredBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0)
@@ -100,7 +121,8 @@ export default function Audit() {
         </div>
         <button 
           onClick={exportToExcel}
-          className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow transition"
+          disabled={filteredBills.length === 0}
+          className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow transition disabled:bg-gray-400"
         >
           📥 Export to Excel (CA Report)
         </button>
@@ -116,7 +138,7 @@ export default function Audit() {
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="ALL">All Branches (Consolidated)</option>
-            {branches.map(branch => (
+            {Array.isArray(branches) && branches.map(branch => (
               <option key={branch.id || branch._id} value={branch.name}>
                 {branch.name}
               </option>
