@@ -36,7 +36,7 @@ const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
 const StockManagement = lazy(() => import('./pages/StockManagement'))
 
-// ✅ NEW: Branch Portal & Login Routes
+// ✅ NEW: Branch Portal & Login
 const BranchPortal = lazy(() => import('./pages/BranchPortal'))
 const BranchLogin = lazy(() => import('./pages/BranchLogin'))
 
@@ -72,7 +72,7 @@ function App() {
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
 
-          {/* ✅ NEW: Branch Portal & Login Routes (Public access for branch incharge) */}
+          {/* ✅ NEW: Branch Portal & Login Routes */}
           <Route path="/branch/:branchSlug" element={<BranchPortal />} />
           <Route path="/branch-login/:branchSlug" element={<BranchLogin />} />
 
