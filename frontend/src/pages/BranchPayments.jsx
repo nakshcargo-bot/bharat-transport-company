@@ -4,10 +4,15 @@ import { branchAPI } from '../api'
 export default function BranchPayments() {
   const [branches, setBranches] = useState([])
   
-  // ✅ FIX: LocalStorage se data load karo taaki refresh par delete na ho
+  // ✅ FIX 1: Safe LocalStorage parsing (App crash nahi hogi agar data corrupt ho)
   const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('branchTransactions')
-    return saved ? JSON.parse(saved) : []
+    try {
+      const saved = localStorage.getItem('branchTransactions')
+      return saved ? JSON.parse(saved) : []
+    } catch (error) {
+      console.error('Error parsing transactions from localStorage:', error)
+      return []
+    }
   })
   
   const [activeTab, setActiveTab] = useState('send')
@@ -24,17 +29,24 @@ export default function BranchPayments() {
     fetchBranches()
   }, [])
 
-  // ✅ FIX: Jab bhi transactions update ho, LocalStorage mein save karo
+  // ✅ FIX 2: Safe LocalStorage save
   useEffect(() => {
-    localStorage.setItem('branchTransactions', JSON.stringify(transactions))
+    try {
+      localStorage.setItem('branchTransactions', JSON.stringify(transactions))
+    } catch (error) {
+      console.error('Error saving transactions to localStorage:', error)
+    }
   }, [transactions])
 
   const fetchBranches = async () => {
     try {
       const res = await branchAPI.getAll()
-      setBranches(res.data || res.branches || [])
+      // ✅ FIX 3: Ensure branches is ALWAYS an array
+      const branchData = res?.data || res?.branches || []
+      setBranches(Array.isArray(branchData) ? branchData : [])
     } catch (err) {
       console.error('Failed to fetch branches', err)
+      setBranches([]) // Fallback to empty array
     }
   }
 
@@ -82,8 +94,9 @@ export default function BranchPayments() {
     }
   }
 
-  // ✅ FIX: Ensure transactions is ALWAYS an array before .map()
+  // ✅ FIX 4: Ensure arrays are ALWAYS safe before .map()
   const safeTransactions = Array.isArray(transactions) ? transactions : []
+  const safeBranches = Array.isArray(branches) ? branches : []
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -116,7 +129,7 @@ export default function BranchPayments() {
                   <label className="block text-sm font-medium text-gray-700">Select Branch *</label>
                   <select required value={sendForm.branch_name} onChange={(e) => setSendForm({...sendForm, branch_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-blue-500">
                     <option value="">-- Select Branch --</option>
-                    {branches.map(b => <option key={b.id || b._id} value={b.name}>{b.name}</option>)}
+                    {safeBranches.map(b => <option key={b.id || b._id || b.name} value={b.name}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -146,7 +159,7 @@ export default function BranchPayments() {
                   <label className="block text-sm font-medium text-gray-700">Select Branch *</label>
                   <select required value={receiveForm.branch_name} onChange={(e) => setReceiveForm({...receiveForm, branch_name: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-2 focus:ring-green-500">
                     <option value="">-- Select Branch --</option>
-                    {branches.map(b => <option key={b.id || b._id} value={b.name}>{b.name}</option>)}
+                    {safeBranches.map(b => <option key={b.id || b._id || b.name} value={b.name}>{b.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -204,7 +217,7 @@ export default function BranchPayments() {
                           {t.type === 'SENT' ? '📤 SENT' : '📥 RECEIVED'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{t.branch_name}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{t.branch_name || 'Unknown'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {t.type === 'SENT' ? (
                           <>
@@ -213,7 +226,7 @@ export default function BranchPayments() {
                           </>
                         ) : (
                           <>
-                            <div>Incharge: {t.incharge_name}</div>
+                            <div>Incharge: {t.incharge_name || 'N/A'}</div>
                             <div className="text-xs text-gray-500">Payment returned</div>
                           </>
                         )}
@@ -221,7 +234,7 @@ export default function BranchPayments() {
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-bold text-right ${t.type === 'SENT' ? 'text-red-600' : 'text-green-600'}`}>
                         {t.type === 'SENT' ? '-' : '+'}₹{parseFloat(t.amount || 0).toLocaleString('en-IN')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{t.timestamp}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{t.timestamp || 'N/A'}</td>
                     </tr>
                   ))
                 )}
