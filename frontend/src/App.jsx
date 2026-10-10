@@ -32,6 +32,7 @@ const Accounts = lazy(() => import('./pages/Accounts'))
 const EwayBill = lazy(() => import('./pages/EwayBill'))
 const Claims = lazy(() => import('./pages/Claims'))
 const Users = lazy(() => import('./pages/Users'))
+const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
 
 // --- Naye Pages Added (Fix 404) ---
@@ -94,6 +95,7 @@ function App() {
           <Route path="/eway" element={<PrivateRoute><EwayBill /></PrivateRoute>} />
           <Route path="/claims" element={<PrivateRoute><Claims /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
+          <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
           <Route path="/branch-payments" element={<PrivateRoute><BranchPayments /></PrivateRoute>} />
 
           {/* --- Naye Routes Added (Fix 404) --- */}
