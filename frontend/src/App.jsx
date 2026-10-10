@@ -35,12 +35,9 @@ const Users = lazy(() => import('./pages/Users'))
 const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
 const StockManagement = lazy(() => import('./pages/StockManagement'))
-
-// ✅ NEW: Branch Portal & Login
 const BranchPortal = lazy(() => import('./pages/BranchPortal'))
 const BranchLogin = lazy(() => import('./pages/BranchLogin'))
 
-// --- Naye Pages Added (Fix 404) ---
 const Ledger = lazy(() => import('./pages/Ledger'))
 const Outstanding = lazy(() => import('./pages/Outstanding'))
 const Commissions = lazy(() => import('./pages/Commissions'))
@@ -53,8 +50,20 @@ function PrivateRoute({ children }) {
 
 function LoadingFallback() {
   return (
-    <div style={{ padding: '50px', textAlign: 'center' }}>
-      <h2>⏳ Loading...</h2>
+    <div style={{ 
+      padding: '50px', 
+      textAlign: 'center', 
+      minHeight: '100vh', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      backgroundColor: '#f3f4f6'
+    }}>
+      <div className="text-center">
+        <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent mb-4"></div>
+        <h2 className="text-xl font-bold text-gray-700">Loading Bharat Transport...</h2>
+        <p className="text-gray-500 mt-2">Please wait...</p>
+      </div>
     </div>
   )
 }
@@ -64,18 +73,20 @@ function App() {
     <HashRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Public Routes - No Login Required */}
           <Route path="/login" element={<Login />} />
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
-          <Route path="/gadi-challan-print" element={<PrivateRoute><GadiChallanPrint /></PrivateRoute>} />
+          <Route path="/gadi-challan-print" element={<GadiChallanPrint />} />
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
-
-          {/* ✅ NEW: Branch Portal & Login Routes */}
+          
+          {/* Branch Portal Routes - Public Access */}
           <Route path="/branch/:branchSlug" element={<BranchPortal />} />
           <Route path="/branch-login/:branchSlug" element={<BranchLogin />} />
 
+          {/* Protected Routes - Login Required */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
@@ -108,16 +119,18 @@ function App() {
           <Route path="/branch-payments" element={<PrivateRoute><BranchPayments /></PrivateRoute>} />
           <Route path="/stock" element={<PrivateRoute><StockManagement /></PrivateRoute>} />
 
-          {/* --- Naye Routes Added (Fix 404) --- */}
           <Route path="/ledger" element={<PrivateRoute><Ledger /></PrivateRoute>} />
           <Route path="/outstanding" element={<PrivateRoute><Outstanding /></PrivateRoute>} />
           <Route path="/commissions" element={<PrivateRoute><Commissions /></PrivateRoute>} />
           <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
 
+          {/* 404 Route */}
           <Route path="*" element={
-            <div style={{padding:'50px',textAlign:'center'}}>
-              <h1>404 - Page Not Found</h1>
-              <a href="/">Go Home</a>
+            <div style={{padding:'50px',textAlign:'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+              <div>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">404 - Page Not Found</h1>
+                <a href="#/" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block font-medium">Go Home</a>
+              </div>
             </div>
           } />
         </Routes>
