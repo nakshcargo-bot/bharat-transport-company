@@ -33,7 +33,7 @@ export default function Audit() {
       const billsData = await billsRes.json()
       const branchesData = await branchesRes.json()
       
-      // ✅ FIX: Ensure data is always an array
+      // Ensure data is always an array
       setBills(Array.isArray(billsData.data) ? billsData.data : [])
       setBranches(Array.isArray(branchesData.data) ? branchesData.data : [])
     } catch (err) {
@@ -46,13 +46,21 @@ export default function Audit() {
     }
   }
 
-  // ✅ FIX: Safe filter - check if bills is array before filtering
+  // ✅ FIX: Helper function to get branch name from branch_id
+  const getBranchName = (branchId) => {
+    if (!branchId) return 'Head Office'
+    const branch = branches.find(b => b.id === branchId || b.id === parseInt(branchId))
+    return branch ? branch.branch_name : 'Head Office'
+  }
+
+  // ✅ FIX: Safe filter with correct column names
   const filteredBills = Array.isArray(bills) ? bills.filter(bill => {
-    const matchesBranch = selectedBranch === 'ALL' || bill.branch_name === selectedBranch || bill.branch_id === selectedBranch
+    const billBranchName = getBranchName(bill.branch_id)
+    const matchesBranch = selectedBranch === 'ALL' || billBranchName === selectedBranch
     const matchesSearch = searchTerm === '' || 
       (bill.party_name && bill.party_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (bill.bill_no && bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (bill.gst_number && bill.gst_number.toLowerCase().includes(searchTerm.toLowerCase()))
+      (bill.party_gst && bill.party_gst.toLowerCase().includes(searchTerm.toLowerCase()))
     
     return matchesBranch && matchesSearch
   }) : []
@@ -67,15 +75,15 @@ export default function Audit() {
     // CSV Headers
     const headers = ["Bill No", "Date", "Party Name", "GST Number", "Amount (₹)", "Branch Name", "Status"]
     
-    // CSV Rows
+    // ✅ FIX: CSV Rows with correct column names
     const rows = filteredBills.map(bill => [
-      bill.bill_no || bill.bill_number || 'N/A',
-      bill.date || bill.bill_date || new Date().toLocaleDateString('en-IN'),
+      bill.bill_no || 'N/A',
+      bill.bill_date ? new Date(bill.bill_date).toLocaleDateString('en-IN') : 'N/A',
       bill.party_name || 'N/A',
-      bill.gst_number || 'N/A',
-      parseFloat(bill.amount || 0).toFixed(2),
-      bill.branch_name || 'Head Office',
-      bill.status || 'Completed'
+      bill.party_gst || 'N/A',  // ✅ Fixed: was gst_number
+      parseFloat(bill.grand_total || bill.amount || 0).toFixed(2),  // ✅ Fixed: was amount
+      getBranchName(bill.branch_id),  // ✅ Fixed: was branch_name
+      bill.status || 'Pending'
     ])
 
     // Convert to CSV string
@@ -104,13 +112,13 @@ export default function Audit() {
       <h2 className="text-xl font-bold mb-2">Error Loading Audit Data</h2>
       <p className="mb-4">{error}</p>
       <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-         Retry
+        🔄 Retry
       </button>
     </div>
   )
 
-  // Calculate Total Amount for visible data
-  const totalAmount = filteredBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0)
+  // ✅ FIX: Calculate Total Amount using grand_total
+  const totalAmount = filteredBills.reduce((sum, bill) => sum + parseFloat(bill.grand_total || bill.amount || 0), 0)
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -124,7 +132,7 @@ export default function Audit() {
           disabled={filteredBills.length === 0}
           className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow transition disabled:bg-gray-400"
         >
-          📥 Export to Excel (CA Report)
+           Export to Excel (CA Report)
         </button>
       </div>
 
@@ -139,8 +147,8 @@ export default function Audit() {
           >
             <option value="ALL">All Branches (Consolidated)</option>
             {Array.isArray(branches) && branches.map(branch => (
-              <option key={branch.id || branch._id} value={branch.name}>
-                {branch.name}
+              <option key={branch.id} value={branch.branch_name}>
+                {branch.branch_name}
               </option>
             ))}
           </select>
@@ -198,25 +206,25 @@ export default function Audit() {
                 </tr>
               ) : (
                 filteredBills.map((bill, index) => (
-                  <tr key={bill.id || bill._id || index} className="hover:bg-blue-50 transition">
+                  <tr key={bill.id || index} className="hover:bg-blue-50 transition">
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-blue-700">
-                      {bill.bill_no || bill.bill_number || 'N/A'}
+                      {bill.bill_no || 'N/A'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {bill.date || bill.bill_date ? new Date(bill.date || bill.bill_date).toLocaleDateString('en-IN') : 'N/A'}
+                      {bill.bill_date ? new Date(bill.bill_date).toLocaleDateString('en-IN') : 'N/A'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                       {bill.party_name || 'N/A'}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
-                      {bill.gst_number || '-'}
+                      {bill.party_gst || '-'}  {/* ✅ Fixed: was gst_number */}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-                      ₹{parseFloat(bill.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{parseFloat(bill.grand_total || bill.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}  {/* ✅ Fixed: was amount */}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                        {bill.branch_name || 'Head Office'}
+                        {getBranchName(bill.branch_id)}  {/* ✅ Fixed: was branch_name */}
                       </span>
                     </td>
                   </tr>
