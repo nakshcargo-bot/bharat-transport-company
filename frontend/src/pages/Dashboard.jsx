@@ -94,15 +94,16 @@ export default function Dashboard() {
       items: [
         { name: 'Billing', path: '/bills', icon: '🧾' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
-        { name: 'Create New MR', path: '/mr/create', icon: '' },
+        { name: 'Create New MR', path: '/mr/create', icon: '📝' },
         { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
         { name: 'Rate Contracts', path: '/rates', icon: '💹' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
+        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' }, // ✅ ADDED
       ]
     },
     {
-      label: ' Transport',
+      label: '🚚 Transport',
       items: [
         { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
         { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
@@ -126,7 +127,7 @@ export default function Dashboard() {
       label: '📊 Reports',
       items: [
         { name: 'Reports', path: '/reports', icon: '📈' },
-        { name: 'Audit Logs', path: '/audit', icon: '🔍' },
+        { name: 'Audit & CA Logs', path: '/audit', icon: '🔍' },
       ]
     },
     {
@@ -135,7 +136,7 @@ export default function Dashboard() {
         { name: 'Track Bilty', path: '/track', icon: '🔍' },
         { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
         { name: 'MR Print', path: '/mr/print', icon: '🖨️' },
-        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '️' },
+        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '🖨️' },
       ]
     }
   ]
@@ -143,10 +144,11 @@ export default function Dashboard() {
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
     { icon: '💰', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
-    { icon: '', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
+    { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
-    { icon: '👥', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
+    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' }, // ✅ ADDED
+    { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
   if (loading) {
@@ -286,7 +288,7 @@ export default function Dashboard() {
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-center justify-between">
-              <div><p className="font-bold text-red-800">️ {error}</p><p className="text-sm text-red-600">Dashboard showing default values. Click Retry to reload.</p></div>
+              <div><p className="font-bold text-red-800">⚠️ {error}</p><p className="text-sm text-red-600">Dashboard showing default values. Click Retry to reload.</p></div>
               <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">🔄 Retry</button>
             </div>
           </div>
