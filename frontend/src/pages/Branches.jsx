@@ -21,7 +21,7 @@ export default function Branches() {
     branch_url_slug: ''
   })
 
-  const [showCredentials, setShowCredentials] = useState(null) // To show generated credentials after creation
+  const [showCredentials, setShowCredentials] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -31,11 +31,15 @@ export default function Branches() {
   const fetchBranches = async () => {
     try {
       setLoading(true)
+      setError(null)
       const res = await branchAPI.getAll()
-      setBranches(res.data || res.branches || [])
+      // FIX: Ensure branches is ALWAYS an array
+      const branchData = res?.data || res?.branches || []
+      setBranches(Array.isArray(branchData) ? branchData : [])
     } catch (err) {
-      setError('Failed to fetch branches')
-      console.error(err)
+      console.error('Error fetching branches:', err)
+      setError(err.message || 'Failed to fetch branches')
+      setBranches([]) // FIX: Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -44,7 +48,6 @@ export default function Branches() {
   // Auto-generate credentials based on branch name
   const handleNameChange = (e) => {
     const name = e.target.value
-    // Create a clean URL slug (e.g., "New Delhi" -> "new-delhi")
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     
     setFormData({
@@ -76,20 +79,18 @@ export default function Branches() {
       setIsSubmitting(true)
       const res = await branchAPI.create(formData)
       
-      // Show generated credentials prominently
       setShowCredentials({
         name: formData.name,
-        url: `${window.location.origin}/#/branch/${formData.branch_url_slug}`, // Adjust based on your actual routing
+        url: `${window.location.origin}/#/branch/${formData.branch_url_slug}`,
         username: formData.incharge_username,
         password: formData.incharge_password
       })
 
-      // Reset form
       setFormData({
         name: '', address: '', city: '', state: '', pincode: '', phone: '', email: '', incharge_name: '', incharge_username: '', incharge_password: '', branch_url_slug: ''
       })
       
-      fetchBranches()
+      await fetchBranches()
     } catch (err) {
       alert('Failed to create branch: ' + (err.response?.data?.message || err.message))
     } finally {
@@ -101,14 +102,44 @@ export default function Branches() {
     if (!window.confirm('Are you sure you want to delete this branch? This action cannot be undone.')) return
     try {
       await branchAPI.delete(id)
-      fetchBranches()
+      await fetchBranches()
     } catch (err) {
-      alert('Failed to delete branch')
+      alert('Failed to delete branch: ' + (err.message || 'Unknown error'))
     }
   }
 
-  if (loading) return <div className="p-8 text-center text-gray-600">⏳ Loading branches...</div>
-  if (error) return <div className="p-8 text-center text-red-600">⚠️ {error}</div>
+  // FIX: Better loading and error states
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <div className="text-gray-600 font-medium">Loading branches...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg border border-red-200">
+          <div className="text-4xl mb-4">⚠️</div>
+          <div className="text-red-600 font-bold mb-2">Error Loading Branches</div>
+          <div className="text-gray-600 mb-4">{error}</div>
+          <button 
+            onClick={fetchBranches}
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+          >
+             Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // FIX: Ensure safe array for mapping
+  const safeBranches = Array.isArray(branches) ? branches : []
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -167,6 +198,7 @@ export default function Branches() {
                 value={formData.branch_url_slug}
                 onChange={(e) => setFormData({...formData, branch_url_slug: e.target.value})}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-gray-50 text-gray-600 font-mono text-sm"
+                readOnly
               />
             </div>
 
@@ -188,6 +220,7 @@ export default function Branches() {
                 value={formData.incharge_username}
                 onChange={(e) => setFormData({...formData, incharge_username: e.target.value})}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-gray-50 font-mono text-sm"
+                readOnly
               />
             </div>
 
@@ -199,6 +232,7 @@ export default function Branches() {
                   value={formData.incharge_password}
                   onChange={(e) => setFormData({...formData, incharge_password: e.target.value})}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-gray-50 font-mono text-red-600 font-bold"
+                  readOnly
                 />
                 <button 
                   type="button"
@@ -206,7 +240,7 @@ export default function Branches() {
                   className="mt-1 px-3 py-2 bg-gray-200 rounded border hover:bg-gray-300 text-xs"
                   title="Regenerate Password"
                 >
-                  🔄
+                  
                 </button>
               </div>
             </div>
@@ -267,7 +301,7 @@ export default function Branches() {
             <button 
               type="submit" 
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-400 font-medium transition shadow"
+              className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium transition shadow"
             >
               {isSubmitting ? 'Creating...' : 'Create Branch & Generate Credentials'}
             </button>
@@ -278,7 +312,7 @@ export default function Branches() {
         <div className="lg:col-span-2 bg-white rounded-lg shadow-md border overflow-hidden">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-700">Existing Branches</h2>
-            <span className="text-sm text-gray-500 bg-gray-200 px-3 py-1 rounded-full">{branches.length} Total</span>
+            <span className="text-sm text-gray-500 bg-gray-200 px-3 py-1 rounded-full">{safeBranches.length} Total</span>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -291,16 +325,19 @@ export default function Branches() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {branches.length === 0 ? (
+                {safeBranches.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">No branches found. Create your first branch!</td>
+                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                      <div className="text-4xl mb-2">📭</div>
+                      <div>No branches found. Create your first branch!</div>
+                    </td>
                   </tr>
                 ) : (
-                  branches.map((branch) => (
-                    <tr key={branch.id || branch._id} className="hover:bg-gray-50">
+                  safeBranches.map((branch, index) => (
+                    <tr key={branch.id || branch._id || index} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-gray-900">{branch.name}</div>
-                        <div className="text-xs text-gray-500">{branch.city}, {branch.state}</div>
+                        <div className="text-sm font-bold text-gray-900">{branch.name || 'Unnamed Branch'}</div>
+                        <div className="text-xs text-gray-500">{branch.city || 'N/A'}, {branch.state || ''}</div>
                         {branch.branch_url_slug && (
                           <div className="text-xs text-blue-600 font-mono mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded">/{branch.branch_url_slug}</div>
                         )}
@@ -312,6 +349,7 @@ export default function Branches() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {branch.phone && <div>📞 {branch.phone}</div>}
                         {branch.email && <div>✉️ {branch.email}</div>}
+                        {!branch.phone && !branch.email && <span className="text-gray-400">No contact info</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button 
