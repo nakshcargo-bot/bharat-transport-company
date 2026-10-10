@@ -826,9 +826,16 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/bills/:billNo', authMiddleware, async (req, res) => {
+// ✅ FIXED: id ya bill_no dono se fetch karega
+app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM bill_book WHERE bill_no = $1`, [req.params.billNo]);
+    const { identifier } = req.params;
+    const isNumeric = /^\d+$/.test(identifier);
+    const query = isNumeric
+      ? `SELECT * FROM bill_book WHERE id = $1`
+      : `SELECT * FROM bill_book WHERE bill_no = $1`;
+    const result = await pool.query(query, [identifier]);
+
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bill not found' });
     const bill = result.rows[0];
     const itemsResult = await pool.query(`SELECT * FROM bill_items WHERE bill_id = $1`, [bill.id]);
