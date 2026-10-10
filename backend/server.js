@@ -12,17 +12,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
-// ✅ CORS - सिर्फ allowed origins
+// ✅ CORS - PERMANENT FIX (Vercel domain added)
 app.use(cors({
   origin: [
-    'https://bharat-transport.pages.dev',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://localhost:4173'
+    'https://bharat-transport-company.vercel.app', // ✅ Main Vercel Frontend
+    'https://bharat-transport.pages.dev',          // Cloudflare Pages
+    'http://localhost:5173',                       // Vite Dev
+    'http://localhost:3000',                       // React Dev
+    'http://localhost:4173'                        // Preview
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -531,7 +532,6 @@ async function generateBiltyNo(branchCode) {
   return `${prefix}/${year}/${String(nextSerial).padStart(4, '0')}`;
 }
 
-// ✅ TRACK route को :id से ऊपर रखा (bug fix)
 app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
@@ -826,7 +826,6 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ FIXED: id ya bill_no dono se fetch karega
 app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
   try {
     const { identifier } = req.params;
