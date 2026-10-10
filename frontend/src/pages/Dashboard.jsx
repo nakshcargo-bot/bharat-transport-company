@@ -69,12 +69,14 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('branch_user')
     navigate('/login')
   }
 
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const isAdmin = user.role === 'admin'
+  const isBranchUser = user.role === 'branch_user'
 
   // COMPLETE NAVIGATION MENU - ALL MODULES
   const navMenus = [
@@ -100,7 +102,7 @@ export default function Dashboard() {
         { name: 'Rate Contracts', path: '/rates', icon: '💹' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
-        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' }, // ✅ ADDED
+        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
       ]
     },
     {
@@ -117,7 +119,7 @@ export default function Dashboard() {
       label: '👥 Management',
       items: [
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
-        { name: 'Branches', path: '/branches', icon: '🏢' },
+        { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
         { name: 'Claims', path: '/claims', icon: '⚠️' },
         { name: 'Commissions', path: '/commissions', icon: '💼' },
@@ -128,7 +130,7 @@ export default function Dashboard() {
       label: '📊 Reports',
       items: [
         { name: 'Reports', path: '/reports', icon: '📈' },
-        { name: 'Audit & CA Logs', path: '/audit', icon: '🔍' },
+        { name: 'Audit & CA Logs', path: '/audit', icon: '🔍', adminOnly: true },
         { name: 'Backup & Restore', path: '/backup', icon: '💾', adminOnly: true },
       ]
     },
@@ -149,10 +151,10 @@ export default function Dashboard() {
     { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
-    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' }, // ✅ ADDED
-    { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches' },
-   { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true) },
-   { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock' },
+    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' },
+    { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches', adminOnly: true },
+    { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true), adminOnly: true },
+    { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock', adminOnly: true },
     { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
@@ -181,7 +183,6 @@ export default function Dashboard() {
       <nav className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white shadow-2xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <div className="bg-white text-red-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">BTC</div>
               <div>
@@ -190,7 +191,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center gap-1">
               {navMenus.map((menu, idx) => (
                 <div key={idx} className="relative group">
@@ -215,7 +215,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* User Info & Logout */}
             <div className="flex items-center gap-3">
               <div className="hidden md:block text-right">
                 <div className="text-sm font-medium">Welcome, {user.username || 'Admin'}</div>
@@ -237,7 +236,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-red-900 border-t border-red-700 max-h-96 overflow-y-auto">
             <div className="max-w-7xl mx-auto px-4 py-3 space-y-2">
@@ -263,15 +261,16 @@ export default function Dashboard() {
         )}
       </nav>
 
-      {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto p-6">
-        {/* Welcome Header */}
         <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 text-white rounded-2xl shadow-2xl p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">Welcome Back, {user.username || 'Admin'}! 👋</h1>
               <p className="text-red-200 mt-1">
-                {isAdmin ? 'Your business overview across all branches' : `Branch: ${user.branch_code || 'N/A'} | ${user.branch_name || ''}`}
+                {isAdmin 
+                  ? 'Your business overview across all branches' 
+                  : `Branch: ${user.branch_name || 'N/A'} | ${user.branch_city || ''}, ${user.branch_state || ''}`
+                }
               </p>
             </div>
             <div className="text-right hidden md:block">
@@ -281,7 +280,7 @@ export default function Dashboard() {
           </div>
         </div>
         
-                {/* ✅ NEW: Low Stationery Stock Alert Banner */}
+        {/* ✅ NEW: Low Stationery Stock Alert Banner */}
         {(() => {
           try {
             const savedStock = localStorage.getItem('btc_stationery_stock')
@@ -318,15 +317,25 @@ export default function Dashboard() {
         })()}
 
         {/* Role & Branch Badges */}
-        {/* Role & Branch Badges */}
         <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${user.role === 'admin' ? 'bg-red-100 text-red-700' : user.role === 'Manager' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
-            👤 {user.role === 'admin' ? 'Administrator' : user.role} {isAdmin && '(Full Access)'}
+          <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${
+            isAdmin ? 'bg-red-100 text-red-700' : 
+            isBranchUser ? 'bg-blue-100 text-blue-700' : 
+            'bg-green-100 text-green-700'
+          }`}>
+            👤 {isAdmin ? 'Administrator (Full Access)' : isBranchUser ? 'Branch User (Limited Access)' : user.role}
+            {isAdmin && ' - All Branches'}
           </span>
-          {s.user_branch && <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {s.user_branch}</span>}
+          {isBranchUser && user.branch_name && (
+            <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">
+              🏢 Branch: {user.branch_name}
+            </span>
+          )}
+          {!isBranchUser && s.user_branch && (
+             <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {s.user_branch}</span>
+          )}
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
             <div className="flex items-center justify-between">
@@ -336,7 +345,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Quick Actions */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-gray-800 mb-3">⚡ Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -349,7 +357,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Main Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-6 shadow-xl">
             <div className="text-blue-100 text-sm font-medium">TODAY'S LR</div>
@@ -373,7 +380,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Secondary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BILLS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_bills}</div><div className="text-xs text-red-600 mt-1">Pending: {s.pending_bills}</div></div>
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">MONEY RECEIPTS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_mr}</div></div>
@@ -383,41 +389,39 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_branches}</div></div>
         </div>
 
-           {/* ✅ NEW: Branches Overview Section (Purana kuch nahi hata, sirf yeh add hua hai) */}
-   <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-     <div className="flex items-center justify-between mb-4 border-b pb-3">
-       <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
-       <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
-         Manage All Branches →
-       </button>
-     </div>
-     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-       {/* Note: Yeh sample data hai, aapka actual data /branches page se link hoga */}
-       {[1, 2, 3, 4, 5, 6].map((i) => (
-         <div key={i} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
-           <div className="flex items-center justify-between mb-2">
-             <h3 className="font-bold text-gray-800">Branch {i}</h3>
-             <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Active</span>
-           </div>
-           <div className="grid grid-cols-3 gap-2 text-xs mt-3">
-             <div className="bg-white p-2 rounded text-center shadow-sm">
-               <div className="text-gray-500">LR</div>
-               <div className="font-bold text-blue-700">{Math.floor(Math.random() * 50) + 10}</div>
-             </div>
-             <div className="bg-white p-2 rounded text-center shadow-sm">
-               <div className="text-gray-500">Revenue</div>
-               <div className="font-bold text-green-700">₹{(Math.floor(Math.random() * 100) + 50)}k</div>
-             </div>
-             <div className="bg-white p-2 rounded text-center shadow-sm">
-               <div className="text-gray-500">POD</div>
-               <div className="font-bold text-orange-700">{Math.floor(Math.random() * 5)}</div>
-             </div>
-           </div>
-         </div>
-       ))}
-     </div>
-   </div>
-        {/* Recent Activities */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-4 border-b pb-3">
+            <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
+            <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+              Manage All Branches →
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-gray-800">Branch {i}</h3>
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Active</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs mt-3">
+                  <div className="bg-white p-2 rounded text-center shadow-sm">
+                    <div className="text-gray-500">LR</div>
+                    <div className="font-bold text-blue-700">{Math.floor(Math.random() * 50) + 10}</div>
+                  </div>
+                  <div className="bg-white p-2 rounded text-center shadow-sm">
+                    <div className="text-gray-500">Revenue</div>
+                    <div className="font-bold text-green-700">₹{(Math.floor(Math.random() * 100) + 50)}k</div>
+                  </div>
+                  <div className="bg-white p-2 rounded text-center shadow-sm">
+                    <div className="text-gray-500">POD</div>
+                    <div className="font-bold text-orange-700">{Math.floor(Math.random() * 5)}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
@@ -501,47 +505,46 @@ export default function Dashboard() {
           </div>
         </div>
 
-           {/* ✅ NEW: Monthly Report Modal (Sirf tab dikhega jab button click hoga) */}
-   {showMonthlyReport && (
-     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-       <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border-2 border-amber-400">
-         <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl flex justify-between items-center sticky top-0">
-           <div>
-             <h2 className="text-2xl font-bold">📊 Monthly Report</h2>
-             <p className="text-amber-100">{new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</p>
-           </div>
-           <button onClick={() => setShowMonthlyReport(false)} className="text-white hover:text-amber-100 text-3xl font-bold">&times;</button>
-         </div>
-         <div className="p-6">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-             <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
-               <div className="text-xs text-blue-600 uppercase font-bold">Total LR</div>
-               <div className="text-2xl font-bold text-blue-800">{s.month_lr || 0}</div>
-             </div>
-             <div className="bg-green-50 p-4 rounded-xl border border-green-200 text-center">
-               <div className="text-xs text-green-600 uppercase font-bold">Total Revenue</div>
-               <div className="text-2xl font-bold text-green-800">{formatCurrency(s.month_revenue)}</div>
-             </div>
-             <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
-               <div className="text-xs text-orange-600 uppercase font-bold">Pending Amount</div>
-               <div className="text-2xl font-bold text-orange-800">{formatCurrency(s.pending_amount)}</div>
-             </div>
-             <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 text-center">
-               <div className="text-xs text-purple-600 uppercase font-bold">Active Branches</div>
-               <div className="text-2xl font-bold text-purple-800">{s.total_branches || 0}</div>
-             </div>
-           </div>
-           
-           <div className="mt-6 flex gap-3 justify-end border-t pt-4">
-             <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">🖨️ Print Report</button>
-             <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition">📈 Detailed Reports</button>
-             <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
-           </div>
-         </div>
-       </div>
-     </div>
-   )}
-        {/* Footer */}
+        {showMonthlyReport && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border-2 border-amber-400">
+              <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl flex justify-between items-center sticky top-0">
+                <div>
+                  <h2 className="text-2xl font-bold">📊 Monthly Report</h2>
+                  <p className="text-amber-100">{new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</p>
+                </div>
+                <button onClick={() => setShowMonthlyReport(false)} className="text-white hover:text-amber-100 text-3xl font-bold">&times;</button>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
+                    <div className="text-xs text-blue-600 uppercase font-bold">Total LR</div>
+                    <div className="text-2xl font-bold text-blue-800">{s.month_lr || 0}</div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-xl border border-green-200 text-center">
+                    <div className="text-xs text-green-600 uppercase font-bold">Total Revenue</div>
+                    <div className="text-2xl font-bold text-green-800">{formatCurrency(s.month_revenue)}</div>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
+                    <div className="text-xs text-orange-600 uppercase font-bold">Pending Amount</div>
+                    <div className="text-2xl font-bold text-orange-800">{formatCurrency(s.pending_amount)}</div>
+                  </div>
+                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 text-center">
+                    <div className="text-xs text-purple-600 uppercase font-bold">Active Branches</div>
+                    <div className="text-2xl font-bold text-purple-800">{s.total_branches || 0}</div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex gap-3 justify-end border-t pt-4">
+                  <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">🖨️ Print Report</button>
+                  <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition">📈 Detailed Reports</button>
+                  <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>© 2026 Bharat Transport Company • Professional Multi-Branch TMS</p>
           <p className="text-xs mt-1">Version 6.0 • Last Updated: {new Date().toLocaleDateString('en-IN')}</p>
