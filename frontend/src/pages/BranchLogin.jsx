@@ -30,20 +30,25 @@ export default function BranchLogin() {
       return
     }
 
+    // Branch user login - NOT admin
     if (username === branch.incharge_username && password === branch.incharge_password) {
       const branchUser = {
         username: branch.incharge_username,
-        role: 'branch_incharge',
+        role: 'branch_user', // IMPORTANT: Not admin!
         branch_id: branch.id,
         branch_name: branch.name,
-        branch_code: branch.branch_url_slug
+        branch_code: branch.branch_url_slug,
+        branch_city: branch.city,
+        branch_state: branch.state,
+        permissions: ['view_own_branch', 'create_bilty', 'create_mr', 'view_reports'] // Limited permissions
       }
       
       localStorage.setItem('branch_user', JSON.stringify(branchUser))
       localStorage.setItem('token', 'branch_token_' + branch.id)
+      localStorage.setItem('user', JSON.stringify(branchUser))
       
-      alert('✅ Login Successful! Welcome to ' + branch.name)
-      navigate('/dashboard')
+      alert('✅ Login Successful! Welcome to ' + branch.name + ' Branch')
+      navigate('/dashboard', { replace: true })
     } else {
       setError('❌ Invalid username or password!')
     }
@@ -79,9 +84,12 @@ export default function BranchLogin() {
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
         <div className="text-center mb-6">
-          <div className="text-5xl mb-2">🔐</div>
-          <h1 className="text-2xl font-bold text-gray-800">{branch?.name} Login</h1>
-          <p className="text-gray-600 text-sm mt-1">Branch Portal Access</p>
+          <div className="text-5xl mb-2"></div>
+          <h1 className="text-2xl font-bold text-gray-800">{branch?.name} Branch Login</h1>
+          <p className="text-gray-600 text-sm mt-1">Branch Staff Access Only</p>
+          <div className="mt-3 inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+            Limited Access
+          </div>
         </div>
 
         {error && branch && (
@@ -92,13 +100,13 @@ export default function BranchLogin() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Branch Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter your username"
+              placeholder="Enter branch username"
               required
             />
           </div>
@@ -110,7 +118,7 @@ export default function BranchLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter your password"
+              placeholder="Enter password"
               required
             />
           </div>
@@ -119,19 +127,13 @@ export default function BranchLogin() {
             type="submit"
             className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
           >
-            🔐 Login to Portal
+            🔐 Login to Branch Portal
           </button>
         </form>
 
-        <button
-          onClick={() => navigate(`/branch/${branchSlug}`)}
-          className="w-full mt-3 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
-        >
-          ← Back to Branch Info
-        </button>
-
         <div className="mt-6 pt-6 border-t text-center text-xs text-gray-500">
-          <p>This is a secure branch portal. Only authorized personnel allowed.</p>
+          <p>This is a restricted branch portal.</p>
+          <p className="mt-1">Only authorized branch staff allowed.</p>
         </div>
       </div>
     </div>
