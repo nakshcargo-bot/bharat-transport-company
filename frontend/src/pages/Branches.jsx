@@ -4,7 +4,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 export default function Branches() {
   const navigate = useNavigate()
   
-  // 🔒 ADMIN ONLY CHECK: Agar user admin nahi hai, toh dashboard par bhej do
+  // 🔒 ADMIN ONLY CHECK
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   if (user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />
@@ -15,7 +15,12 @@ export default function Branches() {
   const [showForm, setShowForm] = useState(false)
   const [editingBranch, setEditingBranch] = useState(null)
   const [showCredentials, setShowCredentials] = useState(false)
-  const [newCredentials, setNewCredentials] = useState({ url: '', username: '', password: '', name: '' })
+  const [newCredentials, setNewCredentials] = useState({ 
+    url: '', 
+    username: '', 
+    password: '', 
+    name: '' 
+  })
   
   const [formData, setFormData] = useState({
     name: '', city: '', state: '', address: '', phone: '', email: '', 
@@ -34,10 +39,33 @@ export default function Branches() {
       if (savedBranches.length > 0) {
         setBranches(savedBranches)
       } else {
-        // Sample data for first time
         const sampleData = [
-          { id: 1, name: 'Mumbai', city: 'Mumbai', state: 'Maharashtra', incharge_name: 'Rajesh Kumar', incharge_username: 'incharge_mumbai', phone: '9876543210', email: 'mumbai@btc.com', status: 'Active', branch_url_slug: 'mumbai' },
-          { id: 2, name: 'Ahmedabad', city: 'Ahmedabad', state: 'Gujarat', incharge_name: 'Vikram Patel', incharge_username: 'incharge_ahmedabad', phone: '9876543212', email: 'ahmedabad@btc.com', status: 'Active', branch_url_slug: 'ahmedabad' }
+          { 
+            id: 1, 
+            name: 'Mumbai', 
+            city: 'Mumbai', 
+            state: 'Maharashtra', 
+            incharge_name: 'Rajesh Kumar', 
+            incharge_username: 'incharge_mumbai', 
+            incharge_password: 'mumbai123',
+            phone: '9876543210', 
+            email: 'mumbai@btc.com', 
+            status: 'Active', 
+            branch_url_slug: 'mumbai' 
+          },
+          { 
+            id: 2, 
+            name: 'Ahmedabad', 
+            city: 'Ahmedabad', 
+            state: 'Gujarat', 
+            incharge_name: 'amit verma', 
+            incharge_username: 'amit', 
+            incharge_password: 'amit123',
+            phone: '6375717265', 
+            email: 'ahmedabad@btc.com', 
+            status: 'Active', 
+            branch_url_slug: 'ahmedabad' 
+          }
         ]
         setBranches(sampleData)
         localStorage.setItem('btc_branches', JSON.stringify(sampleData))
@@ -78,10 +106,17 @@ export default function Branches() {
   const handleEdit = (branch) => {
     setEditingBranch(branch)
     setFormData({
-      name: branch.name || '', city: branch.city || '', state: branch.state || '', address: branch.address || '',
-      phone: branch.phone || '', email: branch.email || '', incharge_name: branch.incharge_name || '',
-      incharge_username: branch.incharge_username || '', incharge_password: branch.incharge_password || generateSecurePassword(),
-      branch_url_slug: branch.branch_url_slug || '', status: branch.status || 'Active'
+      name: branch.name || '', 
+      city: branch.city || '', 
+      state: branch.state || '', 
+      address: branch.address || '',
+      phone: branch.phone || '', 
+      email: branch.email || '', 
+      incharge_name: branch.incharge_name || '',
+      incharge_username: branch.incharge_username || '', 
+      incharge_password: branch.incharge_password || generateSecurePassword(),
+      branch_url_slug: branch.branch_url_slug || '', 
+      status: branch.status || 'Active'
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -89,31 +124,63 @@ export default function Branches() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
     if (!formData.name || !formData.city || !formData.incharge_name) {
       alert('Branch Name, City, and Incharge Name are required!')
       return
     }
 
     try {
+      // Generate the branch login URL
       const baseUrl = window.location.origin
       const loginUrl = `${baseUrl}/#/branch-login/${formData.branch_url_slug}`
 
       if (editingBranch) {
-        const updatedBranches = branches.map(b => b.id === editingBranch.id ? { ...b, ...formData } : b)
+        // UPDATE EXISTING BRANCH
+        const updatedBranches = branches.map(b => {
+          if (b.id === editingBranch.id) {
+            return { ...b, ...formData }
+          }
+          return b
+        })
         setBranches(updatedBranches)
         localStorage.setItem('btc_branches', JSON.stringify(updatedBranches))
         alert('✅ Branch updated successfully!')
       } else {
-        const newBranch = { id: Date.now(), ...formData, status: 'Active' }
+        // CREATE NEW BRANCH
+        const newBranch = { 
+          id: Date.now(), 
+          ...formData, 
+          status: 'Active' 
+        }
         const updatedBranches = [newBranch, ...branches]
         setBranches(updatedBranches)
         localStorage.setItem('btc_branches', JSON.stringify(updatedBranches))
         
-        setNewCredentials({ url: loginUrl, username: formData.incharge_username, password: formData.incharge_password, name: formData.name })
+        // Show credentials modal with URL
+        setNewCredentials({
+          url: loginUrl,
+          username: formData.incharge_username,
+          password: formData.incharge_password,
+          name: formData.name
+        })
         setShowCredentials(true)
       }
 
-      setFormData({ name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '', incharge_username: '', incharge_password: '', branch_url_slug: '', status: 'Active' })
+      // Reset form
+      setFormData({ 
+        name: '', 
+        city: '', 
+        state: '', 
+        address: '', 
+        phone: '', 
+        email: '', 
+        incharge_name: '', 
+        incharge_username: '', 
+        incharge_password: '', 
+        branch_url_slug: '', 
+        status: 'Active' 
+      })
       setEditingBranch(null)
       setShowForm(false)
     } catch (err) {
@@ -127,7 +194,7 @@ export default function Branches() {
       const updatedBranches = branches.filter(b => b.id !== id)
       setBranches(updatedBranches)
       localStorage.setItem('btc_branches', JSON.stringify(updatedBranches))
-      alert('🗑️ Branch deleted successfully.')
+      alert('️ Branch deleted successfully.')
     } catch (err) {
       alert('Failed to delete branch.')
     }
@@ -142,8 +209,11 @@ export default function Branches() {
   }
 
   const copyToClipboard = (text, label) => {
-    navigator.clipboard.writeText(text)
-    alert(`✅ ${label} copied to clipboard!`)
+    navigator.clipboard.writeText(text).then(() => {
+      alert(`✅ ${label} copied to clipboard! Ab aap ise WhatsApp/Email par paste kar sakte hain.`)
+    }).catch(() => {
+      alert(`❌ Failed to copy ${label}`)
+    })
   }
 
   if (loading) {
@@ -159,7 +229,11 @@ export default function Branches() {
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">🏢 Branch Management</h1>
-            <p className="text-gray-500 mt-1">Total: <span className="font-bold text-blue-600">{branches.length}</span> | Active: <span className="font-bold text-green-600">{activeBranches}</span> | Inactive: <span className="font-bold text-red-600">{inactiveBranches}</span></p>
+            <p className="text-gray-500 mt-1">
+              Total: <span className="font-bold text-blue-600">{branches.length}</span> | 
+              Active: <span className="font-bold text-green-600">{activeBranches}</span> | 
+              Inactive: <span className="font-bold text-red-600">{inactiveBranches}</span>
+            </p>
           </div>
           <div className="flex gap-3">
             <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2">← Dashboard</button>
@@ -169,11 +243,12 @@ export default function Branches() {
           </div>
         </div>
 
+        {/* ✅ CREDENTIALS MODAL - Yeh tab dikhega jab naya branch banega */}
         {showCredentials && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border-2 border-blue-500 overflow-hidden">
               <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
-                <h3 className="text-xl font-bold flex items-center gap-2">🔑 Branch Credentials Generated!</h3>
+                <h3 className="text-xl font-bold flex items-center gap-2"> Branch Credentials Generated!</h3>
                 <button onClick={() => setShowCredentials(false)} className="text-white hover:text-blue-200 text-2xl">&times;</button>
               </div>
               <div className="p-6 space-y-4">
@@ -181,15 +256,17 @@ export default function Branches() {
                   <label className="text-xs font-bold text-blue-800 uppercase mb-1 block">Branch Login URL</label>
                   <div className="flex gap-2">
                     <input readOnly value={newCredentials.url} className="flex-1 p-2 bg-white rounded border border-blue-300 text-sm font-mono text-gray-700" />
-                    <button onClick={() => copyToClipboard(newCredentials.url, 'URL')} className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap">📋 Copy</button>
+                    <button onClick={() => copyToClipboard(newCredentials.url, 'URL')} className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium whitespace-nowrap"> Copy</button>
                   </div>
+                  <p className="text-xs text-blue-600 mt-2">Yeh URL branch incharge ko bhejein</p>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <label className="text-xs font-bold text-gray-600 uppercase mb-1 block">Username (ID)</label>
                     <div className="flex gap-2">
                       <input readOnly value={newCredentials.username} className="flex-1 p-2 bg-white rounded border border-gray-300 text-sm font-mono font-bold text-gray-800" />
-                      <button onClick={() => copyToClipboard(newCredentials.username, 'Username')} className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs">📋</button>
+                      <button onClick={() => copyToClipboard(newCredentials.username, 'Username')} className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs"></button>
                     </div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -200,15 +277,27 @@ export default function Branches() {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setShowCredentials(false)} className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition shadow-lg">✅ Done, Close this Window</button>
+
+                <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                  <p className="text-sm text-green-800 font-bold mb-1">✅ Branch "{newCredentials.name}" successfully created!</p>
+                  <p className="text-xs text-green-700">Upar diye gaye credentials ko copy karke branch incharge ko WhatsApp/Email par bhejein.</p>
+                </div>
+
+                <button 
+                  onClick={() => setShowCredentials(false)}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition shadow-lg"
+                >
+                  ✅ Done, Close this Window
+                </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* Add/Edit Form */}
         {showForm && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border-2 border-blue-200">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">{editingBranch ? '✏️ Edit Branch Details' : '➕ Add New Branch'}</h2>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">{editingBranch ? '✏️ Edit Branch Details' : ' Add New Branch'}</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label><input type="text" required value={formData.name} onChange={handleNameChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., Mumbai" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">City *</label><input type="text" required value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
@@ -226,13 +315,14 @@ export default function Branches() {
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Phone</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
               <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Address</label><textarea value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows="2" /></div>
               <div className="md:col-span-2 flex gap-3 mt-2">
-                <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition shadow-md">{editingBranch ? '💾 Update Branch' : '💾 Save & Generate Credentials'}</button>
+                <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition shadow-md">{editingBranch ? ' Update Branch' : '💾 Save & Generate Credentials'}</button>
                 <button type="button" onClick={() => { setShowForm(false); setEditingBranch(null); }} className="px-8 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold transition">Cancel</button>
               </div>
             </form>
           </div>
         )}
 
+        {/* Branches List Table */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
             <h2 className="text-xl font-bold text-gray-800">📋 All Branches List</h2>
