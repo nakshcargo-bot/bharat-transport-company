@@ -58,8 +58,8 @@ export default function Branches() {
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    // Debug log
-    console.log('Form submitted:', form)
+    console.log('=== FORM SUBMITTED ===')
+    console.log('Form data:', form)
     
     if (!form.name || !form.city || !form.incharge_name) {
       alert('⚠️ Please fill: Branch Name, City, and Incharge Name!')
@@ -68,6 +68,8 @@ export default function Branches() {
 
     const baseUrl = window.location.origin
     const loginUrl = `${baseUrl}/#/branch-login/${form.branch_url_slug}`
+
+    console.log('Login URL:', loginUrl)
 
     if (editingBranch) {
       const updated = branches.map(b => b.id === editingBranch.id ? { ...b, ...form } : b)
@@ -80,8 +82,9 @@ export default function Branches() {
       setBranches(updated)
       localStorage.setItem('btc_branches', JSON.stringify(updated))
       
-      // GUARANTEED ALERT
+      console.log('=== SHOWING ALERT ===')
       alert(`✅ BRANCH CREATED!\n\nName: ${form.name}\n\nURL: ${loginUrl}\n\nUsername: ${form.incharge_username}\n\nPassword: ${form.incharge_password}`)
+      console.log('=== ALERT SHOWN ===')
     }
 
     setForm({ name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '', incharge_username: '', incharge_password: '', branch_url_slug: '', status: 'Active' })
@@ -120,7 +123,7 @@ export default function Branches() {
           <div className="flex gap-3">
             <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">← Dashboard</button>
             <button onClick={() => { setEditingBranch(null); setForm({ name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '', incharge_username: '', incharge_password: '', branch_url_slug: '', status: 'Active' }); setShowForm(!showForm) }} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-lg">
-              {showForm ? '✕ Close' : '➕ Add New Branch'}
+              {showForm ? ' Close' : '➕ Add New Branch'}
             </button>
           </div>
         </div>
@@ -170,7 +173,7 @@ export default function Branches() {
               </div>
               <div className="md:col-span-2 flex gap-3 mt-2">
                 <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md">
-                  {editingBranch ? '💾 Update' : ' Save Branch'}
+                  {editingBranch ? '💾 Update' : '💾 Save Branch'}
                 </button>
                 <button type="button" onClick={() => { setShowForm(false); setEditingBranch(null); }} className="px-8 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold">Cancel</button>
               </div>
@@ -208,7 +211,7 @@ export default function Branches() {
                         <div className="text-xs text-gray-500 font-mono">{branch.incharge_username}</div>
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-600">
-                        {branch.phone && <div> {branch.phone}</div>}
+                        {branch.phone && <div>📞 {branch.phone}</div>}
                         {branch.email && <div>✉️ {branch.email}</div>}
                       </td>
                       <td className="px-4 py-4 text-center">
