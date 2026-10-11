@@ -1,56 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
 
 export default function Login() {
-  const navigate = useNavigate()
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const { login } = useAuth()
 
-  // Check if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      navigate('/dashboard', { replace: true })
-    }
-  }, [navigate])
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
-
+    
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok && data.token) {
-        localStorage.setItem('token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user || { username, role: 'admin' }))
-        navigate('/dashboard', { replace: true })
-      } else {
-        setError(data.message || 'Invalid username or password')
-      }
+      setError('')
+      setLoading(true)
+      await login(email, password)
+      navigate('/dashboard')
     } catch (err) {
-      // Demo login fallback
-      if (username === 'admin' && password === 'admin123') {
-        localStorage.setItem('token', 'demo_token_' + Date.now())
-        localStorage.setItem('user', JSON.stringify({ username: 'admin', role: 'admin', branch: 'All' }))
-        navigate('/dashboard', { replace: true })
-      } else {
-        setError('Network error. Using demo credentials: admin/admin123')
-      }
-    } finally {
-      setLoading(false)
+      setError('Failed to sign in: ' + err.message)
     }
+    setLoading(false)
   }
 
   return (
@@ -70,15 +41,15 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-              placeholder="Enter username"
+              placeholder="Enter email"
               required
               disabled={loading}
             />
