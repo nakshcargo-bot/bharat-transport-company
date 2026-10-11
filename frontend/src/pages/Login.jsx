@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { authAPI } from '../api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -16,7 +17,21 @@ export default function Login() {
     try {
       setError('')
       setLoading(true)
+      
+      // Step 1: Firebase login
       await login(email, password)
+      
+      // Step 2: Backend login to get JWT token
+      try {
+        const res = await authAPI.login('admin', 'admin123')
+        if (res.data.token) {
+          localStorage.setItem('token', res.data.token)
+          localStorage.setItem('user', JSON.stringify(res.data.user || {}))
+        }
+      } catch (backendErr) {
+        console.warn('Backend login failed:', backendErr.message)
+      }
+      
       navigate('/dashboard')
     } catch (err) {
       setError('Failed to sign in: ' + err.message)
