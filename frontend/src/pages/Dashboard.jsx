@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../AuthContext' // 👈 ADDED: Firebase Auth Hook
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { currentUser, logout } = useAuth() // 👈 ADDED: Get currentUser and logout function
+  
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState(null)
   const [topParties, setTopParties] = useState([])
@@ -12,6 +15,25 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showMonthlyReport, setShowMonthlyReport] = useState(false)
+
+  // 👈 ADDED: Redirect to login if user is not authenticated
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/login')
+    }
+  }, [currentUser, navigate])
+
+  // 👈 ADDED: Show loading while checking authentication
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600 font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     fetchData()
@@ -66,11 +88,17 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('branch_user')
-    navigate('/login')
+  // 👈 UPDATED: handleLogout to use Firebase logout
+  const handleLogout = async () => {
+    try {
+      await logout() // Firebase se logout karega
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('branch_user')
+      navigate('/login')
+    } catch (error) {
+      console.error('Failed to log out', error)
+    }
   }
 
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
