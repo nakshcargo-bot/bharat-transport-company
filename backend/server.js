@@ -109,6 +109,10 @@ async function runMigrations() {
   await addColumnIfNotExists('branches', 'pan_no', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_name', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
+  await addColumnIfNotExists('branches', 'url_slug', 'TEXT');
+  await addColumnIfNotExists('branches', 'incharge_name', 'TEXT');
+  await addColumnIfNotExists('branches', 'incharge_username', 'TEXT');
+  await addColumnIfNotExists('branches', 'incharge_password', 'TEXT');
   await addColumnIfNotExists('branches', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('users', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('users', 'full_name', 'TEXT');
@@ -342,8 +346,169 @@ app.put('/api/branches/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
-  try { await pool.query('UPDATE branches SET is_active = FALSE WHERE id = $1', [req.params.id]); res.json({ success: true }); }
+try { await pool.query('UPDATE branches SET is_active = FALSE WHERE id = $1', [req.params.id]); res.json({ success: true }); }
   catch (err) { res.status(500).json({ error: err.message }); }
+}); 
+// ==========================================
+// BRANCH LOGIN & PORTAL SYSTEM
+// ==========================================
+
+function generateBranchPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$';
+  let p = '';
+  for (let i = 0; i < 10; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
+  return p;
+}
+
+function generateSlug(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+// CREATE BRANCH WITH AUTO LOGIN CREDENTIALS (Admin only)
+app.post('/api/branches/create-with-login', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can create branches' });
+    
+    const { branch_name, city, state, address, phone, email, incharge_name } = req.body;
+    
+    if (!branch_name || !city || !incharge_name) {
+      return res.status(400).json({ error: 'Branch name, city, and incharge name are required' });
+    }
+    
+    const slug = generateSlug(branch_name);
+    const username = `incharge_${slug}`;
+    const plainPassword = generateBranchPassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    const branch_code = slug.toUpperCase().slice(0, 6);
+    
+    const existing = await pool.query('SELECT id FROM branches WHERE url_slug = $1 OR incharge_username = $2', [slug, username]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Branch with this name already exists. Try a different name.' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO branches (branch_code, branch_name, city, state, address, phone, email, incharge_name, incharge_username, incharge_password, url_slug, is_active) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE) RETURNING *`,
+      [branch_code, branch_name, city, state, address || '', phone || '', email || '', incharge_name, username, hashedPassword, slug]
+    );
+    
+    const branch = result.rows[0];
+    const baseUrl = 'https://bharat-transport-v2.pages.dev';
+    const portal_url = `${baseUrl}/#/branch-login/${slug}`;
+    
+    await logAudit('CREATE', 'branches', branch.id, `Created branch: ${branch_name}`, req.user.username);
+    
+    res.json({ 
+      success: true, 
+      branch: {
+        id: branch.id,
+        branch_code: branch.branch_code,
+        branch_name: branch.branch_name,
+        city: branch.city,
+        state: branch.state,
+        incharge_name: branch.incharge_name,
+        incharge_username: username,
+        incharge_password: plainPassword,
+        url_slug: slug,
+        portal_url: portal_url
+      }
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// GET BRANCH INFO BY SLUG (Public)
+app.get('/api/branch/info/:slug', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, branch_code, branch_name, city, state, incharge_name, phone, email, is_active, url_slug 
+       FROM branches WHERE url_slug = $1`,
+      [req.params.slug]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Branch not found' });
+    const branch = result.rows[0];
+    if (!branch.is_active) return res.status(403).json({ error: 'Branch is inactive' });
+    res.json({ success: true, branch });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// BRANCH USER LOGIN
+app.post('/api/branch/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    
+    const result = await pool.query('SELECT * FROM branches WHERE incharge_username = $1', [username]);
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    const branch = result.rows[0];
+    if (!branch.is_active) return res.status(403).json({ error: 'Branch is inactive' });
+    
+    let valid = false;
+    if (branch.incharge_password && branch.incharge_password.startsWith('$2')) {
+      valid = await bcrypt.compare(password, branch.incharge_password).catch(() => false);
+    } else {
+      valid = (password === branch.incharge_password);
+    }
+    
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    
+    const token = jwt.sign(
+      { 
+        id: branch.id, 
+        username: branch.incharge_username, 
+        role: 'branch_user', 
+        branch_id: branch.id, 
+        branch_code: branch.branch_code 
+      }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
+    
+    res.json({ 
+      success: true, 
+      token, 
+      user: { 
+        id: branch.id, 
+        username: branch.incharge_username, 
+        role: 'branch_user', 
+        branch_id: branch.id, 
+        branch_code: branch.branch_code, 
+        branch_name: branch.branch_name,
+        city: branch.city,
+        state: branch.state
+      } 
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// UPDATE BRANCH CREDENTIALS (Admin only)
+app.put('/api/branches/:id/credentials', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { incharge_username, incharge_password } = req.body;
+    const id = req.params.id;
+    
+    let query = 'UPDATE branches SET ';
+    const params = [];
+    let count = 0;
+    
+    if (incharge_username) {
+      count++; query += `incharge_username = $${count}, `;
+      params.push(incharge_username);
+    }
+    if (incharge_password) {
+      count++; const hashed = await bcrypt.hash(incharge_password, 10);
+      query += `incharge_password = $${count}, `;
+      params.push(hashed);
+    }
+    
+    query = query.replace(/, $/, '');
+    count++; query += ` WHERE id = $${count} RETURNING id, branch_name, incharge_username`;
+    params.push(id);
+    
+    const result = await pool.query(query, params);
+    res.json({ success: true, branch: result.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
