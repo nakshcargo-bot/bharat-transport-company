@@ -16,6 +16,7 @@ app.use(cors({
   origin: [
     'https://bharat-transport-company.vercel.app',
     'https://bharat-transport.pages.dev',
+    'https://bharat-transport-v2.pages.dev',
     'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost:4173'
