@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
+import { useAuth } from './AuthContext'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
@@ -44,8 +45,26 @@ const Commissions = lazy(() => import('./pages/Commissions'))
 const Expenses = lazy(() => import('./pages/Expenses'))
 
 function PrivateRoute({ children }) {
-  const token = localStorage.getItem('token')
-  return token ? children : <Navigate to="/login" replace />
+  const { currentUser, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f3f4f6'
+      }}>
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent mb-4"></div>
+          <h2 className="text-xl font-bold text-gray-700">Loading...</h2>
+        </div>
+      </div>
+    )
+  }
+
+  return currentUser ? children : <Navigate to="/login" replace />
 }
 
 function LoadingFallback() {
