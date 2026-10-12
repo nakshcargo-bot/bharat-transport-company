@@ -1293,5 +1293,33 @@ async function startServer() {
   });
 }
 
+// ==========================================
+// 🔧 MIGRATION: Fix existing branches (one-time)
+// ==========================================
+app.post('/api/migrate/fix-branches', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    
+    const branches = await pool.query(
+      `SELECT id, branch_name, incharge_name FROM branches WHERE url_slug IS NULL OR incharge_username IS NULL`
+    );
+    
+    let fixed = 0;
+    for (const branch of branches.rows) {
+      const slug = branch.branch_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const username = `incharge_${slug}`;
+      
+      await pool.query(
+        `UPDATE branches SET url_slug = $1, incharge_username = $2 WHERE id = $3`,
+        [slug, username, branch.id]
+      );
+      fixed++;
+    }
+    
+    res.json({ success: true, fixed, message: `${fixed} branches fixed!` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 startServer();
 module.exports = app;
