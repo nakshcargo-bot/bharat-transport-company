@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [recent, setRecent] = useState(null)
   const [topParties, setTopParties] = useState([])
   const [branches, setBranches] = useState([])
+  const [selectedBranch, setSelectedBranch] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -24,11 +25,11 @@ export default function Dashboard() {
     if (!currentUser) navigate('/login')
   }, [currentUser, navigate])
 
-  useEffect(() => {
+    useEffect(() => {
     fetchData()
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [selectedBranch])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -56,10 +57,11 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
+      const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''
       const [resStats, resRecent, resParties, resBranches] = await Promise.all([
-        fetch(`${apiUrl}/api/dashboard/stats`, { headers }),
-        fetch(`${apiUrl}/api/dashboard/recent`, { headers }),
-        fetch(`${apiUrl}/api/dashboard/top-parties`, { headers }),
+        fetch(`${apiUrl}/api/dashboard/stats${branchParam}`, { headers }),
+        fetch(`${apiUrl}/api/dashboard/recent${branchParam}`, { headers }),
+        fetch(`${apiUrl}/api/dashboard/top-parties${branchParam}`, { headers }),
         fetch(`${apiUrl}/api/branches`, { headers })
       ])
       
@@ -436,6 +438,42 @@ export default function Dashboard() {
           }
           return null
         })()}
+        
+        {/* Admin Branch Filter */}
+        {isAdmin && branches.length > 0 && (
+          <div className="mb-6 bg-white rounded-2xl shadow-lg p-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="font-bold text-gray-700 flex items-center gap-2">
+                🏢 Filter by Branch:
+              </label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="px-4 py-2 border-2 border-blue-300 rounded-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[250px]"
+              >
+                <option value="all">🌐 All Branches (Consolidated)</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    🏢 {b.branch_name} — {b.city}{b.state ? ', ' + b.state : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedBranch !== 'all' && (
+                <button
+                  onClick={() => setSelectedBranch('all')}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                >
+                  ✖ Clear Filter
+                </button>
+              )}
+              {selectedBranch !== 'all' && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
+                  Filtered View
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mb-6 flex items-center gap-3 flex-wrap">
           <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${
