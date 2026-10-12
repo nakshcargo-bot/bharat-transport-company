@@ -25,7 +25,7 @@ export default function Dashboard() {
     if (!currentUser) navigate('/login')
   }, [currentUser, navigate])
 
-    useEffect(() => {
+  useEffect(() => {
     fetchData()
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
@@ -57,23 +57,28 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
+      // Handle 401 - Invalid token
+      if (token) {
+        try {
+          const testRes = await fetch(`${apiUrl}/api/dashboard/stats`, { headers })
+          if (testRes.status === 401) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            alert('Session expired. Please login again.')
+            navigate('/login')
+            return
+          }
+        } catch (e) { console.error('Token check error:', e) }
+      }
+
       const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''
+      
       const [resStats, resRecent, resParties, resBranches] = await Promise.all([
         fetch(`${apiUrl}/api/dashboard/stats${branchParam}`, { headers }),
         fetch(`${apiUrl}/api/dashboard/recent${branchParam}`, { headers }),
         fetch(`${apiUrl}/api/dashboard/top-parties${branchParam}`, { headers }),
         fetch(`${apiUrl}/api/branches`, { headers })
       ])
-      
-      // Handle 401 - Invalid token
-      if (resStats.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        localStorage.removeItem('branch_user')
-        alert('Session expired. Please login again.')
-        navigate('/login')
-        return
-      }
 
       if (resStats.ok) setStats(await resStats.json())
       else {
@@ -155,8 +160,8 @@ export default function Dashboard() {
     {
       label: '🚚 Transport',
       items: [
-        { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
-        { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
+        { name: 'Gadi Challan', path: '/gadi-challan', icon: '' },
+        { name: 'Gate Pass', path: '/gate-pass', icon: '' },
         { name: 'Drivers', path: '/drivers', icon: '👷' },
         { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
         { name: 'E-Way Bill', path: '/eway', icon: '📄' },
@@ -168,10 +173,10 @@ export default function Dashboard() {
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
         { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
+        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true }, // ✅ NEW OPTION ADDED
         { name: 'Claims', path: '/claims', icon: '⚠️' },
         { name: 'Commissions', path: '/commissions', icon: '💼' },
-        { name: 'Expenses', path: '/expenses', icon: '💸' },
-        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true },
+        { name: 'Expenses', path: '/expenses', icon: '' },
       ]
     },
     {
@@ -196,21 +201,21 @@ export default function Dashboard() {
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
     { icon: '🆕', label: 'New Bill', color: 'from-emerald-500 to-emerald-700', path: '/bill/new' },
-    { icon: '💰', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
+    { icon: '', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
     { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
     { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' },
-    { icon: '🏢', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches', adminOnly: true },
+    { icon: '', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches', adminOnly: true },
     { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true), adminOnly: true },
-    { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock', adminOnly: true },
-    { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
+    { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock', adminOnly: true }, // ✅ NEW OPTION ADDED
+    { icon: '', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
   const getNotifications = () => {
     const notifs = []
     try {
-      const savedStock = localStorage.getItem('btc_stationery_stock')
+      const savedStock = localStorage.getItem('btc_stationery_stock_v2')
       const currentStock = savedStock ? JSON.parse(savedStock) : []
       const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
       lowStockItems.forEach(item => {
@@ -239,11 +244,11 @@ export default function Dashboard() {
     )
   }
 
-  // ✅ FIX: यह line अब function के अंदर और return statement से ठीक पहले है
   const s = stats || getDefaultStats()
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
+      {/* TOP NAVIGATION BAR */}
       <nav className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white shadow-2xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
@@ -294,7 +299,7 @@ export default function Dashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <span className="hidden lg:inline">Search</span>
-                <kbd className="hidden lg:inline px-1.5 py-0.5 bg-white/20 rounded text-xs">⌘K</kbd>
+                <kbd className="hidden lg:inline px-1.5 py-0.5 bg-white/20 rounded text-xs">K</kbd>
               </button>
 
               <div className="relative">
@@ -406,7 +411,7 @@ export default function Dashboard() {
         
         {(() => {
           try {
-            const savedStock = localStorage.getItem('btc_stationery_stock')
+            const savedStock = localStorage.getItem('btc_stationery_stock_v2')
             const currentStock = savedStock ? JSON.parse(savedStock) : []
             const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
             
@@ -454,7 +459,7 @@ export default function Dashboard() {
                 <option value="all">🌐 All Branches (Consolidated)</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
-                    🏢 {b.branch_name} — {b.city}{b.state ? ', ' + b.state : ''}
+                     {b.branch_name} — {b.city}{b.state ? ', ' + b.state : ''}
                   </option>
                 ))}
               </select>
@@ -549,7 +554,7 @@ export default function Dashboard() {
         
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4 border-b pb-3">
-            <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
+            <h2 className="text-xl font-bold text-gray-800"> Branches Overview ({s.total_branches || 0} Total)</h2>
             <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
               Manage All Branches →
             </button>
@@ -644,7 +649,7 @@ export default function Dashboard() {
 
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">⚠️ Recent Claims</h3>
+              <h3 className="font-bold text-lg">️ Recent Claims</h3>
               <button onClick={() => navigate('/claims')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
             </div>
             <div className="p-4">
@@ -694,7 +699,7 @@ export default function Dashboard() {
                 
                 <div className="mt-6 flex gap-3 justify-end border-t pt-4">
                   <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">🖨️ Print Report</button>
-                  <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition">📈 Detailed Reports</button>
+                  <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition"> Detailed Reports</button>
                   <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
                 </div>
               </div>
