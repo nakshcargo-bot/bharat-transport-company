@@ -13,7 +13,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
     try {
       setError('')
       setLoading(true)
@@ -22,19 +21,19 @@ export default function Login() {
       await login(email, password)
       
       // Step 2: Backend login to get JWT token
-      try {
-        const res = await authAPI.login('admin', 'admin123')
-        if (res.data.token) {
-          localStorage.setItem('token', res.data.token)
-          localStorage.setItem('user', JSON.stringify(res.data.user || {}))
-        }
-      } catch (backendErr) {
-        console.warn('Backend login failed:', backendErr.message)
+      const res = await authAPI.login('admin', 'admin123')
+      if (res.data && res.data.token) {
+        localStorage.setItem('token', res.data.token)
+        localStorage.setItem('user', JSON.stringify(res.data.user || {}))
+        console.log('✅ Token saved:', res.data.token.substring(0, 20) + '...')
+      } else {
+        console.warn('⚠️ No token in response:', res.data)
       }
       
       navigate('/dashboard')
     } catch (err) {
       setError('Failed to sign in: ' + err.message)
+      console.error('Login error:', err)
     }
     setLoading(false)
   }
@@ -69,7 +68,6 @@ export default function Login() {
               disabled={loading}
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
@@ -82,7 +80,6 @@ export default function Login() {
               disabled={loading}
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
