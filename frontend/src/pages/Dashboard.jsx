@@ -62,6 +62,16 @@ export default function Dashboard() {
         fetch(`${apiUrl}/api/dashboard/top-parties`, { headers }),
         fetch(`${apiUrl}/api/branches`, { headers })
       ])
+      
+      // Handle 401 - Invalid token
+      if (resStats.status === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('branch_user')
+        alert('Session expired. Please login again.')
+        navigate('/login')
+        return
+      }
 
       if (resStats.ok) setStats(await resStats.json())
       else {
