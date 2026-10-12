@@ -1,45 +1,53 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../AuthContext' // 👈 ADDED: Firebase Auth Hook
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { currentUser, logout } = useAuth() // 👈 ADDED: Get currentUser and logout function
-  
+  const { currentUser, logout } = useAuth()
+
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState(null)
   const [topParties, setTopParties] = useState([])
+  const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showMonthlyReport, setShowMonthlyReport] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef(null)
 
-  // 👈 ADDED: Redirect to login if user is not authenticated
   useEffect(() => {
-    if (!currentUser) {
-      navigate('/login')
-    }
+    if (!currentUser) navigate('/login')
   }, [currentUser, navigate])
-
-  // 👈 ADDED: Show loading while checking authentication
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600 font-medium">Checking authentication...</p>
-        </div>
-      </div>
-    )
-  }
 
   useEffect(() => {
     fetchData()
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowSearch(true)
+      }
+      if (e.key === 'Escape') {
+        setShowSearch(false)
+        setShowNotifications(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) searchInputRef.current.focus()
+  }, [showSearch])
 
   const fetchData = async () => {
     try {
@@ -48,24 +56,18 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
-      const [resStats, resRecent, resParties] = await Promise.all([
+      const [resStats, resRecent, resParties, resBranches] = await Promise.all([
         fetch(`${apiUrl}/api/dashboard/stats`, { headers }),
         fetch(`${apiUrl}/api/dashboard/recent`, { headers }),
-        fetch(`${apiUrl}/api/dashboard/top-parties`, { headers })
+        fetch(`${apiUrl}/api/dashboard/top-parties`, { headers }),
+        fetch(`${apiUrl}/api/branches`, { headers })
       ])
 
       if (resStats.ok) setStats(await resStats.json())
       else {
         const err = await resStats.json().catch(() => ({ error: 'Unknown' }))
         setError('Stats: ' + (err.error || 'Unknown'))
-        setStats({
-          today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
-          total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
-          total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
-          active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
-          total_branches: 0, today_revenue: 0, month_revenue: 0,
-          user_role: 'admin', user_branch: 'All'
-        })
+        setStats(getDefaultStats())
       }
 
       if (resRecent.ok) setRecent(await resRecent.json())
@@ -73,25 +75,30 @@ export default function Dashboard() {
         const data = await resParties.json()
         setTopParties(data.data || [])
       }
+      if (resBranches.ok) {
+        const data = await resBranches.json()
+        setBranches(data.data || [])
+      }
     } catch (err) {
       setError('Network: ' + err.message)
-      setStats({
-        today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
-        total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
-        total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
-        active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
-        total_branches: 0, today_revenue: 0, month_revenue: 0,
-        user_role: 'admin', user_branch: 'All'
-      })
+      setStats(getDefaultStats())
     } finally {
       setLoading(false)
     }
   }
 
-  // 👈 UPDATED: handleLogout to use Firebase logout
+  const getDefaultStats = () => ({
+    today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
+    total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
+    total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
+    active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
+    total_branches: 0, today_revenue: 0, month_revenue: 0,
+    user_role: 'admin', user_branch: 'All'
+  })
+
   const handleLogout = async () => {
     try {
-      await logout() // Firebase se logout karega
+      await logout()
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('branch_user')
@@ -106,7 +113,6 @@ export default function Dashboard() {
   const isAdmin = user.role === 'admin'
   const isBranchUser = user.role === 'branch_user'
 
-  // COMPLETE NAVIGATION MENU - ALL MODULES
   const navMenus = [
     {
       label: '📦 Operations',
@@ -123,7 +129,8 @@ export default function Dashboard() {
     {
       label: '💰 Finance',
       items: [
-        { name: 'Billing', path: '/bills', icon: '🧾' },
+        { name: 'Create New Bill', path: '/bill/new', icon: '🆕' },
+        { name: 'Bill List', path: '/bills', icon: '🧾' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
         { name: 'Create New MR', path: '/mr/create', icon: '📝' },
         { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
@@ -152,6 +159,7 @@ export default function Dashboard() {
         { name: 'Claims', path: '/claims', icon: '⚠️' },
         { name: 'Commissions', path: '/commissions', icon: '💼' },
         { name: 'Expenses', path: '/expenses', icon: '💸' },
+        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true },
       ]
     },
     {
@@ -175,6 +183,7 @@ export default function Dashboard() {
 
   const quickActions = [
     { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
+    { icon: '🆕', label: 'New Bill', color: 'from-emerald-500 to-emerald-700', path: '/bill/new' },
     { icon: '💰', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
     { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
@@ -186,7 +195,28 @@ export default function Dashboard() {
     { icon: '👤', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
   ].filter(a => !a.adminOnly || isAdmin)
 
-  if (loading) {
+  const getNotifications = () => {
+    const notifs = []
+    try {
+      const savedStock = localStorage.getItem('btc_stationery_stock')
+      const currentStock = savedStock ? JSON.parse(savedStock) : []
+      const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
+      lowStockItems.forEach(item => {
+        notifs.push({ type: 'warning', title: 'Low Stock Alert', message: `${item.name} is running low (${item.currentStock} left)`, action: '/stock' })
+      })
+    } catch (e) {}
+    if (stats?.pending_pod > 0) notifs.push({ type: 'info', title: 'Pending PODs', message: `${stats.pending_pod} POD(s) pending`, action: '/pod' })
+    if (stats?.open_claims > 0) notifs.push({ type: 'warning', title: 'Open Claims', message: `${stats.open_claims} claim(s) need attention`, action: '/claims' })
+    return notifs
+  }
+  const notifications = getNotifications()
+
+  const allNavItems = navMenus.flatMap(m => m.items.filter(i => !i.adminOnly || isAdmin))
+  const searchResults = searchQuery
+    ? allNavItems.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : allNavItems.slice(0, 8)
+
+  if (!currentUser || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
         <div className="text-center">
@@ -197,17 +227,11 @@ export default function Dashboard() {
     )
   }
 
-  const s = stats || {
-    today_lr: 0, month_lr: 0, total_lr: 0, pending_lr: 0, paid_lr: 0,
-    total_bills: 0, pending_bills: 0, total_mr: 0, total_parties: 0,
-    total_customers: 0, total_revenue: 0, pending_amount: 0, pending_pod: 0,
-    active_drivers: 0, active_vehicles: 0, open_claims: 0, today_expenses: 0,
-    total_branches: 0, today_revenue: 0, month_revenue: 0, user_branch: 'All'
-  }
-
+  // ✅ FIX: यह line अब function के अंदर और return statement से ठीक पहले है
+  const s = stats || getDefaultStats()
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
-      {/* TOP NAVIGATION BAR */}
       <nav className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white shadow-2xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
@@ -248,12 +272,72 @@ export default function Dashboard() {
                 <div className="text-sm font-medium">Welcome, {user.username || 'Admin'}</div>
                 <div className="text-xs text-red-200">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
+
+              <button 
+                onClick={() => setShowSearch(true)} 
+                className="hidden md:flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition"
+                title="Search (Ctrl+K)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="hidden lg:inline">Search</span>
+                <kbd className="hidden lg:inline px-1.5 py-0.5 bg-white/20 rounded text-xs">⌘K</kbd>
+              </button>
+
+              <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)} 
+                  className="relative p-2 hover:bg-white/10 rounded-lg transition"
+                  title="Notifications"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
+                    <div className="p-3 border-b bg-gray-50 rounded-t-lg">
+                      <h3 className="font-bold text-gray-800 text-sm">🔔 Notifications ({notifications.length})</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-gray-500 text-sm">No notifications</div>
+                      ) : (
+                        notifications.map((notif, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => { navigate(notif.action); setShowNotifications(false); }}
+                            className="w-full text-left p-3 border-b hover:bg-gray-50 transition"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">{notif.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                              <div>
+                                <div className="font-bold text-gray-800 text-sm">{notif.title}</div>
+                                <div className="text-xs text-gray-600 mt-0.5">{notif.message}</div>
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleLogout}
                 className="bg-white text-red-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-50 transition"
               >
                 Logout
               </button>
+
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="lg:hidden bg-white/20 p-2 rounded-lg"
@@ -308,7 +392,6 @@ export default function Dashboard() {
           </div>
         </div>
         
-        {/* ✅ NEW: Low Stationery Stock Alert Banner */}
         {(() => {
           try {
             const savedStock = localStorage.getItem('btc_stationery_stock')
@@ -344,7 +427,6 @@ export default function Dashboard() {
           return null
         })()}
 
-        {/* Role & Branch Badges */}
         <div className="mb-6 flex items-center gap-3 flex-wrap">
           <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${
             isAdmin ? 'bg-red-100 text-red-700' : 
@@ -416,7 +498,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">OPEN CLAIMS</div><div className="text-2xl font-bold text-red-600 mt-1">{s.open_claims}</div></div>
           <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_branches}</div></div>
         </div>
-
+        
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4 border-b pb-3">
             <h2 className="text-xl font-bold text-gray-800">🏢 Branches Overview ({s.total_branches || 0} Total)</h2>
@@ -425,28 +507,27 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-gray-800">Branch {i}</h3>
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Active</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs mt-3">
-                  <div className="bg-white p-2 rounded text-center shadow-sm">
-                    <div className="text-gray-500">LR</div>
-                    <div className="font-bold text-blue-700">{Math.floor(Math.random() * 50) + 10}</div>
-                  </div>
-                  <div className="bg-white p-2 rounded text-center shadow-sm">
-                    <div className="text-gray-500">Revenue</div>
-                    <div className="font-bold text-green-700">₹{(Math.floor(Math.random() * 100) + 50)}k</div>
-                  </div>
-                  <div className="bg-white p-2 rounded text-center shadow-sm">
-                    <div className="text-gray-500">POD</div>
-                    <div className="font-bold text-orange-700">{Math.floor(Math.random() * 5)}</div>
-                  </div>
-                </div>
+            {branches.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-gray-500">
+                No branches yet. <button onClick={() => navigate('/branches')} className="text-blue-600 underline">Create your first branch →</button>
               </div>
-            ))}
+            ) : (
+              branches.slice(0, 6).map((branch) => (
+                <div key={branch.id} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-gray-800">{branch.branch_name}</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${branch.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {branch.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mb-2">{branch.city}{branch.state ? ', ' + branch.state : ''}</div>
+                  <div className="text-xs text-gray-600">
+                    <div><strong>Incharge:</strong> {branch.incharge_name || 'N/A'}</div>
+                    <div className="font-mono text-xs text-blue-600 mt-1">{branch.incharge_username || 'No login'}</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -532,7 +613,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
+        
         {showMonthlyReport && (
           <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border-2 border-amber-400">
@@ -568,6 +649,56 @@ export default function Dashboard() {
                   <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition">📈 Detailed Reports</button>
                   <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showSearch && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20 p-4"
+            onClick={() => setShowSearch(false)}
+          >
+            <div 
+              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 p-4 border-b">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search modules, pages, actions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 outline-none text-gray-800 text-lg"
+                />
+                <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs text-gray-600">ESC</kbd>
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">No results found for "{searchQuery}"</div>
+                ) : (
+                  searchResults.map((item, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => { navigate(item.path); setShowSearch(false); setSearchQuery(''); }}
+                      className="w-full text-left px-4 py-3 hover:bg-blue-50 transition flex items-center gap-3 border-b last:border-b-0"
+                    >
+                      <span className="text-2xl">{item.icon}</span>
+                      <div>
+                        <div className="font-medium text-gray-800">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.path}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="p-3 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
+                <span>💡 Tip: Press <kbd className="px-1.5 py-0.5 bg-white border rounded">Ctrl+K</kbd> anytime</span>
+                <span>{searchResults.length} results</span>
               </div>
             </div>
           </div>
