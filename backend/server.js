@@ -240,7 +240,8 @@ app.post('/api/auth/login', async (req, res) => {
       valid = (password === user.password);
     }
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // ✅ CHANGE 1: Token duration increased to 365 days
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code }, process.env.JWT_SECRET, { expiresIn: '365d' });
     res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -452,6 +453,7 @@ app.post('/api/branch/login', async (req, res) => {
     
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     
+    // ✅ CHANGE 2: Token duration increased to 365 days
     const token = jwt.sign(
       { 
         id: branch.id, 
@@ -461,7 +463,7 @@ app.post('/api/branch/login', async (req, res) => {
         branch_code: branch.branch_code 
       }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     );
     
     res.json({ 
