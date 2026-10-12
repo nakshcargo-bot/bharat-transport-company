@@ -8,7 +8,16 @@ export default function Branches() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showCredentials, setShowCredentials] = useState(null)
+  const [showEdit, setShowEdit] = useState(null)
+  const [showResetPassword, setShowResetPassword] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('name')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [newPassword, setNewPassword] = useState('')
   const [form, setForm] = useState({
+    branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: ''
+  })
+  const [editForm, setEditForm] = useState({
     branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: ''
   })
 
@@ -30,15 +39,12 @@ export default function Branches() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
     if (!form.branch_name || !form.city || !form.incharge_name) {
       alert('⚠️ Please fill: Branch Name, City, and Incharge Name!')
       return
     }
-
     try {
       const res = await api.post('/api/branches/create-with-login', form)
-      
       if (res.data.success) {
         setShowCredentials(res.data.branch)
         setForm({ branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '' })
@@ -50,13 +56,69 @@ export default function Branches() {
     }
   }
 
+  const handleEdit = (branch) => {
+    setEditForm({
+      branch_name: branch.branch_name || '',
+      city: branch.city || '',
+      state: branch.state || '',
+      address: branch.address || '',
+      phone: branch.phone || '',
+      email: branch.email || '',
+      incharge_name: branch.incharge_name || ''
+    })
+    setShowEdit(branch)
+  }
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await api.put(`/api/branches/${showEdit.id}`, editForm)
+      alert('✅ Branch updated successfully!')
+      setShowEdit(null)
+      loadBranches()
+    } catch (err) {
+      alert('❌ Update failed: ' + (err.response?.data?.error || err.message))
+    }
+  }
+
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete "${name}"?`)) return
+    if (!window.confirm(`Delete "${name}"? Ye action undo nahi hoga!`)) return
     try {
       await api.delete(`/api/branches/${id}`)
+      alert('✅ Branch deleted!')
       loadBranches()
     } catch (err) {
       alert('❌ Delete failed: ' + (err.response?.data?.error || err.message))
+    }
+  }
+
+  const handleToggleStatus = async (branch) => {
+    const newStatus = !branch.is_active
+    if (!window.confirm(`${newStatus ? 'Activate' : 'Deactivate'} "${branch.branch_name}"?`)) return
+    try {
+      await api.put(`/api/branches/${branch.id}`, { is_active: newStatus })
+      alert(`✅ Branch ${newStatus ? 'activated' : 'deactivated'}!`)
+      loadBranches()
+    } catch (err) {
+      alert('❌ Failed: ' + (err.response?.data?.error || err.message))
+    }
+  }
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) {
+      alert('⚠️ Password must be at least 6 characters!')
+      return
+    }
+    try {
+      await api.put(`/api/branches/${showResetPassword.id}/credentials`, {
+        incharge_password: newPassword
+      })
+      alert('✅ Password reset successfully!\n\nNew Password: ' + newPassword + '\n\nYe password abhi copy karo!')
+      setShowResetPassword(null)
+      setNewPassword('')
+    } catch (err) {
+      alert('❌ Reset failed: ' + (err.response?.data?.error || err.message))
     }
   }
 
@@ -65,21 +127,89 @@ export default function Branches() {
     alert('✅ Copied: ' + text)
   }
 
-  const activeCount = branches.filter(b => b.is_active).length
+  const copyAllCredentials = (branch) => {
+    const url = branch.portal_url || `https://bharat-transport-v2.pages.dev/#/branch-login/${branch.url_slug}`
+    const text = `🔑 ${branch.branch_name} Branch Credentials\n\n` +
+      `URL: ${url}\n` +
+      `Username: ${branch.incharge_username}\n` +
+      `Password: ${branch.incharge_password || '(already set - reset if needed)'}\n\n` +
+      `© Bharat Transport Company`
+    navigator.clipboard.writeText(text)
+    alert('✅ All credentials copied to clipboard!')
+  }
 
+  const exportToCSV = () => {
+    if (filteredBranches.length === 0) {
+      alert('⚠️ No branches to export!')
+      return
+    }
+    const headers = ['Branch Name', 'Code', 'City', 'State', 'Incharge', 'Username', 'Phone', 'Email', 'Status', 'Login URL']
+    const rows = filteredBranches.map(b => [
+      b.branch_name,
+      b.branch_code,
+      b.city,
+      b.state,
+      b.incharge_name,
+      b.incharge_username,
+      b.phone,
+      b.email,
+      b.is_active ? 'Active' : 'Inactive',
+      `https://bharat-transport-v2.pages.dev/#/branch-login/${b.url_slug}`
+    ])
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"`).join(',')).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `branches_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    alert('✅ CSV exported!')
+  }
+
+  // Filter + Sort
+  const filteredBranches = branches
+    .filter(b => {
+      if (filterStatus === 'active' && !b.is_active) return false
+      if (filterStatus === 'inactive' && b.is_active) return false
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        b.branch_name?.toLowerCase().includes(q) ||
+        b.city?.toLowerCase().includes(q) ||
+        b.state?.toLowerCase().includes(q) ||
+        b.incharge_name?.toLowerCase().includes(q) ||
+        b.incharge_username?.toLowerCase().includes(q) ||
+        b.branch_code?.toLowerCase().includes(q)
+      )
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') return (a.branch_name || '').localeCompare(b.branch_name || '')
+      if (sortBy === 'city') return (a.city || '').localeCompare(b.city || '')
+      if (sortBy === 'date') return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      return 0
+    })
+
+  const activeCount = branches.filter(b => b.is_active).length
+  // ✅ FIX: यह लाइन अब return statement से पहले सही जगह पर है
+  const inactiveCount = branches.length - activeCount 
+  
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">🏢 Branch Management</h1>
             <p className="text-gray-500 mt-1">
               Total: <span className="font-bold text-blue-600">{branches.length}</span> | 
-              Active: <span className="font-bold text-green-600">{activeCount}</span>
+              Active: <span className="font-bold text-green-600">{activeCount}</span> | 
+              Inactive: <span className="font-bold text-red-600">{inactiveCount}</span>
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">← Dashboard</button>
+            <button onClick={exportToCSV} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+              📥 Export CSV
+            </button>
             <button 
               onClick={() => { setShowForm(!showForm); setForm({ branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '' }) }} 
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-lg"
@@ -89,6 +219,7 @@ export default function Branches() {
           </div>
         </div>
 
+        {/* ADD BRANCH FORM */}
         {showForm && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border-2 border-blue-200">
             <h2 className="text-xl font-bold text-gray-800 mb-4">➕ Add New Branch (Auto Login Credentials)</h2>
@@ -179,6 +310,52 @@ export default function Branches() {
           </div>
         )}
 
+        {/* SEARCH + FILTER BAR */}
+        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input 
+                  type="text"
+                  placeholder="Search by name, city, incharge, username..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <select 
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="flex-1 p-2.5 border border-gray-300 rounded-lg"
+              >
+                <option value="all">All Status</option>
+                <option value="active">✅ Active Only</option>
+                <option value="inactive">❌ Inactive Only</option>
+              </select>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="flex-1 p-2.5 border border-gray-300 rounded-lg"
+              >
+                <option value="name">Sort: Name</option>
+                <option value="city">Sort: City</option>
+                <option value="date">Sort: Newest</option>
+              </select>
+            </div>
+          </div>
+          {searchQuery && (
+            <p className="text-sm text-gray-500 mt-2">
+              Found <strong>{filteredBranches.length}</strong> branch(es) matching "{searchQuery}"
+            </p>
+          )}
+        </div>
+
+        {/* BRANCHES TABLE */}
         {loading ? (
           <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
@@ -186,8 +363,16 @@ export default function Branches() {
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="p-4 border-b bg-gray-50">
-              <h2 className="text-xl font-bold text-gray-800">📋 All Branches ({branches.length})</h2>
+            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">📋 All Branches ({filteredBranches.length})</h2>
+              {filteredBranches.length !== branches.length && (
+                <button 
+                  onClick={() => { setSearchQuery(''); setFilterStatus('all') }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -201,10 +386,14 @@ export default function Branches() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {branches.length === 0 ? (
-                    <tr><td colSpan="5" className="px-6 py-8 text-center text-gray-500">No branches yet. Click "Add New Branch" to create one.</td></tr>
+                  {filteredBranches.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                        {branches.length === 0 ? 'No branches yet. Click "Add New Branch" to create one.' : 'No branches match your search.'}
+                      </td>
+                    </tr>
                   ) : (
-                    branches.map((branch) => (
+                    filteredBranches.map((branch) => (
                       <tr key={branch.id} className="hover:bg-blue-50">
                         <td className="px-4 py-4">
                           <div className="font-bold text-gray-900">{branch.branch_name}</div>
@@ -220,7 +409,7 @@ export default function Branches() {
                           {branch.url_slug ? (
                             <button 
                               onClick={() => copyToClipboard(`https://bharat-transport-v2.pages.dev/#/branch-login/${branch.url_slug}`)}
-                              className="text-xs text-blue-600 hover:text-blue-800 underline font-mono"
+                              className="text-xs text-blue-600 hover:text-blue-800 underline font-mono text-left"
                             >
                               /branch-login/{branch.url_slug}
                             </button>
@@ -229,24 +418,43 @@ export default function Branches() {
                           )}
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${branch.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          <button 
+                            onClick={() => handleToggleStatus(branch)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition ${branch.is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                            title="Click to toggle"
+                          >
                             {branch.is_active ? '✅ Active' : '❌ Inactive'}
-                          </span>
+                          </button>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1 flex-wrap">
                             <button 
                               onClick={() => setShowCredentials(branch)} 
-                              className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm"
+                              className="px-2 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs hover:bg-green-200"
                               title="View credentials"
                             >
-                              🔑 Credentials
+                              🔑 View
+                            </button>
+                            <button 
+                              onClick={() => handleEdit(branch)} 
+                              className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200"
+                              title="Edit branch"
+                            >
+                              ✏️ Edit
+                            </button>
+                            <button 
+                              onClick={() => { setShowResetPassword(branch); setNewPassword('') }} 
+                              className="px-2 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-xs hover:bg-yellow-200"
+                              title="Reset password"
+                            >
+                              🔄 Reset
                             </button>
                             <button 
                               onClick={() => handleDelete(branch.id, branch.branch_name)} 
-                              className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm"
+                              className="px-2 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs hover:bg-red-200"
+                              title="Delete branch"
                             >
-                              🗑️ Delete
+                              🗑️
                             </button>
                           </div>
                         </td>
@@ -259,11 +467,11 @@ export default function Branches() {
           </div>
         )}
       </div>
-
-      {/* Credentials Modal */}
+          
+      {/* CREDENTIALS MODAL */}
       {showCredentials && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-bold text-gray-800">🔑 Branch Credentials</h2>
               <button onClick={() => setShowCredentials(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
@@ -271,6 +479,7 @@ export default function Branches() {
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <h3 className="font-bold text-blue-800 mb-3">{showCredentials.branch_name}</h3>
+              <p className="text-xs text-blue-600 mb-3">{showCredentials.city}{showCredentials.state ? ', ' + showCredentials.state : ''}</p>
               
               <div className="space-y-3">
                 <div>
@@ -284,7 +493,7 @@ export default function Branches() {
                     />
                     <button 
                       onClick={() => copyToClipboard(showCredentials.portal_url || `https://bharat-transport-v2.pages.dev/#/branch-login/${showCredentials.url_slug}`)}
-                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                     >
                       Copy
                     </button>
@@ -302,7 +511,7 @@ export default function Branches() {
                     />
                     <button 
                       onClick={() => copyToClipboard(showCredentials.incharge_username || '')}
-                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                      className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                     >
                       Copy
                     </button>
@@ -321,7 +530,7 @@ export default function Branches() {
                       />
                       <button 
                         onClick={() => copyToClipboard(showCredentials.incharge_password)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                       >
                         Copy
                       </button>
@@ -332,16 +541,174 @@ export default function Branches() {
               </div>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+            <button 
+              onClick={() => copyAllCredentials(showCredentials)}
+              className="w-full mb-3 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 font-bold shadow-md"
+            >
+              📋 Copy All Credentials (One Click)
+            </button>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-3">
               <strong>📝 Instructions:</strong> Ye credentials branch incharge ko de do. Wo apne URL pe login karke apna kaam kar sakta hai.
             </div>
 
             <button 
               onClick={() => setShowCredentials(null)}
-              className="w-full mt-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold"
+              className="w-full py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold"
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {showEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">✏️ Edit Branch</h2>
+              <button onClick={() => setShowEdit(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-700">
+                <strong>Code:</strong> {showEdit.branch_code} | 
+                <strong> Username:</strong> {showEdit.incharge_username}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">⚠️ Code aur Username change nahi hote</p>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editForm.branch_name} 
+                  onChange={(e) => setEditForm({...editForm, branch_name: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editForm.city} 
+                  onChange={(e) => setEditForm({...editForm, city: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                <input 
+                  type="text" 
+                  value={editForm.state} 
+                  onChange={(e) => setEditForm({...editForm, state: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Incharge Name *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={editForm.incharge_name} 
+                  onChange={(e) => setEditForm({...editForm, incharge_name: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input 
+                  type="tel" 
+                  value={editForm.phone} 
+                  onChange={(e) => setEditForm({...editForm, phone: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  value={editForm.email} 
+                  onChange={(e) => setEditForm({...editForm, email: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <textarea 
+                  value={editForm.address} 
+                  onChange={(e) => setEditForm({...editForm, address: e.target.value})} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg" 
+                  rows="2" 
+                />
+              </div>
+              <div className="md:col-span-2 flex gap-3 mt-2">
+                <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md">
+                  💾 Save Changes
+                </button>
+                <button type="button" onClick={() => setShowEdit(null)} className="px-8 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RESET PASSWORD MODAL */}
+      {showResetPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">🔄 Reset Password</h2>
+              <button onClick={() => { setShowResetPassword(null); setNewPassword('') }} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
+            </div>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Branch:</strong> {showResetPassword.branch_name}
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                <strong>Username:</strong> {showResetPassword.incharge_username}
+              </p>
+            </div>
+
+            <form onSubmit={handleResetPassword}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Password *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                  className="w-full p-2.5 border border-gray-300 rounded-lg font-mono"
+                  placeholder="Minimum 6 characters"
+                  minLength={6}
+                />
+                <p className="text-xs text-gray-500 mt-1">Ye password branch incharge ko dena hai</p>
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-red-700">
+                  ⚠️ <strong>Warning:</strong> Password reset karne ke baad, purana password kaam nahi karega. Branch incharge ko naya password dena zaroori hai.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button type="submit" className="flex-1 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-bold">
+                  🔄 Reset Password
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => { setShowResetPassword(null); setNewPassword('') }} 
+                  className="flex-1 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
