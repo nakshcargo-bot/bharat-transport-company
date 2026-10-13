@@ -12,8 +12,7 @@ const COMPANY = {
   bankName: "HDFC BANK",
   accountNo: "50200112184634",
   ifsc: "HDFC0002795",
-  branch: "RAJGARH",
-  signatory: "Krishan"
+  branch: "RAJGARH"
 }
 
 export default function GadiChallanPrint() {
@@ -26,7 +25,10 @@ export default function GadiChallanPrint() {
     if (id) {
       api.get(`/api/gadi-challan/${id}`)
         .then(res => { setData(res.data); setLoading(false) })
-        .catch(() => { alert('Challan not found'); navigate('/gadi-challan') })
+        .catch(() => { 
+          alert('Challan not found!'); 
+          navigate('/gadi-challan') 
+        })
     }
   }, [id, navigate])
 
@@ -37,6 +39,7 @@ export default function GadiChallanPrint() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
+      {/* PRINT BUTTON - NO PRINT SECTION */}
       <div className="no-print mb-4 flex justify-between items-center max-w-4xl mx-auto">
         <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
         <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">🖨️ Print Challan</button>
@@ -49,7 +52,7 @@ export default function GadiChallanPrint() {
           <p className="text-xs font-bold mt-2">{COMPANY.address}</p>
           <div className="flex justify-center gap-6 text-xs font-bold mt-2">
             <span>📞 {COMPANY.phone}</span>
-            <span>✉️ {COMPANY.email}</span>
+            <span>️ {COMPANY.email}</span>
           </div>
           <div className="flex justify-center gap-6 text-xs font-bold mt-2 text-blue-900">
             <span>GSTIN: {COMPANY.gst}</span>
@@ -103,7 +106,8 @@ export default function GadiChallanPrint() {
             <tr><td className="border border-black p-2 font-bold">TDS Deduction</td><td className="border border-black p-2 text-right font-bold text-red-600">- {formatCurrency(data.tds_deduction)}</td></tr>
             <tr className="bg-gray-100">
               <td className="border border-black p-2 font-black text-lg">NET PAYABLE</td>
-              <td className="border border-black p-2 text-right font-black text-lg text-green-700">{formatCurrency(data.net_payable)}</td></tr>
+              <td className="border border-black p-2 text-right font-black text-lg text-green-700">{formatCurrency(data.net_payable)}</td>
+            </tr>
           </tbody>
         </table>
 
@@ -118,8 +122,9 @@ export default function GadiChallanPrint() {
           </div>
           <div className="text-right">
             <p className="text-sm font-bold mb-8">For {COMPANY.name}</p>
-            <div className="font-cursive text-3xl text-blue-900 mb-1" style={{ fontFamily: "'Mrs Saint Delafield', cursive" }}>{COMPANY.signatory}</div>
-            <p className="text-xs font-bold border-t-2 border-black inline-block pt-1">Authorized Signatory</p>
+            <div className="border-t-2 border-black inline-block pt-1">
+              <p className="text-xs font-bold">Authorized Signatory</p>
+            </div>
           </div>
         </div>
 
