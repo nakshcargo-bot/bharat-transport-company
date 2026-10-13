@@ -182,12 +182,12 @@ export default function Dashboard() {
   }
   
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 tms-dashboard">
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm dashboard-nav">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 text-white w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg">B</div>
+              <div className="bg-indigo-600 text-white w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg dashboard-brand-mark">B</div>
               <div>
                 <h1 className="font-bold text-slate-900 text-lg leading-tight">Bharat Transport</h1>
                 <p className="text-xs text-slate-500 leading-tight">TMS v6.0</p>
@@ -196,10 +196,10 @@ export default function Dashboard() {
             <div className="hidden lg:flex items-center gap-1">
               {navMenus.map((menu, idx) => (
                 <div key={idx} className="relative group">
-                  <button className="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition">
+                  <button className="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition dashboard-menu-trigger">
                     {menu.label} ▾
                   </button>
-                  <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 dashboard-dropdown">
                     {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
                       <button key={itemIdx} onClick={() => navigate(item.path)} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition">
                         <span className="mr-2">{item.icon}</span>{item.name}
@@ -211,16 +211,16 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-4">
               <div className="hidden md:block text-right">
-                <div className="text-sm font-medium text-slate-900">Welcome, {user.username || 'Admin'}</div>
-                <div className="text-xs text-slate-500">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="text-sm font-medium text-slate-900 dashboard-welcome">Welcome, {user.username || 'Admin'}</div>
+                <div className="text-xs text-slate-500 dashboard-clock">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
-              <button onClick={handleLogout} className="text-sm font-medium text-slate-600 hover:text-red-600 transition">Logout</button>
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100">☰</button>
+              <button onClick={handleLogout} className="text-sm font-medium text-slate-600 hover:text-red-600 transition dashboard-logout">Logout</button>
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100 dashboard-mobile-toggle" aria-label="Toggle navigation">☰</button>
             </div>
           </div>
         </div>
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-white border-t border-slate-200 py-2">
+          <div className="lg:hidden bg-white border-t border-slate-200 py-2 dashboard-mobile-menu">
             {navMenus.map((menu, idx) => (
               <div key={idx} className="px-4 py-2">
                 <div className="text-xs font-bold text-slate-400 uppercase mb-1">{menu.label}</div>
@@ -235,7 +235,7 @@ export default function Dashboard() {
         )}
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 dashboard-main">
         <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
@@ -251,7 +251,7 @@ export default function Dashboard() {
 
         <div className="space-y-4 mb-8">
           {isAdmin && branches.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center gap-4 flex-wrap">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center gap-4 flex-wrap dashboard-panel">
               <label className="font-semibold text-slate-700 flex items-center gap-2">🏢 Filter by Branch:</label>
               <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white min-w-[200px]">
                 <option value="all">🌐 All Branches (Consolidated)</option>
@@ -262,7 +262,7 @@ export default function Dashboard() {
           )}
 
           {lowStockItems.length > 0 && (
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm dashboard-stock-alert">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <p className="font-bold text-amber-800">⚠️ Low Stock Alert</p>
@@ -274,7 +274,7 @@ export default function Dashboard() {
           )}
 
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg dashboard-error">
               <p className="font-bold text-red-800">⚠️ {error}</p>
               <button onClick={fetchData} className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium">🔄 Retry</button>
             </div>
@@ -282,22 +282,22 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm dashboard-stat-card">
             <div className="text-sm font-medium text-slate-500 mb-1">Today's LR</div>
             <div className="text-3xl font-bold text-slate-900">{s.today_lr}</div>
             <div className="text-xs text-slate-400 mt-2">Month: {s.month_lr} | Total: {s.total_lr}</div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm dashboard-stat-card">
             <div className="text-sm font-medium text-slate-500 mb-1">Today's Revenue</div>
             <div className="text-3xl font-bold text-emerald-600">{formatCurrency(s.today_revenue)}</div>
             <div className="text-xs text-slate-400 mt-2">Month: {formatCurrency(s.month_revenue)}</div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm dashboard-stat-card">
             <div className="text-sm font-medium text-slate-500 mb-1">Pending Amount</div>
             <div className="text-3xl font-bold text-amber-600">{formatCurrency(s.pending_amount)}</div>
             <div className="text-xs text-slate-400 mt-2">Pending LR: {s.pending_lr}</div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm dashboard-stat-card">
             <div className="text-sm font-medium text-slate-500 mb-1">Total Revenue</div>
             <div className="text-3xl font-bold text-indigo-600">{formatCurrency(s.total_revenue)}</div>
             <div className="text-xs text-slate-400 mt-2">Paid Bilties: {s.paid_lr}</div>
@@ -306,9 +306,9 @@ export default function Dashboard() {
 
         <div className="mb-8">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 dashboard-actions">
             {quickActions.map((action, idx) => (
-              <button key={idx} onClick={() => navigate(action.path)} className={`${action.color} text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center gap-2 aspect-square`}>
+              <button key={idx} onClick={() => navigate(action.path)} className={`${action.color} text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center gap-2 aspect-square dashboard-action`}>
                 <div className="text-2xl">{action.icon}</div>
                 <div className="font-medium text-xs text-center leading-tight">{action.label}</div>
               </button>
@@ -317,7 +317,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 dashboard-panel">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Operational Status</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
@@ -339,7 +339,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6 dashboard-panel">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">Branch Overview</h3>
               <button onClick={() => navigate('/branches')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All →</button>
@@ -349,7 +349,7 @@ export default function Dashboard() {
                 <div className="col-span-2 text-center py-8 text-slate-500">No branches added yet.</div>
               ) : (
                 branches.slice(0, 6).map((branch) => (
-                  <div key={branch.id} className="p-4 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 transition cursor-pointer" onClick={() => navigate('/branches')}>
+                  <div key={branch.id} className="p-4 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 transition cursor-pointer dashboard-branch-card" onClick={() => navigate('/branches')}>
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-slate-800">{branch.branch_name}</h4>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${branch.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
@@ -366,8 +366,8 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden dashboard-panel">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 dashboard-panel-header">
               <h3 className="font-bold text-slate-900">Recent Bilties</h3>
               <button onClick={() => navigate('/consignments')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">View All</button>
             </div>
@@ -385,8 +385,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden dashboard-panel">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 dashboard-panel-header">
               <h3 className="font-bold text-slate-900">Top Parties by Revenue</h3>
               <button onClick={() => navigate('/customers')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">View All</button>
             </div>

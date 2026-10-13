@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { authAPI } from '../api'
+import { ArrowRight, LockKeyhole, Mail, Truck } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -39,60 +40,84 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-red-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-red-700 text-white rounded-full text-3xl font-bold mb-4">
-            BTC
-          </div>
-          <h1 className="text-3xl font-bold text-red-700">BHARAT TRANSPORT</h1>
-          <p className="text-gray-600 mt-2">Transport Management Software</p>
+    <div className="login-shell">
+      <section className="login-art" aria-label="Bharat Transport Company">
+        <div className="login-orbit" aria-hidden="true" />
+        <div className="login-lamp" aria-hidden="true"><span className="login-lamp-base" /></div>
+        <div aria-hidden="true">
+          <span className="login-firefly" />
+          <span className="login-firefly" />
+          <span className="login-firefly" />
+          <span className="login-firefly" />
+          <span className="login-firefly" />
+          <span className="login-firefly" />
         </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            ⚠️ {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-              placeholder="Enter email"
-              required
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-              placeholder="Enter password"
-              required
-              disabled={loading}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-red-700 text-white rounded-lg font-bold hover:bg-red-800 transition disabled:bg-red-400"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-xs text-gray-500">
-          <p>© 2026 Bharat Transport Company</p>
+        <div className="login-art-copy">
+          <div className="login-brand-kicker">Connected routes. Clear journeys.</div>
+          <h1>Moving Bharat,<br />one delivery at a time.</h1>
+          <p>Operations, people, and freight in one dependable workspace for Bharat Transport Company.</p>
         </div>
-      </div>
+      </section>
+
+      <section className="login-form-side">
+        <div className="login-card">
+          <div className="login-card-brand">
+            <div className="login-card-mark"><Truck size={20} strokeWidth={1.8} /></div>
+            <div>
+              <div className="login-card-brand-name">BHARAT TRANSPORT COMPANY</div>
+              <div className="login-card-brand-subtitle">Transport Management System</div>
+            </div>
+          </div>
+
+          <h2>Welcome Back</h2>
+          <p className="login-card-subtitle">Enter your details to access your account.</p>
+
+          {error && <div role="alert" className="login-error">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="login-field">
+              <label htmlFor="login-email">Email</label>
+              <div className="login-input-wrap">
+                <Mail size={17} aria-hidden="true" />
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  autoComplete="username"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="login-password">Password</label>
+              <div className="login-input-wrap">
+                <LockKeyhole size={17} aria-hidden="true" />
+                <input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="login-submit">
+              {loading ? 'Signing in...' : 'Sign In'}
+              {!loading && <ArrowRight size={17} aria-hidden="true" />}
+            </button>
+          </form>
+
+          <p className="login-copyright">© 2026 Bharat Transport Company</p>
+        </div>
+      </section>
     </div>
   )
 }
