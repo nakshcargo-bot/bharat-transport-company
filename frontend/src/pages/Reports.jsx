@@ -13,7 +13,7 @@ export default function Reports() {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       const data = await res.json()
       setBilties(data.data || [])

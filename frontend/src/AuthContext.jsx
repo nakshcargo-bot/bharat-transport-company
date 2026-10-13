@@ -1,60 +1,51 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { createContext, useContext, useEffect, useState } from 'react'
+import { authAPI } from './api'
 
-// Create Auth Context
-const AuthContext = createContext();
+const AuthContext = createContext(null)
 
-// Custom hook to use auth context
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext)
 
-// Auth Provider Component
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  // Sign up function
-  const signup = async (email, password) => {
-    return await createUserWithEmailAndPassword(auth, email, password);
-  };
-
-  // Login function
-  const login = async (email, password) => {
-    return await signInWithEmailAndPassword(auth, email, password);
-  };
-
-  // Logout function
-  const logout = async () => {
-    return await signOut(auth);
-  };
-
-  // Listen to auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false);
-    });
+    try {
+      const token = localStorage.getItem('token')
+      const storedUser = localStorage.getItem('user')
+      if (token && storedUser) setCurrentUser(JSON.parse(storedUser))
+      else {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    } catch (err) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      console.error('Unable to restore the saved session:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-    return unsubscribe;
-  }, []);
+  const login = async (username, password) => {
+    const response = await authAPI.login(username, password)
+    const { token, user } = response.data || {}
+    if (!token || !user) throw new Error('The server returned an incomplete sign-in response.')
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+    setCurrentUser(user)
+    return user
+  }
 
-  const value = {
-    currentUser,
-    signup,
-    login,
-    logout
-  };
+  const logout = async () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setCurrentUser(null)
+  }
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider value={{ currentUser, loading, login, logout }}>
+      {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}

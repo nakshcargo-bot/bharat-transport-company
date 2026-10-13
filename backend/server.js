@@ -4,12 +4,16 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const createBranchAuthRouter = require('./routes/branchAuth');
+const createBranchAccessMiddleware = require('./middleware/branchAccess');
 
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
+app.set('trust proxy', 1);
 
 // ✅ CORS - PERMANENT FIX
 app.use(cors({
@@ -23,7 +27,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Branch-Slug']
 }));
 
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -43,6 +47,9 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
   max: 20,
 });
+const branchAccessMiddleware = createBranchAccessMiddleware(pool);
+
+app.use('/api/branch-login', createBranchAuthRouter(pool));
 
 // ==========================================
 // SAFE MIGRATION
@@ -65,8 +72,8 @@ async function addColumnIfNotExists(table, column, definition) {
 async function runMigrations() {
   console.log('🏃 Running database migrations...');
   const tables = [
-    `CREATE TABLE IF NOT EXISTS branches (id SERIAL PRIMARY KEY, branch_code TEXT UNIQUE NOT NULL, branch_name TEXT NOT NULL, address TEXT, city TEXT, state TEXT, pincode TEXT, phone TEXT, email TEXT, gst_no TEXT, pan_no TEXT, manager_name TEXT, manager_phone TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, full_name TEXT, role TEXT DEFAULT 'operator', branch_id INTEGER, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS branches (id SERIAL PRIMARY KEY, branch_code TEXT UNIQUE NOT NULL, branch_name TEXT NOT NULL, address TEXT, city TEXT, state TEXT, pincode TEXT, phone TEXT, email TEXT, gst_no TEXT, pan_no TEXT, manager_name TEXT, manager_phone TEXT, branch_login_enabled BOOLEAN DEFAULT FALSE, login_credentials JSONB, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, email TEXT, full_name TEXT, role TEXT DEFAULT 'operator', branch_id INTEGER, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS parties (id SERIAL PRIMARY KEY, party_code TEXT UNIQUE NOT NULL, party_name TEXT NOT NULL, party_type TEXT DEFAULT 'Consignor', address TEXT, city TEXT, state TEXT, pincode TEXT, gst_no TEXT, pan_no TEXT, email TEXT, phone TEXT, mobile TEXT, contact_person TEXT, credit_days INTEGER DEFAULT 0, opening_balance NUMERIC DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS customers (id SERIAL PRIMARY KEY, customer_name TEXT NOT NULL, customer_code TEXT UNIQUE, address TEXT, gst_no TEXT, email TEXT, phone TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS drivers (id SERIAL PRIMARY KEY, driver_code TEXT UNIQUE NOT NULL, driver_name TEXT NOT NULL, father_name TEXT, aadhar_no TEXT, license_no TEXT, license_expiry DATE, phone TEXT, address TEXT, photo_url TEXT, joining_date DATE, status TEXT DEFAULT 'Active', created_at TIMESTAMP DEFAULT NOW())`,
@@ -109,6 +116,8 @@ async function runMigrations() {
   await addColumnIfNotExists('branches', 'pan_no', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_name', 'TEXT');
   await addColumnIfNotExists('branches', 'manager_phone', 'TEXT');
+  await addColumnIfNotExists('branches', 'branch_login_enabled', 'BOOLEAN DEFAULT FALSE');
+  await addColumnIfNotExists('branches', 'login_credentials', 'JSONB');
   await addColumnIfNotExists('branches', 'url_slug', 'TEXT');
   await addColumnIfNotExists('branches', 'incharge_name', 'TEXT');
   await addColumnIfNotExists('branches', 'incharge_username', 'TEXT');
@@ -118,6 +127,7 @@ async function runMigrations() {
   await addColumnIfNotExists('users', 'full_name', 'TEXT');
   await addColumnIfNotExists('users', 'role', "TEXT DEFAULT 'operator'");
   await addColumnIfNotExists('users', 'is_active', 'BOOLEAN DEFAULT TRUE');
+  await addColumnIfNotExists('users', 'email', 'TEXT');
   await addColumnIfNotExists('parties', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('parties', 'party_type', "TEXT DEFAULT 'Consignor'");
   await addColumnIfNotExists('parties', 'city', 'TEXT');
@@ -207,6 +217,7 @@ function authMiddleware(req, res, next) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
   try {
     req.user = jwt.verify(authHeader.substring(7), process.env.JWT_SECRET);
+    if (req.user.role === 'branch_user') return branchAccessMiddleware(req, res, next);
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
@@ -230,19 +241,34 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-    const result = await pool.query(`SELECT u.*, b.branch_code, b.branch_name FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE u.username = $1`, [username]);
+    const result = await pool.query(
+      `SELECT u.*, b.branch_code, b.branch_name
+       FROM users u
+       LEFT JOIN branches b ON u.branch_id = b.id
+       WHERE LOWER(u.username) = LOWER($1) OR LOWER(COALESCE(u.email, '')) = LOWER($1)
+       LIMIT 1`,
+      [username]
+    );
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const user = result.rows[0];
+    if (user.is_active === false) return res.status(403).json({ error: 'This account is inactive' });
     let valid = false;
     if (user.password && user.password.startsWith('$2')) {
-      valid = await bcrypt.compare(password, user.password).catch(() => false);
+      valid = await bcrypt.compare(password, user.password);
     } else {
       valid = (password === user.password);
     }
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    // ✅ CHANGE 1: Token duration increased to 365 days
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code }, process.env.JWT_SECRET, { expiresIn: '365d' });
-    res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role || 'admin', branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name } });
+    if (!user.password.startsWith('$2')) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.id]);
+    }
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role || 'operator', branch_id: user.branch_id, branch_code: user.branch_code },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    res.json({ success: true, token, user: { id: user.id, username: user.username, role: user.role || 'operator', branch_id: user.branch_id, branch_code: user.branch_code, branch_name: user.branch_name } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -326,11 +352,59 @@ app.get('/api/dashboard/top-parties', authMiddleware, async (req, res) => {
 // BRANCH MANAGEMENT
 // ==========================================
 app.get('/api/branches', authMiddleware, async (req, res) => {
-  try { const result = await pool.query('SELECT * FROM branches WHERE COALESCE(is_active, TRUE) = TRUE ORDER BY branch_name'); res.json({ data: result.rows }); }
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can view branches.' });
+    const result = await pool.query(
+      `SELECT id, branch_code, branch_name, address, city, state, pincode, phone, email,
+              gst_no, pan_no, manager_name, manager_phone, incharge_name, incharge_username,
+              url_slug, branch_login_enabled, login_credentials->>'username' AS branch_login_username,
+              is_active, created_at
+       FROM branches
+       WHERE COALESCE(is_active, TRUE) = TRUE
+       ORDER BY branch_name`
+    );
+    res.json({ data: result.rows });
+  }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/branches/slug/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return res.status(400).json({ error: 'Invalid branch URL.' });
+    }
+
+    const result = await pool.query(
+      `SELECT id, branch_code, branch_name, city, state, url_slug, is_active, branch_login_enabled
+       FROM branches
+       WHERE url_slug = $1`,
+      [slug]
+    );
+    const branch = result.rows[0];
+    if (!branch) return res.status(404).json({ error: 'Branch not found.' });
+    if (!branch.is_active) return res.status(403).json({ error: 'Branch is inactive.' });
+    if (!branch.branch_login_enabled) return res.status(403).json({ error: 'Branch login is not enabled.' });
+
+    const publicBranch = {
+      id: branch.id,
+      branch_code: branch.branch_code,
+      branch_name: branch.branch_name,
+      city: branch.city,
+      state: branch.state,
+      url_slug: branch.url_slug
+    };
+    return res.json({ success: true, branch: publicBranch });
+  } catch (err) {
+    console.error('Branch lookup failed:', err);
+    return res.status(500).json({ error: 'Unable to load branch.' });
+  }
 });
 app.post('/api/branches', authMiddleware, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can create branches.' });
+    if (['branch_login_enabled', 'login_credentials', 'incharge_username', 'incharge_password'].some((key) => key in req.body)) {
+      return res.status(400).json({ error: 'Use the branch login setup endpoint to configure login credentials.' });
+    }
     const keys = Object.keys(req.body); const values = Object.values(req.body);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
     const result = await pool.query(`INSERT INTO branches (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
@@ -339,81 +413,140 @@ app.post('/api/branches', authMiddleware, async (req, res) => {
 });
 app.put('/api/branches/:id', authMiddleware, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can update branches.' });
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at;
+    if ('branch_login_enabled' in data || 'login_credentials' in data || 'incharge_username' in data || 'incharge_password' in data) {
+      return res.status(400).json({ error: 'Use the branch login setup endpoint to change login credentials.' });
+    }
     const keys = Object.keys(data); const values = Object.values(data);
     const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', '); values.push(id);
-    const result = await pool.query(`UPDATE branches SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);
+    const result = await pool.query(
+      `UPDATE branches SET ${setClause} WHERE id = $${values.length}
+       RETURNING id, branch_code, branch_name, city, state, address, phone, email, incharge_name,
+                 incharge_username, url_slug, branch_login_enabled, is_active`,
+      values
+    );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.delete('/api/branches/:id', authMiddleware, async (req, res) => {
-try { await pool.query('UPDATE branches SET is_active = FALSE WHERE id = $1', [req.params.id]); res.json({ success: true }); }
+try {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can delete branches.' });
+  await pool.query('UPDATE branches SET is_active = FALSE WHERE id = $1', [req.params.id]);
+  res.json({ success: true });
+}
   catch (err) { res.status(500).json({ error: err.message }); }
 }); 
 // ==========================================
 // BRANCH LOGIN & PORTAL SYSTEM
 // ==========================================
 
-function generateBranchPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$';
-  let p = '';
-  for (let i = 0; i < 10; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
-  return p;
-}
-
 function generateSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
-// CREATE BRANCH WITH AUTO LOGIN CREDENTIALS (Admin only)
-app.post('/api/branches/create-with-login', authMiddleware, async (req, res) => {
+app.post('/api/branches/:id/branch-login', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can set branch login credentials.' });
+
+    const branchId = Number(req.params.id);
+    const { username, password } = req.body || {};
+    if (!Number.isSafeInteger(branchId) || branchId < 1) {
+      return res.status(400).json({ error: 'Invalid branch id.' });
+    }
+    if (
+      typeof username !== 'string' ||
+      !username.trim() ||
+      username.trim().length > 100 ||
+      typeof password !== 'string' ||
+      password.length < 8 ||
+      Buffer.byteLength(password, 'utf8') > 72
+    ) {
+      return res.status(400).json({ error: 'Enter a username and a password between 8 and 72 bytes.' });
+    }
+
+    const branchResult = await pool.query(
+      'SELECT id, branch_code, branch_name, city, state, url_slug FROM branches WHERE id = $1',
+      [branchId]
+    );
+    const branch = branchResult.rows[0];
+    if (!branch) return res.status(404).json({ error: 'Branch not found.' });
+
+    const slug = branch.url_slug || generateSlug(branch.city || branch.branch_code);
+    if (!slug) return res.status(400).json({ error: 'Set a branch city or code before configuring login.' });
+
+    const duplicate = await pool.query(
+      'SELECT id FROM branches WHERE url_slug = $1 AND id <> $2',
+      [slug, branchId]
+    );
+    if (duplicate.rows.length) {
+      return res.status(409).json({ error: 'This branch URL is already assigned to another branch.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const credentials = JSON.stringify({ username: username.trim(), password: passwordHash });
+    const updatedResult = await pool.query(
+      `UPDATE branches
+       SET url_slug = $1, branch_login_enabled = TRUE, login_credentials = $2::jsonb
+       WHERE id = $3
+       RETURNING id, branch_code, branch_name, city, state, url_slug, branch_login_enabled`,
+      [slug, credentials, branchId]
+    );
+    const updatedBranch = updatedResult.rows[0];
+
+    await logAudit('SETUP', 'branch_login', branchId, `Configured branch login for ${branch.branch_name}`, req.user.username);
+    return res.json({
+      success: true,
+      branch: updatedBranch,
+      credentials: { username: username.trim(), password },
+      portal_url: `https://bharat-transport-v2.pages.dev/#/branch-login/${slug}`
+    });
+  } catch (err) {
+    console.error('Branch login setup failed:', err);
+    return res.status(500).json({ error: 'Unable to set branch login credentials.' });
+  }
+});
+
+// CREATE BRANCH (Admin only)
+app.post('/api/branches/create', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can create branches' });
     
     const { branch_name, city, state, address, phone, email, incharge_name } = req.body;
     
-    if (!branch_name || !city || !incharge_name) {
+    if (
+      typeof branch_name !== 'string' || !branch_name.trim() ||
+      typeof city !== 'string' || !city.trim() ||
+      typeof incharge_name !== 'string' || !incharge_name.trim()
+    ) {
       return res.status(400).json({ error: 'Branch name, city, and incharge name are required' });
     }
     
-    const slug = generateSlug(branch_name);
-    const username = `incharge_${slug}`;
-    const plainPassword = generateBranchPassword();
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    const slug = generateSlug(city);
+    if (!slug) return res.status(400).json({ error: 'Branch city must include letters or numbers.' });
     const branch_code = slug.toUpperCase().slice(0, 6);
     
-    const existing = await pool.query('SELECT id FROM branches WHERE url_slug = $1 OR incharge_username = $2', [slug, username]);
+    const existing = await pool.query(
+      'SELECT id FROM branches WHERE url_slug = $1 OR branch_code = $2',
+      [slug, branch_code]
+    );
     if (existing.rows.length > 0) {
-      return res.status(400).json({ error: 'Branch with this name already exists. Try a different name.' });
+      return res.status(409).json({ error: 'A branch with this city URL already exists. Use a unique city or code.' });
     }
     
     const result = await pool.query(
-      `INSERT INTO branches (branch_code, branch_name, city, state, address, phone, email, incharge_name, incharge_username, incharge_password, url_slug, is_active) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE) RETURNING *`,
-      [branch_code, branch_name, city, state, address || '', phone || '', email || '', incharge_name, username, hashedPassword, slug]
+      `INSERT INTO branches (branch_code, branch_name, city, state, address, phone, email, incharge_name, url_slug, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)
+       RETURNING id, branch_code, branch_name, city, state, incharge_name, url_slug, branch_login_enabled`,
+      [branch_code, branch_name, city, state, address || '', phone || '', email || '', incharge_name, slug]
     );
     
     const branch = result.rows[0];
-    const baseUrl = 'https://bharat-transport-v2.pages.dev';
-    const portal_url = `${baseUrl}/#/branch-login/${slug}`;
+    const portal_url = `https://bharat-transport-v2.pages.dev/#/branch-login/${slug}`;
     
     await logAudit('CREATE', 'branches', branch.id, `Created branch: ${branch_name}`, req.user.username);
     
-    res.json({ 
-      success: true, 
-      branch: {
-        id: branch.id,
-        branch_code: branch.branch_code,
-        branch_name: branch.branch_name,
-        city: branch.city,
-        state: branch.state,
-        incharge_name: branch.incharge_name,
-        incharge_username: username,
-        incharge_password: plainPassword,
-        url_slug: slug,
-        portal_url: portal_url
-      }
-    });
+    res.json({ success: true, branch: { ...branch, portal_url } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -432,85 +565,8 @@ app.get('/api/branch/info/:slug', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// BRANCH USER LOGIN
-app.post('/api/branch/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-    
-    const result = await pool.query('SELECT * FROM branches WHERE incharge_username = $1', [username]);
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-    
-    const branch = result.rows[0];
-    if (!branch.is_active) return res.status(403).json({ error: 'Branch is inactive' });
-    
-    let valid = false;
-    if (branch.incharge_password && branch.incharge_password.startsWith('$2')) {
-      valid = await bcrypt.compare(password, branch.incharge_password).catch(() => false);
-    } else {
-      valid = (password === branch.incharge_password);
-    }
-    
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    
-    // ✅ CHANGE 2: Token duration increased to 365 days
-    const token = jwt.sign(
-      { 
-        id: branch.id, 
-        username: branch.incharge_username, 
-        role: 'branch_user', 
-        branch_id: branch.id, 
-        branch_code: branch.branch_code 
-      }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '365d' }
-    );
-    
-    res.json({ 
-      success: true, 
-      token, 
-      user: { 
-        id: branch.id, 
-        username: branch.incharge_username, 
-        role: 'branch_user', 
-        branch_id: branch.id, 
-        branch_code: branch.branch_code, 
-        branch_name: branch.branch_name,
-        city: branch.city,
-        state: branch.state
-      } 
-    });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// UPDATE BRANCH CREDENTIALS (Admin only)
-app.put('/api/branches/:id/credentials', authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-    const { incharge_username, incharge_password } = req.body;
-    const id = req.params.id;
-    
-    let query = 'UPDATE branches SET ';
-    const params = [];
-    let count = 0;
-    
-    if (incharge_username) {
-      count++; query += `incharge_username = $${count}, `;
-      params.push(incharge_username);
-    }
-    if (incharge_password) {
-      count++; const hashed = await bcrypt.hash(incharge_password, 10);
-      query += `incharge_password = $${count}, `;
-      params.push(hashed);
-    }
-    
-    query = query.replace(/, $/, '');
-    count++; query += ` WHERE id = $${count} RETURNING id, branch_name, incharge_username`;
-    params.push(id);
-    
-    const result = await pool.query(query, params);
-    res.json({ success: true, branch: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+app.post('/api/branch/login', (req, res) => {
+  res.status(410).json({ error: 'This login endpoint is retired. Use the branch-specific login URL.' });
 });
 
 // ==========================================
@@ -795,6 +851,16 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.get('/api/bills/last-serial', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT COALESCE(MAX(SUBSTRING(bill_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
+      FROM bill_book
+      WHERE bill_no LIKE 'BTC/26-27/%'
+    `);
+    res.json({ lastSerial: Number(result.rows[0].last_serial) || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
   try {
     const { identifier } = req.params;
@@ -807,32 +873,95 @@ app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
     res.json({ ...bill, items: itemsResult.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-app.post('/api/bills', authMiddleware, async (req, res) => {
+const billFields = [
+  'bill_no', 'bill_date', 'branch_id', 'party_name', 'party_code', 'party_gst', 'party_address',
+  'from_name', 'to_name', 'consignor_name', 'consignee_name', 'vehicle_no', 'lr_nos', 'amount',
+  'gst_amount', 'total_amount', 'grand_total', 'advance_received', 'balance_due', 'net_balance',
+  'trip_subtotal', 'gst_percent', 'invoice_no', 'invoice_date', 'amount_in_words', 'payment_mode',
+  'payment_details', 'remarks', 'status', 'payment_status', 'created_by'
+];
+const validateBill = [
+  body('party_name').trim().notEmpty().withMessage('Party name is required'),
+  body('bill_date').optional({ checkFalsy: true }).isISO8601().withMessage('Bill date must be a valid date'),
+  body('items').optional().isArray().withMessage('Items must be an array')
+];
+const checkBillValidation = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: errors.array()[0].msg, details: errors.array() });
+  next();
+};
+const insertBillItems = async (client, billId, items) => {
+  for (const item of items) {
+    await client.query(
+      `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [billId, item.lr_no || null, item.invoice_no || null, item.from_name || null, item.to_name || null,
+        Number(item.weight_mt) || 0, parseInt(item.packages, 10) || 0, Number(item.freight) || 0,
+        Number(item.loading) || 0, Number(item.unloading) || 0, Number(item.other_charges) || 0,
+        Number(item.total) || 0]
+    );
+  }
+};
+
+app.post('/api/bills', authMiddleware, validateBill, checkBillValidation, async (req, res) => {
+  const client = await pool.connect();
   try {
-    const b = { ...req.body }; const items = b.items || []; delete b.items;
-    if (!b.branch_id) b.branch_id = req.user.branch_id;
-    if (!b.bill_date) b.bill_date = new Date().toISOString().split('T')[0];
-    if (!b.status) b.status = 'Pending';
-    if (!b.payment_status) b.payment_status = 'Unpaid';
-    if (!b.bill_no) {
-      const year = String(new Date().getFullYear()).slice(-2);
-      const countRes = await pool.query(`SELECT COUNT(*) as count FROM bill_book`);
-      const nextNum = parseInt(countRes.rows[0].count || 0) + 1;
-      b.bill_no = `BILL/${year}/${String(nextNum).padStart(3, '0')}`;
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(260627001)');
+    const bill = Object.fromEntries(Object.entries(req.body).filter(([key]) => billFields.includes(key)));
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!bill.branch_id) bill.branch_id = req.user.branch_id;
+    if (!bill.bill_date) bill.bill_date = new Date().toISOString().split('T')[0];
+    if (!bill.status) bill.status = 'Pending';
+    if (!bill.payment_status) bill.payment_status = 'Unpaid';
+    bill.created_by = req.user.username;
+    if (!bill.bill_no) {
+      const serialResult = await client.query(`
+        SELECT COALESCE(MAX(SUBSTRING(bill_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
+        FROM bill_book WHERE bill_no LIKE 'BTC/26-27/%'
+      `);
+      bill.bill_no = `BTC/26-27/${String(Number(serialResult.rows[0].last_serial) + 1).padStart(3, '0')}`;
     }
-    const keys = Object.keys(b); const values = Object.values(b);
-    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO bill_book (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
-    const billId = result.rows[0].id;
-    if (items && items.length > 0) {
-      for (const item of items) {
-        if (item.lr_no || item.invoice_no || item.total > 0) {
-          await pool.query(`INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`, [billId, item.lr_no || null, item.invoice_no || null, item.from_name || null, item.to_name || null, parseFloat(item.weight_mt) || 0, parseInt(item.packages) || 0, parseFloat(item.freight) || 0, parseFloat(item.loading) || 0, parseFloat(item.unloading) || 0, parseFloat(item.other_charges) || 0, parseFloat(item.total) || 0]);
-        }
-      }
+    const fields = Object.keys(bill);
+    const values = Object.values(bill);
+    const result = await client.query(
+      `INSERT INTO bill_book (${fields.join(', ')}) VALUES (${fields.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+      values
+    );
+    await insertBillItems(client, result.rows[0].id, items);
+    await client.query('COMMIT');
+    res.status(201).json({ ...result.rows[0], items });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'Bill number already exists' : err.message });
+  } finally { client.release(); }
+});
+app.put('/api/bills/:id', authMiddleware, validateBill, checkBillValidation, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query('SELECT * FROM bill_book WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Bill not found' });
     }
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const bill = Object.fromEntries(Object.entries(req.body).filter(([key]) => billFields.includes(key) && key !== 'bill_no' && key !== 'created_by'));
+    if (!bill.branch_id) bill.branch_id = existing.rows[0].branch_id || req.user.branch_id;
+    const fields = Object.keys(bill);
+    const values = Object.values(bill);
+    const result = await client.query(
+      `UPDATE bill_book SET ${fields.map((field, i) => `${field} = $${i + 1}`).join(', ')}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
+      [...values, req.params.id]
+    );
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    await client.query('DELETE FROM bill_items WHERE bill_id = $1', [req.params.id]);
+    await insertBillItems(client, req.params.id, items);
+    await client.query('COMMIT');
+    res.json({ ...result.rows[0], items });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
 });
 
 // ==========================================
@@ -1089,6 +1218,10 @@ app.post('/api/rates/calculate', authMiddleware, async (req, res) => {
     let query = `SELECT * FROM rate_contracts WHERE from_city = $1 AND to_city = $2 AND effective_from <= $3 AND (effective_to IS NULL OR effective_to >= $3) AND COALESCE(is_active, TRUE) = TRUE`;
     const params = [from_city, to_city, today];
     if (party_code) { query += ` AND (party_code = $4 OR party_code IS NULL)`; params.push(party_code); }
+    if (req.user.role !== 'admin') {
+      query += ` AND branch_id = $${params.length + 1}`;
+      params.push(req.user.branch_id);
+    }
     query += ` ORDER BY party_code DESC NULLS LAST, weight_from DESC LIMIT 1`;
     const result = await pool.query(query, params);
     if (result.rows.length === 0) return res.json({ found: false, message: 'No rate contract found', freight: 0 });
@@ -1157,31 +1290,31 @@ app.put('/api/eway-bills/:id', authMiddleware, async (req, res) => {
 app.get('/api/users', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can view all users' });
-    const result = await pool.query(`SELECT u.id, u.username, u.full_name, u.role, u.branch_id, COALESCE(u.is_active, TRUE) as is_active, u.created_at, b.branch_code, b.branch_name, b.city FROM users u LEFT JOIN branches b ON u.branch_id = b.id ORDER BY u.created_at DESC`);
+    const result = await pool.query(`SELECT u.id, u.username, u.email, u.full_name, u.role, u.branch_id, COALESCE(u.is_active, TRUE) as is_active, u.created_at, b.branch_code, b.branch_name, b.city FROM users u LEFT JOIN branches b ON u.branch_id = b.id ORDER BY u.created_at DESC`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/users', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can create users' });
-    const { username, password, full_name, role, branch_id } = req.body;
+    const { username, email, password, full_name, role, branch_id } = req.body;
     if (!username || !password || !full_name || !role) return res.status(400).json({ error: 'All fields are required' });
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (existing.rows.length > 0) return res.status(400).json({ error: 'Username already exists' });
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query(`INSERT INTO users (username, password, full_name, role, branch_id, is_active) VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, username, full_name, role, branch_id`, [username, hashedPassword, full_name, role, branch_id || null]);
+    const result = await pool.query(`INSERT INTO users (username, email, password, full_name, role, branch_id, is_active) VALUES ($1, $2, $3, $4, $5, $6, TRUE) RETURNING id, username, email, full_name, role, branch_id`, [username, email || null, hashedPassword, full_name, role, branch_id || null]);
     res.json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.put('/api/users/:id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only admin can update users' });
-    const id = req.params.id; const { full_name, role, branch_id, is_active, password } = req.body;
-    let query = `UPDATE users SET full_name = $1, role = $2, branch_id = $3, is_active = $4`;
-    const params = [full_name, role, branch_id || null, is_active !== undefined ? is_active : true];
-    let paramCount = 4;
+    const id = req.params.id; const { full_name, email, role, branch_id, is_active, password } = req.body;
+    let query = `UPDATE users SET full_name = $1, email = $2, role = $3, branch_id = $4, is_active = $5`;
+    const params = [full_name, email || null, role, branch_id || null, is_active !== undefined ? is_active : true];
+    let paramCount = 5;
     if (password) { paramCount++; const hashedPassword = await bcrypt.hash(password, 10); query += `, password = $${paramCount}`; params.push(hashedPassword); }
-    paramCount++; query += ` WHERE id = $${paramCount} RETURNING id, username, full_name, role, branch_id, is_active`; params.push(id);
+    paramCount++; query += ` WHERE id = $${paramCount} RETURNING id, username, email, full_name, role, branch_id, is_active`; params.push(id);
     const result = await pool.query(query, params);
     res.json({ success: true, data: result.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1276,11 +1409,22 @@ app.post('/api/backup/import', authMiddleware, async (req, res) => {
 // ==========================================
 async function ensureAdminUser() {
   try {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const result = await pool.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    const username = process.env.INITIAL_ADMIN_USERNAME;
+    const password = process.env.INITIAL_ADMIN_PASSWORD;
+    const email = process.env.INITIAL_ADMIN_EMAIL || null;
+    if (!username || !password) {
+      console.warn('Initial admin bootstrap skipped: set INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_PASSWORD to create one.');
+      return;
+    }
+
+    const result = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (result.rows.length === 0) {
-      await pool.query(`INSERT INTO users (username, password, full_name, role, is_active) VALUES ($1, $2, $3, $4, $5)`, ['admin', hashedPassword, 'Administrator', 'admin', true]);
-      console.log('✅ Admin user created (admin / admin123)');
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await pool.query(
+        `INSERT INTO users (username, password, email, full_name, role, is_active)
+         VALUES ($1, $2, $3, $4, $5, TRUE)`,
+        [username, hashedPassword, email, 'Administrator', 'admin']
+      );
     }
   } catch (err) { console.error('Admin setup error:', err.message); }
 }

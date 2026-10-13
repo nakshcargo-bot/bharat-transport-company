@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 
 const COMPANY = {
@@ -19,6 +19,7 @@ export default function BillPrint() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [bills, setBills] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -29,8 +30,14 @@ export default function BillPrint() {
     setError('')
     const loadBill = async () => {
       if (!id) {
-        setError('Select a bill to print.')
-        setLoading(false)
+        try {
+          const res = await api.get('/api/bills')
+          if (active) setBills(res.data?.data || res.data || [])
+        } catch (err) {
+          if (active) setError(err.response?.data?.message || 'Unable to load bills.')
+        } finally {
+          if (active) setLoading(false)
+        }
         return
       }
       try {
@@ -47,6 +54,43 @@ export default function BillPrint() {
   }, [id])
 
   if (loading) return <div role="status" className="p-8 text-center">Loading bill...</div>
+  if (!id) return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Select a bill to print</h1>
+          <button onClick={() => navigate('/bills')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        </div>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-3">Bill No.</th>
+                <th className="p-3">Date</th>
+                <th className="p-3">Party</th>
+                <th className="p-3 text-right">Total</th>
+                <th className="p-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bills.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No bills found.</td></tr>
+              ) : bills.map((bill) => (
+                <tr key={bill.id} onClick={() => navigate(`/bill-print/${bill.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
+                  <td className="p-3 font-semibold">{bill.bill_no || 'N/A'}</td>
+                  <td className="p-3">{bill.bill_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{bill.party_name || 'N/A'}</td>
+                  <td className="p-3 text-right">₹{Number(bill.grand_total || 0).toLocaleString('en-IN')}</td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bill-print/${bill.id}`} onClick={(event) => event.stopPropagation()}>View / Print</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  )
   if (error || !data) return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="text-center bg-white p-6 rounded-lg shadow">

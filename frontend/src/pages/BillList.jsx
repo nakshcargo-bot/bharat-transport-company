@@ -89,6 +89,12 @@ export default function BillList() {
                     >
                       🖨️ View / Print
                     </Link>
+                    <Link
+                      to={`/bill/edit/${bill.id}`}
+                      className="ml-2 bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 text-sm font-medium inline-block"
+                    >
+                      Edit
+                    </Link>
                   </td>
                 </tr>
               ))}

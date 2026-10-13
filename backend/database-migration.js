@@ -9,6 +9,20 @@ async function runMigrations() {
   console.log('🔄 Running database migrations...');
 
   try {
+    await pool.query(`
+      ALTER TABLE branches
+      ADD COLUMN IF NOT EXISTS branch_login_enabled BOOLEAN DEFAULT FALSE
+    `);
+    await pool.query(`
+      ALTER TABLE branches
+      ADD COLUMN IF NOT EXISTS login_credentials JSONB
+    `);
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS email VARCHAR(100)
+    `);
+    console.log('✅ Added branch login schema columns');
+
     // Add consignor_email column
     await pool.query(`
       ALTER TABLE consignments 

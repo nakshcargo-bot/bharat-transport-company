@@ -37,7 +37,7 @@ const Backup = lazy(() => import('./pages/Backup'))
 const BranchPayments = lazy(() => import('./pages/BranchPayments'))
 const StockManagement = lazy(() => import('./pages/StockManagement'))
 const BranchPortal = lazy(() => import('./pages/BranchPortal'))
-const BranchLogin = lazy(() => import('./pages/BranchLogin'))
+const BranchLoginPage = lazy(() => import('./pages/BranchLoginPage'))
 
 const Ledger = lazy(() => import('./pages/Ledger'))
 const Outstanding = lazy(() => import('./pages/Outstanding'))
@@ -95,7 +95,7 @@ function App() {
           {/* Public Routes - No Login Required */}
           <Route path="/login" element={<Login />} />
           <Route path="/track" element={<TrackBilty />} />
-          <Route path="/bilty-print" element={<BiltyPrint />} />
+          <Route path="/bilty-print/:id?" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
           <Route path="/mr-print/:id?" element={<MRPrint />} />
           <Route path="/gadi-challan-print/:id?" element={<GadiChallanPrint />} />
@@ -104,7 +104,7 @@ function App() {
           
           {/* Branch Portal Routes - Public Access */}
           <Route path="/branch/:branchSlug" element={<BranchPortal />} />
-          <Route path="/branch-login/:branchSlug" element={<BranchLogin />} />
+          <Route path="/branch-login/:slug" element={<BranchLoginPage />} />
 
           {/* Protected Routes - Login Required */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -114,6 +114,7 @@ function App() {
 
           <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
+          <Route path="/bill/edit/:id" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill-print/:id?" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
 
@@ -149,7 +150,7 @@ function App() {
             <div style={{padding:'50px',textAlign:'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               <div>
                 <h1 className="text-4xl font-bold text-gray-800 mb-4">404 - Page Not Found</h1>
-                <a href="#/" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block font-medium">Go Home</a>
+                <button type="button" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign('#/')} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block font-medium">Go Back</button>
               </div>
             </div>
           } />

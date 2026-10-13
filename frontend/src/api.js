@@ -1,7 +1,6 @@
 import axios from 'axios'
 
-// ✅ Environment variable se URL lo, fallback ke saath
-const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+const API_URL = 'https://bharat-transport-api.onrender.com'
 
 const api = axios.create({
   baseURL: API_URL,

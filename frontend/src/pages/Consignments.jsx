@@ -41,7 +41,7 @@ export default function Consignments({ isNew }) {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       const data = await res.json()
       setBilties(data.data || [])
@@ -51,7 +51,7 @@ export default function Consignments({ isNew }) {
   const fetchParties = async () => {
     try {
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/parties`, { headers: { 'Authorization': `Bearer ${token}` } })
       const data = await res.json()
       setParties(data.data || [])
@@ -61,7 +61,7 @@ export default function Consignments({ isNew }) {
   const fetchNextLRNo = async () => {
     try {
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       const data = await res.json()
       const year = String(new Date().getFullYear()).slice(-2)
@@ -84,7 +84,7 @@ export default function Consignments({ isNew }) {
   const fetchNextRVNo = async () => {
     try {
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       const data = await res.json()
       const year = String(new Date().getFullYear()).slice(-2)
@@ -197,7 +197,7 @@ export default function Consignments({ isNew }) {
     setSubmitting(true)
     try {
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
 
       let finalConsignorCode = formData.consignor_code
       let finalConsigneeCode = formData.consignee_code

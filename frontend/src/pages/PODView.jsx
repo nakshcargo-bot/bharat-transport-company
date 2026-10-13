@@ -20,7 +20,7 @@ export default function PODView() {
       setError('')
       setResult(null)
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/public/pod-view?lr_no=${encodeURIComponent(lrNo)}`)
       
       if (res.ok) {

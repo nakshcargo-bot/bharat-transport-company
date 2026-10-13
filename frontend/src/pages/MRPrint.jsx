@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api'
 
 const COMPANY = {
@@ -18,9 +18,12 @@ const COMPANY = {
 export default function MRPrint() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [data, setData] = useState(null)
+  const [receipts, setReceipts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const mrNo = searchParams.get('mr_no')
 
   useEffect(() => {
     let active = true
@@ -28,25 +31,62 @@ export default function MRPrint() {
     setData(null)
     setError('')
     const loadReceipt = async () => {
-      if (!id) {
-        setError('Select a money receipt to print.')
-        setLoading(false)
-        return
-      }
       try {
-        const res = await api.get(`/api/mr/${id}`)
-        if (active) setData(res.data)
+        if (id) {
+          const res = await api.get(`/api/mr/${id}`)
+          if (active) setData(res.data)
+        } else {
+          const res = await api.get('/api/mr')
+          const rows = Array.isArray(res.data) ? res.data : res.data?.data || []
+          if (active) setReceipts(rows)
+          if (mrNo) {
+            const receipt = rows.find((item) => item.mr_no === mrNo)
+            if (!receipt) throw new Error('Money receipt not found.')
+            if (active) setData(receipt)
+          }
+        }
       } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Unable to load this money receipt.')
+        if (active) setError(err.response?.data?.message || err.message || 'Unable to load money receipts.')
       } finally {
         if (active) setLoading(false)
       }
     }
     loadReceipt()
     return () => { active = false }
-  }, [id])
+  }, [id, mrNo])
 
   if (loading) return <div role="status" className="p-8 text-center">Loading money receipt...</div>
+  if (!id && !mrNo) return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Select a money receipt to print</h1>
+          <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        </div>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100">
+              <tr><th className="p-3">MR No.</th><th className="p-3">Date</th><th className="p-3">Party</th><th className="p-3 text-right">Amount</th><th className="p-3">Action</th></tr>
+            </thead>
+            <tbody>
+              {receipts.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No money receipts found.</td></tr>
+              ) : receipts.map((receipt) => (
+                <tr key={receipt.id} onClick={() => navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`)} className="border-t hover:bg-gray-50 cursor-pointer">
+                  <td className="p-3 font-semibold">{receipt.mr_no || 'N/A'}</td>
+                  <td className="p-3">{receipt.mr_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{receipt.party_name || 'N/A'}</td>
+                  <td className="p-3 text-right">₹{Number(receipt.amount || 0).toLocaleString('en-IN')}</td>
+                  <td className="p-3"><button className="text-blue-700 underline" onClick={(event) => { event.stopPropagation(); navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`) }}>View / Print</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  )
   if (error || !data) return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="text-center bg-white p-6 rounded-lg shadow">

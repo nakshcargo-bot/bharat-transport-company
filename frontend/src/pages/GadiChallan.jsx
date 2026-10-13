@@ -48,7 +48,7 @@ export default function GadiChallan() {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
       const res = await fetch(`${apiUrl}/api/gadi-challan`, { headers })
@@ -66,7 +66,7 @@ export default function GadiChallan() {
   const fetchBilties = async () => {
     try {
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
       const res = await fetch(`${apiUrl}/api/consignments`, { headers })
@@ -140,7 +140,7 @@ export default function GadiChallan() {
     try {
       setLoading(true)
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
 
       const url = editId ? `${apiUrl}/api/gadi-challan/${editId}` : `${apiUrl}/api/gadi-challan`
       const method = editId ? 'PUT' : 'POST'
@@ -438,10 +438,10 @@ export default function GadiChallan() {
                         <td className="p-4 text-right font-bold text-lime-700">{formatCurrency(c.balance_due)}</td>
                         {/* ✅ FIXED: Added View, Print, and Edit buttons */}
                         <td className="p-4 text-center space-y-1">
-                          <button onClick={() => navigate(`/gadi-challan-print?id=${c.id}`)} className="block w-full text-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold hover:bg-blue-200 mb-1">
+                          <button onClick={() => navigate(`/gadi-challan-print/${c.id}`)} className="block w-full text-center px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold hover:bg-blue-200 mb-1">
                             👁️ View
                           </button>
-                          <button onClick={() => navigate(`/gadi-challan-print?id=${c.id}`)} className="block w-full text-center px-2 py-1 bg-lime-100 text-lime-700 rounded text-xs font-bold hover:bg-lime-200 mb-1">
+                          <button onClick={() => navigate(`/gadi-challan-print/${c.id}`)} className="block w-full text-center px-2 py-1 bg-lime-100 text-lime-700 rounded text-xs font-bold hover:bg-lime-200 mb-1">
                             🖨️ Print
                           </button>
                           <button onClick={() => handleEdit(c)} className="block w-full text-center px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold hover:bg-yellow-200">

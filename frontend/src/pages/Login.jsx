@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
-import { authAPI } from '../api'
 import { ArrowRight, LockKeyhole, Mail, Truck } from 'lucide-react'
 
 export default function Login() {
@@ -18,25 +17,13 @@ export default function Login() {
       setError('')
       setLoading(true)
       
-      // Step 1: Firebase login
       await login(email, password)
-      
-      // Step 2: Backend login to get JWT token
-      const res = await authAPI.login('admin', 'admin123')
-      if (res.data && res.data.token) {
-        localStorage.setItem('token', res.data.token)
-        localStorage.setItem('user', JSON.stringify(res.data.user || {}))
-        console.log('✅ Token saved:', res.data.token.substring(0, 20) + '...')
-      } else {
-        console.warn('⚠️ No token in response:', res.data)
-      }
-      
       navigate('/dashboard')
     } catch (err) {
-      setError('Failed to sign in: ' + err.message)
-      console.error('Login error:', err)
+      setError(err.response?.data?.error || err.message || 'Unable to sign in. Check your credentials and try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -76,15 +63,15 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="login-form">
             <div className="login-field">
-              <label htmlFor="login-email">Email</label>
+              <label htmlFor="login-email">Email or username</label>
               <div className="login-input-wrap">
                 <Mail size={17} aria-hidden="true" />
                 <input
                   id="login-email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="Email or username"
                   autoComplete="username"
                   required
                   disabled={loading}

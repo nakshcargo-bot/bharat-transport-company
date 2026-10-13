@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import api from '../api'
 
 export default function BiltyPrint() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const [searchParams] = useSearchParams()
   const [bilty, setBilty] = useState(null)
+  const [bilties, setBilties] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState('')
 
   const lrNo = searchParams.get('lr_no')
 
@@ -14,33 +17,32 @@ export default function BiltyPrint() {
     let active = true
     setBilty(null)
     setLoading(true)
-    setError(null)
-    if (!lrNo) {
-      setError('Select a bilty to print.')
-      setLoading(false)
-      return () => { active = false }
-    }
-    fetchBiltyData(lrNo, () => active)
-    return () => { active = false }
-  }, [lrNo, navigate])
+    setError('')
+    const loadBilty = async () => {
+      try {
+        if (id) {
+          const res = await api.get(`/api/consignments/${id}`)
+          if (active) setBilty(res.data)
+          return
+        }
 
-  const fetchBiltyData = async (lrNo, isActive) => {
-    try {
-      const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
-      const bilties = Array.isArray(data) ? data : data.data
-      const foundBilty = Array.isArray(bilties) ? bilties.find(b => b.lr_no === lrNo) : null
-      if (!foundBilty) throw new Error('Bilty not found')
-      if (isActive()) setBilty(foundBilty)
-    } catch (err) {
-      if (isActive()) setError(err.message)
-    } finally {
-      if (isActive()) setLoading(false)
+        const res = await api.get('/api/consignments')
+        const rows = Array.isArray(res.data) ? res.data : res.data?.data || []
+        if (active) setBilties(rows)
+        if (lrNo) {
+          const foundBilty = rows.find((row) => row.lr_no === lrNo)
+          if (!foundBilty) throw new Error('Bilty not found')
+          if (active) setBilty(foundBilty)
+        }
+      } catch (err) {
+        if (active) setError(err.response?.data?.message || err.message || 'Unable to load bilties.')
+      } finally {
+        if (active) setLoading(false)
+      }
     }
-  }
+    loadBilty()
+    return () => { active = false }
+  }, [id, lrNo])
 
   const handlePrint = () => window.print()
 
@@ -73,6 +75,37 @@ export default function BiltyPrint() {
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div></div>
+  if (!id && !lrNo) return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Select a bilty to print</h1>
+          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        </div>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100">
+              <tr><th className="p-3">LR No.</th><th className="p-3">Date</th><th className="p-3">Consignor</th><th className="p-3">Consignee</th><th className="p-3">Action</th></tr>
+            </thead>
+            <tbody>
+              {bilties.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No bilties found.</td></tr>
+              ) : bilties.map((item) => (
+                <tr key={item.id} onClick={() => navigate(`/bilty-print/${item.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
+                  <td className="p-3 font-semibold">{item.lr_no || 'N/A'}</td>
+                  <td className="p-3">{item.lr_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{item.consignor_name || 'N/A'}</td>
+                  <td className="p-3">{item.consignee_name || 'N/A'}</td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${item.id}`} onClick={(event) => event.stopPropagation()}>View / Print</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  )
   if (error || !bilty) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="bg-white p-6 rounded-lg shadow text-center">

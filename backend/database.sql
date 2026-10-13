@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS branches (
     email VARCHAR(100),
     gst_no VARCHAR(20),
     manager_name VARCHAR(100),
+    branch_login_enabled BOOLEAN DEFAULT FALSE,
+    login_credentials JSONB,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -650,10 +652,8 @@ CREATE TABLE IF NOT EXISTS financial_years (
 -- SAMPLE DATA
 -- ============================================
 
--- Admin User (plain text — as-is, backend handles)
-INSERT INTO users (username, password, full_name, role, mobile, email)
-VALUES ('admin', 'admin123', 'Head Office Admin', 'admin', '9680264231', 'bharattransportcompany@gmail.com')
-ON CONFLICT (username) DO NOTHING;
+-- Create the initial administrator through the backend's
+-- INITIAL_ADMIN_USERNAME / INITIAL_ADMIN_PASSWORD environment settings.
 
 -- Sample Branches (15)
 INSERT INTO branches (branch_code, branch_name, address, city, state, pincode, mobile, gst_no) VALUES

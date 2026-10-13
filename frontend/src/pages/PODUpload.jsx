@@ -71,7 +71,7 @@ export default function PODUpload() {
 
     try {
       setLoading(true)
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       
       const payload = {
         ...formData,

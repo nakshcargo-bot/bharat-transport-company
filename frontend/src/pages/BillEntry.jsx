@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 
 export default function BillEntry() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const [loading, setLoading] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [historyList, setHistoryList] = useState([])
   const [selectedInvoices, setSelectedInvoices] = useState([])
+  const [historyDate, setHistoryDate] = useState('')
+  const [printOption, setPrintOption] = useState('original')
+  const backupInputRef = useRef(null)
   
   // Auto-fill LR search state
   const [lrSearch, setLrSearch] = useState('')
@@ -45,27 +49,90 @@ export default function BillEntry() {
   }
 
   useEffect(() => {
-    fetchNextBillNo()
+    if (id) loadBill(id)
+    else fetchNextBillNo()
     fetchHistory()
-  }, [])
+  }, [id])
 
   const fetchNextBillNo = async () => {
+    let lastSerial = 0
     try {
-      // Backend se next number lao, ya local storage se
-      const res = await api.get('/api/bills/next-serial').catch(() => ({ data: { nextNo: '001' } }))
-      const nextNum = (res.data.nextNo || '1').toString().padStart(3, '0')
-      setBillData(prev => ({ ...prev, invNo: `BTC/26-27/${nextNum}` }))
+      const res = await api.get('/api/bills/last-serial')
+      lastSerial = Number(res.data?.lastSerial) || 0
+      localStorage.setItem('btc_last_serial', String(lastSerial))
     } catch (e) {
-      setBillData(prev => ({ ...prev, invNo: 'BTC/26-27/001' }))
+      lastSerial = Number.parseInt(localStorage.getItem('btc_last_serial') || '0', 10) || 0
+    }
+    const nextNum = String(lastSerial + 1).padStart(3, '0')
+    setBillData(prev => ({ ...prev, invNo: `BTC/26-27/${nextNum}` }))
+  }
+
+  const mapBillToForm = (bill) => ({
+    invNo: bill.bill_no || bill.invNo || '',
+    billDate: (bill.bill_date || bill.billDate || new Date().toISOString()).split('T')[0],
+    partyName: bill.party_name || bill.partyName || '',
+    partyGst: bill.party_gst || bill.partyGst || '',
+    fromAddr: bill.from_name || bill.fromAddr || '',
+    toAddr: bill.to_name || bill.toAddr || '',
+    vehNo: bill.vehicle_no || bill.vehNo || '',
+    advInput: bill.advance_received ?? bill.advInput ?? 0,
+    advCash: bill.advCash || '',
+    advChq: bill.advChq || '',
+    advUpi: bill.advUpi || '',
+    gstPer: bill.gst_percent ?? bill.gstPer ?? 0,
+    subtotal: Number(bill.trip_subtotal ?? bill.subtotal) || 0,
+    gstAmt: Number(bill.gst_amount ?? bill.gstAmt) || 0,
+    grandtotal: Number(bill.grand_total ?? bill.grandtotal ?? bill.totalAmt) || 0,
+    balance: Number(bill.net_balance ?? bill.balance_due ?? bill.balance) || 0,
+    amountWords: bill.amount_in_words || bill.amountWords || '',
+    remarks: bill.remarks || '',
+    rows: (bill.items || bill.rows || []).map(row => ({
+      date: row.date || '',
+      lr: row.lr_no || row.lr || '',
+      inv: row.invoice_no || row.inv || '',
+      from: row.from_name || row.from || '',
+      to: row.to_name || row.to || '',
+      wt: row.weight_mt || row.wt || '',
+      load: row.loading ?? row.load ?? '',
+      unload: row.unloading ?? row.unload ?? '',
+      oth: row.other_charges ?? row.oth ?? '',
+      freight: row.freight || '',
+      total: row.total || '0.00'
+    })).length ? (bill.items || bill.rows || []).map(row => ({
+      date: row.date || '',
+      lr: row.lr_no || row.lr || '',
+      inv: row.invoice_no || row.inv || '',
+      from: row.from_name || row.from || '',
+      to: row.to_name || row.to || '',
+      wt: row.weight_mt || row.wt || '',
+      load: row.loading ?? row.load ?? '',
+      unload: row.unloading ?? row.unload ?? '',
+      oth: row.other_charges ?? row.oth ?? '',
+      freight: row.freight || '',
+      total: row.total || '0.00'
+    })) : [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
+  })
+
+  const loadBill = async (billId) => {
+    setLoading(true)
+    try {
+      const res = await api.get(`/api/bills/${billId}`)
+      setBillData(prev => ({ ...prev, ...mapBillToForm(res.data) }))
+    } catch (err) {
+      alert(err.response?.data?.error || 'Unable to load bill for editing.')
+      navigate('/bills')
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchHistory = async () => {
     try {
       const res = await api.get('/api/bills')
-      setHistoryList(res.data.data || [])
+      setHistoryList((res.data.data || []).map(bill => ({ id: bill.id, ...mapBillToForm(bill), date: bill.bill_date })))
     } catch (e) {
-      setHistoryList(JSON.parse(localStorage.getItem('btc_history') || '[]'))
+      try { setHistoryList(JSON.parse(localStorage.getItem('btc_history') || '[]').map(mapBillToForm)) }
+      catch (parseError) { setHistoryList([]) }
     }
   }
 
@@ -111,10 +178,11 @@ export default function BillEntry() {
   }
 
   const updateRow = (index, field, value) => {
-    const newRows = [...billData.rows]
-    newRows[index][field] = value
-    setBillData({ ...billData, rows: newRows })
-    calculate()
+    setBillData(prev => {
+      const rows = prev.rows.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row)
+      const next = { ...prev, rows }
+      return { ...next, ...calculate(next) }
+    })
   }
 
   const addRow = () => {
@@ -124,31 +192,46 @@ export default function BillEntry() {
     }))
   }
 
-  const calculate = () => {
+  const removeRow = (index) => {
+    setBillData(prev => {
+      const rows = prev.rows.length > 1 ? prev.rows.filter((row, rowIndex) => rowIndex !== index) : prev.rows
+      const next = { ...prev, rows }
+      return { ...next, ...calculate(next) }
+    })
+  }
+
+  const calculate = (source = billData) => {
     let sub = 0
-    billData.rows.forEach(row => {
+    const rows = source.rows.map(row => {
       const load = parseFloat(row.load) || 0
       const unload = parseFloat(row.unload) || 0
       const oth = parseFloat(row.oth) || 0
       const freight = parseFloat(row.freight) || 0
       const rowTotal = load + unload + oth + freight
-      row.total = rowTotal.toFixed(2)
       sub += rowTotal
+      return { ...row, total: rowTotal.toFixed(2) }
     })
 
-    const gstA = (sub * parseFloat(billData.gstPer || 0)) / 100
+    const gstA = (sub * parseFloat(source.gstPer || 0)) / 100
     const grand = sub + gstA
-    const adv = parseFloat(billData.advInput) || 0
+    const adv = parseFloat(source.advInput) || 0
     const bal = grand - adv
 
-    setBillData(prev => ({
-      ...prev,
+    return {
+      rows,
       subtotal: sub,
       gstAmt: gstA,
       grandtotal: grand,
       balance: bal,
       amountWords: convertToWords(bal)
-    }))
+    }
+  }
+
+  const updateBillField = (field, value) => {
+    setBillData(prev => {
+      const next = { ...prev, [field]: value }
+      return { ...next, ...calculate(next) }
+    })
   }
 
   const convertToWords = (num) => {
@@ -176,28 +259,84 @@ export default function BillEntry() {
     if (!billData.partyName) { alert("Party Name zaroori hai!"); return }
     setLoading(true)
     try {
-      const payload = { ...billData, totalAmt: billData.grandtotal }
-      await api.post('/api/bills', payload)
-      alert("✅ Bill Saved Successfully! Bill List me update ho gaya.")
-      fetchHistory()
-      newBill()
+      const calculated = calculate(billData)
+      const payload = {
+        bill_no: billData.invNo,
+        bill_date: billData.billDate,
+        party_name: billData.partyName,
+        party_gst: billData.partyGst,
+        party_address: [billData.fromAddr, billData.toAddr].filter(Boolean).join(' | '),
+        from_name: billData.fromAddr,
+        to_name: billData.toAddr,
+        vehicle_no: billData.vehNo,
+        advance_received: Number(billData.advInput) || 0,
+        trip_subtotal: calculated.subtotal,
+        gst_percent: Number(billData.gstPer) || 0,
+        gst_amount: calculated.gstAmt,
+        grand_total: calculated.grandtotal,
+        balance_due: calculated.balance,
+        net_balance: calculated.balance,
+        amount_in_words: calculated.amountWords,
+        payment_details: JSON.stringify({ cash: billData.advCash, cheque: billData.advChq, online: billData.advUpi }),
+        remarks: billData.remarks,
+        items: calculated.rows.map(row => ({
+          lr_no: row.lr,
+          invoice_no: row.inv,
+          from_name: row.from,
+          to_name: row.to,
+          weight_mt: row.wt,
+          freight: row.freight,
+          loading: row.load,
+          unloading: row.unload,
+          other_charges: row.oth,
+          total: row.total
+        }))
+      }
+      const response = id
+        ? await api.put(`/api/bills/${id}`, payload)
+        : await api.post('/api/bills', payload)
+      const savedBill = response.data
+      const serial = Number.parseInt((savedBill.bill_no || billData.invNo).split('/').pop(), 10)
+      if (Number.isFinite(serial)) localStorage.setItem('btc_last_serial', String(serial))
+      const localHistory = JSON.parse(localStorage.getItem('btc_history') || '[]')
+      const nextHistory = [savedBill, ...localHistory.filter(bill => bill.id !== savedBill.id)]
+      localStorage.setItem('btc_history', JSON.stringify(nextHistory))
+      await fetchHistory()
+      alert(id ? 'Bill updated successfully.' : 'Bill saved successfully.')
+      if (id) {
+        navigate('/bills')
+      } else if (window.confirm('Create another bill?')) {
+        setBillData({
+          invNo: '', billDate: new Date().toISOString().split('T')[0], partyName: '', partyGst: '',
+          fromAddr: '', toAddr: '', vehNo: '', advInput: 0, advCash: '', advChq: '', advUpi: '',
+          gstPer: 0, subtotal: 0, gstAmt: 0, grandtotal: 0, balance: 0, amountWords: '', remarks: '',
+          rows: [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
+        })
+        fetchNextBillNo()
+      }
     } catch (err) {
       alert("Save failed: " + (err.response?.data?.error || err.message))
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const newBill = () => {
     if (window.confirm("Generate New Bill?")) {
+      if (id) {
+        navigate('/bill/new')
+        return
+      }
       setBillData({
-        invNo: billData.invNo, // Serial number maintain rahega
+        invNo: '',
         billDate: new Date().toISOString().split('T')[0],
-        partyName: '', partyGst: '', fromAddr: '', toAddr: '', vehNo: '',
+        partyName: '', partyGst: '', fromAddr: '', toAddr: '', vehNo: '', subtotal: 0,
+        gstAmt: 0, grandtotal: 0, balance: 0, amountWords: '',
         advInput: 0, advCash: '', advChq: '', advUpi: '', gstPer: 0, remarks: '',
         rows: [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
       })
       setLrSearch('')
-      calculate()
+      fetchNextBillNo()
     }
   }
 

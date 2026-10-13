@@ -11,7 +11,7 @@ export default function Commissions() {
 
   useEffect(() => { fetchData() }, [])
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+  const apiUrl = 'https://bharat-transport-api.onrender.com'
   const getHeaders = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' })
 
   const fetchData = async () => {

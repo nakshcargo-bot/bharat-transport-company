@@ -43,14 +43,16 @@ export default function Dashboard() {
         const currentStock = JSON.parse(savedStock)
         setLowStockItems(currentStock.filter(item => item.currentStock <= item.threshold))
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Unable to read stock alerts:', e)
+    }
   }
 
   const fetchData = async () => {
     try {
       setError(null)
       const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
+      const apiUrl = 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
       if (token) {
@@ -62,7 +64,9 @@ export default function Dashboard() {
             navigate('/login')
             return
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('Unable to validate dashboard session:', e)
+        }
       }
 
       const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''

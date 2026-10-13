@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api'
 
 const COMPANY = {
@@ -16,9 +16,12 @@ const COMPANY = {
 }
 
 export default function GadiChallanPrint() {
-  const { id } = useParams()
+  const { id: routeId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const id = routeId || searchParams.get('id')
   const [data, setData] = useState(null)
+  const [challans, setChallans] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -28,16 +31,17 @@ export default function GadiChallanPrint() {
     setData(null)
     setError('')
     const loadChallan = async () => {
-      if (!id) {
-        setError('Select a challan to print.')
-        setLoading(false)
-        return
-      }
       try {
-        const res = await api.get(`/api/gadi-challan/${id}`)
-        if (active) setData(res.data)
+        if (id) {
+          const res = await api.get(`/api/gadi-challan/${id}`)
+          if (active) setData(res.data)
+        } else {
+          const res = await api.get('/api/gadi-challan')
+          const rows = Array.isArray(res.data) ? res.data : res.data?.data || []
+          if (active) setChallans(rows)
+        }
       } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Unable to load this challan.')
+        if (active) setError(err.response?.data?.message || 'Unable to load challans.')
       } finally {
         if (active) setLoading(false)
       }
@@ -47,6 +51,37 @@ export default function GadiChallanPrint() {
   }, [id])
 
   if (loading) return <div role="status" className="p-8 text-center">Loading challan...</div>
+  if (!id) return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Select a challan to print</h1>
+          <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        </div>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100">
+              <tr><th className="p-3">Challan No.</th><th className="p-3">Date</th><th className="p-3">Vehicle</th><th className="p-3">Driver</th><th className="p-3">Action</th></tr>
+            </thead>
+            <tbody>
+              {challans.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No challans found.</td></tr>
+              ) : challans.map((challan) => (
+                <tr key={challan.id} onClick={() => navigate(`/gadi-challan-print/${challan.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
+                  <td className="p-3 font-semibold">{challan.challan_no || 'N/A'}</td>
+                  <td className="p-3">{challan.issue_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{challan.vehicle_no || 'N/A'}</td>
+                  <td className="p-3">{challan.driver_name || 'N/A'}</td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/gadi-challan-print/${challan.id}`} onClick={(event) => event.stopPropagation()}>View / Print</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  )
   if (error || !data) return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="text-center bg-white p-6 rounded-lg shadow">

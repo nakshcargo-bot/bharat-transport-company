@@ -7,13 +7,14 @@ export default function Branches() {
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [showCredentials, setShowCredentials] = useState(null)
   const [showEdit, setShowEdit] = useState(null)
-  const [showResetPassword, setShowResetPassword] = useState(null)
+  const [showBranchLoginSetup, setShowBranchLoginSetup] = useState(null)
+  const [branchLoginForm, setBranchLoginForm] = useState({ username: '', password: '' })
+  const [branchLoginSaving, setBranchLoginSaving] = useState(false)
+  const [newBranchCredentials, setNewBranchCredentials] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [newPassword, setNewPassword] = useState('')
   const [form, setForm] = useState({ branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '' })
   const [editForm, setEditForm] = useState({ branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '' })
 
@@ -37,12 +38,12 @@ export default function Branches() {
       return
     }
     try {
-      const res = await api.post('/api/branches/create-with-login', form)
+      const res = await api.post('/api/branches/create', form)
       if (res.data.success) {
-        setShowCredentials(res.data.branch)
         setForm({ branch_name: '', city: '', state: '', address: '', phone: '', email: '', incharge_name: '' })
         setShowForm(false)
-        loadBranches()
+        await loadBranches()
+        alert('Branch created. Use Setup Login in the branch row to configure staff credentials.')
       }
     } catch (err) {
       alert('❌ Error: ' + (err.response?.data?.error || err.message))
@@ -92,38 +93,40 @@ export default function Branches() {
     }
   }
 
-  const handleResetPassword = async (e) => {
+  const handleBranchLoginSetup = async (e) => {
     e.preventDefault()
-    if (!newPassword || newPassword.length < 6) {
-      alert('⚠️ Password must be at least 6 characters!')
-      return
-    }
+    if (!showBranchLoginSetup) return
+    setBranchLoginSaving(true)
     try {
-      await api.put(`/api/branches/${showResetPassword.id}/credentials`, { incharge_password: newPassword })
-      alert('✅ Password reset successfully!\n\nNew Password: ' + newPassword + '\n\nYe password abhi copy karo!')
-      setShowResetPassword(null)
-      setNewPassword('')
+      const response = await api.post(
+        `/api/branches/${showBranchLoginSetup.id}/branch-login`,
+        branchLoginForm
+      )
+      setNewBranchCredentials({
+        branch_name: response.data.branch.branch_name,
+        portal_url: response.data.portal_url,
+        ...response.data.credentials
+      })
+      setShowBranchLoginSetup(null)
+      setBranchLoginForm({ username: '', password: '' })
+      await loadBranches()
     } catch (err) {
-      alert(' Reset failed: ' + (err.response?.data?.error || err.message))
+      alert('Branch login setup failed: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setBranchLoginSaving(false)
     }
   }
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
-    alert('✅ Copied: ' + text)
-  }
-
-  const copyAllCredentials = (branch) => {
-    const url = branch.portal_url || `https://bharat-transport-v2.pages.dev/#/branch-login/${branch.url_slug}`
-    const text = ` ${branch.branch_name} Branch Credentials\n\nURL: ${url}\nUsername: ${branch.incharge_username}\nPassword: ${branch.incharge_password || '(reset if needed)'}\n\n© Bharat Transport Company`
-    navigator.clipboard.writeText(text)
-    alert('✅ All credentials copied to clipboard!')
+      .then(() => alert('✅ Copied: ' + text))
+      .catch((err) => alert('Could not copy the value: ' + err.message))
   }
 
   const exportToCSV = () => {
     if (filteredBranches.length === 0) { alert('⚠️ No branches to export!'); return }
     const headers = ['Branch Name', 'Code', 'City', 'State', 'Incharge', 'Username', 'Phone', 'Email', 'Status', 'Login URL']
-    const rows = filteredBranches.map(b => [b.branch_name, b.branch_code, b.city, b.state, b.incharge_name, b.incharge_username, b.phone, b.email, b.is_active ? 'Active' : 'Inactive', `https://bharat-transport-v2.pages.dev/#/branch-login/${b.url_slug}`])
+    const rows = filteredBranches.map(b => [b.branch_name, b.branch_code, b.city, b.state, b.incharge_name, b.branch_login_username, b.phone, b.email, b.is_active ? 'Active' : 'Inactive', `https://bharat-transport-v2.pages.dev/#/branch-login/${b.url_slug}`])
     const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"`).join(',')).join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -139,7 +142,7 @@ export default function Branches() {
       if (filterStatus === 'inactive' && b.is_active) return false
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
-      return b.branch_name?.toLowerCase().includes(q) || b.city?.toLowerCase().includes(q) || b.incharge_name?.toLowerCase().includes(q) || b.incharge_username?.toLowerCase().includes(q)
+      return b.branch_name?.toLowerCase().includes(q) || b.city?.toLowerCase().includes(q) || b.incharge_name?.toLowerCase().includes(q) || b.branch_login_username?.toLowerCase().includes(q)
     })
     .sort((a, b) => {
       if (sortBy === 'name') return (a.branch_name || '').localeCompare(b.branch_name || '')
@@ -170,8 +173,8 @@ export default function Branches() {
 
         {showForm && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border-2 border-blue-200">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">➕ Add New Branch (Auto Login Credentials)</h2>
-            <p className="text-sm text-gray-600 mb-4">ℹ️ System automatically generate karega: URL, Username, aur Password</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">➕ Add New Branch</h2>
+            <p className="text-sm text-gray-600 mb-4">Create the branch, then use Setup Login in its row to choose staff credentials.</p>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label><input type="text" required value={form.branch_name} onChange={(e) => setForm({...form, branch_name: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg" placeholder="e.g., Mumbai Branch" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">City *</label><input type="text" required value={form.city} onChange={(e) => setForm({...form, city: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg" placeholder="e.g., Mumbai" /></div>
@@ -181,7 +184,7 @@ export default function Branches() {
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg" placeholder="e.g., mumbai@btc.com" /></div>
               <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Address</label><textarea value={form.address} onChange={(e) => setForm({...form, address: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg" rows="2" placeholder="Full address" /></div>
               <div className="md:col-span-2 flex gap-3 mt-2">
-                <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md">💾 Create Branch & Generate Credentials</button>
+                <button type="submit" className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md">💾 Create Branch</button>
                 <button type="button" onClick={() => setShowForm(false)} className="px-8 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold">Cancel</button>
               </div>
             </form>
@@ -242,10 +245,13 @@ export default function Branches() {
                           <div className="font-bold text-gray-900">{branch.branch_name}</div>
                           <div className="text-sm text-gray-500">{branch.city}{branch.state ? ', ' + branch.state : ''}</div>
                           <div className="text-xs text-gray-400 font-mono">Code: {branch.branch_code}</div>
+                          <div className={`mt-1 text-xs font-semibold ${branch.branch_login_enabled ? 'text-green-700' : 'text-gray-400'}`}>
+                            Branch login {branch.branch_login_enabled ? 'enabled' : 'not configured'}
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           <div className="text-sm font-medium">{branch.incharge_name || 'N/A'}</div>
-                          <div className="text-xs text-gray-500 font-mono">{branch.incharge_username || 'N/A'}</div>
+                          <div className="text-xs text-gray-500 font-mono">{branch.branch_login_username || 'Login not configured'}</div>
                           {branch.phone && <div className="text-xs text-gray-500">📞 {branch.phone}</div>}
                         </td>
                         <td className="px-4 py-4">
@@ -260,9 +266,17 @@ export default function Branches() {
                         </td>
                         <td className="px-4 py-4 text-right">
                           <div className="flex justify-end gap-1 flex-wrap">
-                            <button onClick={() => setShowCredentials(branch)} className="px-2 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs hover:bg-green-200" title="View credentials">🔑 View</button>
+                            <button
+                              onClick={() => {
+                                setShowBranchLoginSetup(branch)
+                                setBranchLoginForm({ username: '', password: '' })
+                              }}
+                              className="px-2 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs hover:bg-purple-200"
+                              title={branch.branch_login_enabled ? 'Reset branch login' : 'Setup branch login'}
+                            >
+                              {branch.branch_login_enabled ? '🔄 Reset Login' : '🔐 Setup Login'}
+                            </button>
                             <button onClick={() => handleEdit(branch)} className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200" title="Edit branch">✏️ Edit</button>
-                            <button onClick={() => { setShowResetPassword(branch); setNewPassword('') }} className="px-2 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-xs hover:bg-yellow-200" title="Reset password">🔄 Reset</button>
                             <button onClick={() => handleDelete(branch.id, branch.branch_name)} className="px-2 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs hover:bg-red-200" title="Delete branch">🗑️</button>
                           </div>
                         </td>
@@ -276,50 +290,6 @@ export default function Branches() {
         )}
       </div>
 
-      {showCredentials && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">🔑 Branch Credentials</h2>
-              <button onClick={() => setShowCredentials(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h3 className="font-bold text-blue-800 mb-3">{showCredentials.branch_name}</h3>
-              <p className="text-xs text-blue-600 mb-3">{showCredentials.city}{showCredentials.state ? ', ' + showCredentials.state : ''}</p>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase">Portal URL</label>
-                  <div className="flex gap-2 mt-1">
-                    <input type="text" readOnly value={showCredentials.portal_url || `https://bharat-transport-v2.pages.dev/#/branch-login/${showCredentials.url_slug}`} className="flex-1 p-2 bg-white border border-gray-300 rounded text-sm font-mono" />
-                    <button onClick={() => copyToClipboard(showCredentials.portal_url || `https://bharat-transport-v2.pages.dev/#/branch-login/${showCredentials.url_slug}`)} className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Copy</button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase">Username</label>
-                  <div className="flex gap-2 mt-1">
-                    <input type="text" readOnly value={showCredentials.incharge_username || ''} className="flex-1 p-2 bg-white border border-gray-300 rounded text-sm font-mono font-bold text-blue-700" />
-                    <button onClick={() => copyToClipboard(showCredentials.incharge_username || '')} className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Copy</button>
-                  </div>
-                </div>
-                {showCredentials.incharge_password && (
-                  <div>
-                    <label className="text-xs font-bold text-gray-600 uppercase">Password</label>
-                    <div className="flex gap-2 mt-1">
-                      <input type="text" readOnly value={showCredentials.incharge_password} className="flex-1 p-2 bg-white border border-gray-300 rounded text-sm font-mono font-bold text-red-600" />
-                      <button onClick={() => copyToClipboard(showCredentials.incharge_password)} className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Copy</button>
-                    </div>
-                    <p className="text-xs text-red-600 mt-1">️ Ye password sirf ek baar dikhega. Abhi copy karo!</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button onClick={() => copyAllCredentials(showCredentials)} className="w-full mb-3 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 font-bold shadow-md">📋 Copy All Credentials (One Click)</button>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-3"><strong>📝 Instructions:</strong> Ye credentials branch incharge ko de do. Wo apne URL pe login karke apna kaam kar sakta hai.</div>
-            <button onClick={() => setShowCredentials(null)} className="w-full py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-bold">Close</button>
-          </div>
-        </div>
-      )}
-
       {showEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -328,7 +298,7 @@ export default function Branches() {
               <button onClick={() => setShowEdit(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-blue-700"><strong>Code:</strong> {showEdit.branch_code} | <strong>Username:</strong> {showEdit.incharge_username}</p>
+              <p className="text-sm text-blue-700"><strong>Code:</strong> {showEdit.branch_code} | <strong>Login:</strong> {showEdit.branch_login_username || 'Not configured'}</p>
               <p className="text-xs text-blue-600 mt-1">⚠️ Code aur Username change nahi hote</p>
             </div>
             <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,30 +318,121 @@ export default function Branches() {
         </div>
       )}
 
-      {showResetPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">🔄 Reset Password</h2>
-              <button onClick={() => { setShowResetPassword(null); setNewPassword('') }} className="text-gray-400 hover:text-gray-600 text-2xl">✖</button>
+
+      {showBranchLoginSetup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between">
+              <h2 className="text-xl font-bold text-gray-800">
+                {showBranchLoginSetup.branch_login_enabled ? 'Reset Branch Login' : 'Setup Branch Login'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowBranchLoginSetup(null)}
+                className="text-2xl text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                ✖
+              </button>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-yellow-800"><strong>Branch:</strong> {showResetPassword.branch_name}</p>
-              <p className="text-xs text-yellow-700 mt-1"><strong>Username:</strong> {showResetPassword.incharge_username}</p>
-            </div>
-            <form onSubmit={handleResetPassword}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Password *</label>
-                <input type="text" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg font-mono" placeholder="Minimum 6 characters" minLength={6} />
+            <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+              {showBranchLoginSetup.branch_name}
+            </p>
+            <form onSubmit={handleBranchLoginSetup} className="space-y-4">
+              <div>
+                <label htmlFor="branch-login-username" className="mb-1 block text-sm font-medium text-gray-700">
+                  Username
+                </label>
+                <input
+                  id="branch-login-username"
+                  type="text"
+                  autoComplete="off"
+                  value={branchLoginForm.username}
+                  onChange={(event) => setBranchLoginForm({ ...branchLoginForm, username: event.target.value })}
+                  required
+                  maxLength={100}
+                  disabled={branchLoginSaving}
+                  className="w-full rounded-lg border border-gray-300 p-2.5"
+                />
               </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                <p className="text-xs text-red-700">⚠️ <strong>Warning:</strong> Password reset karne ke baad, purana password kaam nahi karega.</p>
+              <div>
+                <label htmlFor="branch-login-password" className="mb-1 block text-sm font-medium text-gray-700">
+                  {showBranchLoginSetup.branch_login_enabled ? 'New password' : 'Password'}
+                </label>
+                <input
+                  id="branch-login-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={branchLoginForm.password}
+                  onChange={(event) => setBranchLoginForm({ ...branchLoginForm, password: event.target.value })}
+                  required
+                  minLength={8}
+                  maxLength={72}
+                  disabled={branchLoginSaving}
+                  className="w-full rounded-lg border border-gray-300 p-2.5"
+                />
+                <p className="mt-1 text-xs text-gray-500">Use at least 8 characters. The password is shown only after saving.</p>
               </div>
               <div className="flex gap-3">
-                <button type="submit" className="flex-1 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-bold">🔄 Reset Password</button>
-                <button type="button" onClick={() => { setShowResetPassword(null); setNewPassword('') }} className="flex-1 py-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-bold">Cancel</button>
+                <button
+                  type="submit"
+                  disabled={branchLoginSaving}
+                  className="flex-1 rounded-lg bg-purple-700 py-3 font-bold text-white hover:bg-purple-800 disabled:bg-purple-400"
+                >
+                  {branchLoginSaving ? 'Saving...' : 'Enable Login'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBranchLoginSetup(null)}
+                  disabled={branchLoginSaving}
+                  className="flex-1 rounded-lg bg-gray-200 py-3 font-bold text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {newBranchCredentials && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="mb-2 text-xl font-bold text-gray-800">Branch login enabled</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              Save these credentials now. The password cannot be viewed again; reset it to issue a new one.
+            </p>
+            <div className="space-y-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+              <p className="font-semibold text-gray-800">{newBranchCredentials.branch_name}</p>
+              <div>
+                <label className="text-xs font-bold uppercase text-gray-600">Login URL</label>
+                <div className="mt-1 flex gap-2">
+                  <input readOnly value={newBranchCredentials.portal_url} className="min-w-0 flex-1 rounded border bg-white p-2 text-sm" />
+                  <button type="button" onClick={() => copyToClipboard(newBranchCredentials.portal_url)} className="rounded bg-blue-700 px-3 text-sm text-white">Copy</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase text-gray-600">Username</label>
+                <div className="mt-1 flex gap-2">
+                  <input readOnly value={newBranchCredentials.username} className="min-w-0 flex-1 rounded border bg-white p-2 text-sm font-mono" />
+                  <button type="button" onClick={() => copyToClipboard(newBranchCredentials.username)} className="rounded bg-blue-700 px-3 text-sm text-white">Copy</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase text-gray-600">Password — shown once</label>
+                <div className="mt-1 flex gap-2">
+                  <input readOnly value={newBranchCredentials.password} className="min-w-0 flex-1 rounded border bg-white p-2 text-sm font-mono" />
+                  <button type="button" onClick={() => copyToClipboard(newBranchCredentials.password)} className="rounded bg-blue-700 px-3 text-sm text-white">Copy</button>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNewBranchCredentials(null)}
+              className="mt-4 w-full rounded-lg bg-gray-700 py-3 font-bold text-white hover:bg-gray-800"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
