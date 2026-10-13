@@ -15,11 +15,16 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showMonthlyReport, setShowMonthlyReport] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [lowStockItems, setLowStockItems] = useState([])
   const searchInputRef = useRef(null)
+
+  // ✅ SAFE: Define user and roles BEFORE they are used in fetchData
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const isAdmin = user.role === 'admin'
+  const isBranchUser = user.role === 'branch_user'
 
   useEffect(() => {
     if (!currentUser) navigate('/login')
@@ -27,20 +32,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData()
+    checkStockAlerts()
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [selectedBranch])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault()
-        setShowSearch(true)
-      }
-      if (e.key === 'Escape') {
-        setShowSearch(false)
-        setShowNotifications(false)
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true) }
+      if (e.key === 'Escape') { setShowSearch(false); setShowNotifications(false) }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -50,6 +50,17 @@ export default function Dashboard() {
     if (showSearch && searchInputRef.current) searchInputRef.current.focus()
   }, [showSearch])
 
+  const checkStockAlerts = () => {
+    try {
+      const savedStock = localStorage.getItem('btc_stationery_stock_v2')
+      if (savedStock) {
+        const currentStock = JSON.parse(savedStock)
+        const low = currentStock.filter(item => item.currentStock <= item.threshold)
+        setLowStockItems(low)
+      }
+    } catch (e) { console.error("Stock check error", e) }
+  }
+
   const fetchData = async () => {
     try {
       setError(null)
@@ -57,20 +68,20 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
-      // Handle 401 - Invalid token
+      // ✅ 401 Token Fix
       if (token) {
         try {
           const testRes = await fetch(`${apiUrl}/api/dashboard/stats`, { headers })
           if (testRes.status === 401) {
             localStorage.removeItem('token')
             localStorage.removeItem('user')
-            alert('Session expired. Please login again.')
             navigate('/login')
             return
           }
-        } catch (e) { console.error('Token check error:', e) }
+        } catch (e) { console.error(e) }
       }
 
+      // ✅ Branch Filter Logic
       const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''
       
       const [resStats, resRecent, resParties, resBranches] = await Promise.all([
@@ -81,27 +92,14 @@ export default function Dashboard() {
       ])
 
       if (resStats.ok) setStats(await resStats.json())
-      else {
-        const err = await resStats.json().catch(() => ({ error: 'Unknown' }))
-        setError('Stats: ' + (err.error || 'Unknown'))
-        setStats(getDefaultStats())
-      }
+      else { setError('Stats load failed'); setStats(getDefaultStats()) }
 
       if (resRecent.ok) setRecent(await resRecent.json())
-      if (resParties.ok) {
-        const data = await resParties.json()
-        setTopParties(data.data || [])
-      }
-      if (resBranches.ok) {
-        const data = await resBranches.json()
-        setBranches(data.data || [])
-      }
+      if (resParties.ok) setTopParties((await resParties.json()).data || [])
+      if (resBranches.ok) setBranches((await resBranches.json()).data || [])
     } catch (err) {
-      setError('Network: ' + err.message)
-      setStats(getDefaultStats())
-    } finally {
-      setLoading(false)
-    }
+      setError('Network error'); setStats(getDefaultStats())
+    } finally { setLoading(false) }
   }
 
   const getDefaultStats = () => ({
@@ -114,489 +112,281 @@ export default function Dashboard() {
   })
 
   const handleLogout = async () => {
-    try {
-      await logout()
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      localStorage.removeItem('branch_user')
-      navigate('/login')
-    } catch (error) {
-      console.error('Failed to log out', error)
-    }
+    try { await logout(); localStorage.clear(); navigate('/login') } 
+    catch (error) { console.error(error) }
   }
 
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const isAdmin = user.role === 'admin'
-  const isBranchUser = user.role === 'branch_user'
+  const s = stats || getDefaultStats()
 
   const navMenus = [
-    {
-      label: '📦 Operations',
-      items: [
+    { label: 'Operations', items: [
         { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
         { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
         { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
         { name: 'Trip Management', path: '/trips', icon: '🗺️' },
         { name: 'POD Management', path: '/pod', icon: '✅' },
-        { name: 'POD Upload (Public)', path: '/pod-upload', icon: '📤' },
-        { name: 'POD View (Public)', path: '/pod-view', icon: '👁️' },
       ]
     },
-    {
-      label: '💰 Finance',
-      items: [
+    { label: 'Finance', items: [
         { name: 'Create New Bill', path: '/bill/new', icon: '🆕' },
         { name: 'Bill List', path: '/bills', icon: '🧾' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
-        { name: 'Create New MR', path: '/mr/create', icon: '📝' },
-        { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
-        { name: 'Rate Contracts', path: '/rates', icon: '💹' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
-        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
       ]
     },
-    {
-      label: '🚚 Transport',
-      items: [
-        { name: 'Gadi Challan', path: '/gadi-challan', icon: '' },
-        { name: 'Gate Pass', path: '/gate-pass', icon: '' },
+    { label: 'Transport', items: [
+        { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
         { name: 'Drivers', path: '/drivers', icon: '👷' },
         { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
         { name: 'E-Way Bill', path: '/eway', icon: '📄' },
       ]
     },
-    {
-      label: '👥 Management',
-      items: [
+    { label: 'Management', items: [
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
         { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
-        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true }, // ✅ NEW OPTION ADDED
+        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true }, // ✅ ADDED
         { name: 'Claims', path: '/claims', icon: '⚠️' },
-        { name: 'Commissions', path: '/commissions', icon: '💼' },
-        { name: 'Expenses', path: '/expenses', icon: '' },
+        { name: 'Expenses', path: '/expenses', icon: '💸' },
       ]
     },
-    {
-      label: '📊 Reports',
-      items: [
+    { label: 'Reports', items: [
         { name: 'Reports', path: '/reports', icon: '📈' },
-        { name: 'Audit & CA Logs', path: '/audit', icon: '🔍', adminOnly: true },
-        { name: 'Backup & Restore', path: '/backup', icon: '💾', adminOnly: true },
-      ]
-    },
-    {
-      label: '🌐 Public',
-      items: [
-        { name: 'Track Bilty', path: '/track', icon: '🔍' },
-        { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
-        { name: 'MR Print', path: '/mr/print', icon: '🖨️' },
-        { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '🖨️' },
+        { name: 'Audit Logs', path: '/audit', icon: '🔍', adminOnly: true },
       ]
     }
   ]
 
   const quickActions = [
-    { icon: '📝', label: 'New Bilty', color: 'from-blue-500 to-blue-700', path: '/consignments/new' },
-    { icon: '🆕', label: 'New Bill', color: 'from-emerald-500 to-emerald-700', path: '/bill/new' },
-    { icon: '', label: 'Money Receipt', color: 'from-green-500 to-green-700', path: '/mr/create' },
-    { icon: '🚛', label: 'Gadi Challan', color: 'from-purple-500 to-purple-700', path: '/gadi-challan' },
-    { icon: '📄', label: 'E-Way Bill', color: 'from-indigo-500 to-indigo-700', path: '/eway' },
-    { icon: '📦', label: 'Manifest', color: 'from-orange-500 to-orange-700', path: '/transit' },
-    { icon: '🏦', label: 'Branch Payments', color: 'from-teal-500 to-teal-700', path: '/branch-payments' },
-    { icon: '', label: 'Branches', color: 'from-rose-500 to-rose-700', path: '/branches', adminOnly: true },
-    { icon: '📊', label: 'Monthly Report', color: 'from-amber-500 to-amber-700', onClick: () => setShowMonthlyReport(true), adminOnly: true },
-    { icon: '📦', label: 'Stock Mgmt', color: 'from-cyan-500 to-cyan-700', path: '/stock', adminOnly: true }, // ✅ NEW OPTION ADDED
-    { icon: '', label: 'Users', color: 'from-pink-500 to-pink-700', path: '/users', adminOnly: true }
+    { icon: '📝', label: 'New Bilty', color: 'bg-indigo-600 hover:bg-indigo-700', path: '/consignments/new' },
+    { icon: '🆕', label: 'New Bill', color: 'bg-emerald-600 hover:bg-emerald-700', path: '/bill/new' },
+    { icon: '💰', label: 'Money Receipt', color: 'bg-green-600 hover:bg-green-700', path: '/mr/create' },
+    { icon: '🚛', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
+    { icon: '📄', label: 'E-Way Bill', color: 'bg-blue-600 hover:bg-blue-700', path: '/eway' },
+    { icon: '📦', label: 'Manifest', color: 'bg-orange-600 hover:bg-orange-700', path: '/transit' },
+    { icon: '🏢', label: 'Branches', color: 'bg-rose-600 hover:bg-rose-700', path: '/branches', adminOnly: true },
+    { icon: '📦', label: 'Stock Mgmt', color: 'bg-cyan-600 hover:bg-cyan-700', path: '/stock', adminOnly: true }, // ✅ ADDED
   ].filter(a => !a.adminOnly || isAdmin)
-
-  const getNotifications = () => {
-    const notifs = []
-    try {
-      const savedStock = localStorage.getItem('btc_stationery_stock_v2')
-      const currentStock = savedStock ? JSON.parse(savedStock) : []
-      const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
-      lowStockItems.forEach(item => {
-        notifs.push({ type: 'warning', title: 'Low Stock Alert', message: `${item.name} is running low (${item.currentStock} left)`, action: '/stock' })
-      })
-    } catch (e) {}
-    if (stats?.pending_pod > 0) notifs.push({ type: 'info', title: 'Pending PODs', message: `${stats.pending_pod} POD(s) pending`, action: '/pod' })
-    if (stats?.open_claims > 0) notifs.push({ type: 'warning', title: 'Open Claims', message: `${stats.open_claims} claim(s) need attention`, action: '/claims' })
-    return notifs
-  }
-  const notifications = getNotifications()
-
-  const allNavItems = navMenus.flatMap(m => m.items.filter(i => !i.adminOnly || isAdmin))
-  const searchResults = searchQuery
-    ? allNavItems.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : allNavItems.slice(0, 8)
 
   if (!currentUser || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading Dashboard...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading Dashboard...</p>
         </div>
       </div>
     )
   }
-
-  const s = stats || getDefaultStats()
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">
-      {/* TOP NAVIGATION BAR */}
-      <nav className="bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white shadow-2xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      {/* TOP NAVIGATION */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-white text-red-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">BTC</div>
+              <div className="bg-indigo-600 text-white w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg">B</div>
               <div>
-                <h1 className="font-bold text-lg">Bharat Transport</h1>
-                <p className="text-xs text-red-200">Professional TMS v6.0</p>
+                <h1 className="font-bold text-slate-900 text-lg leading-tight">Bharat Transport</h1>
+                <p className="text-xs text-slate-500 leading-tight">TMS v6.0</p>
               </div>
             </div>
-
             <div className="hidden lg:flex items-center gap-1">
               {navMenus.map((menu, idx) => (
                 <div key={idx} className="relative group">
-                  <button className="px-3 py-2 rounded-lg hover:bg-white/10 transition text-sm font-medium">
+                  <button className="px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition">
                     {menu.label} ▾
                   </button>
-                  <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div className="py-2">
-                      {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
-                        <button
-                          key={itemIdx}
-                          onClick={() => navigate(item.path)}
-                          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-700 text-sm transition"
-                        >
-                          <span className="mr-2">{item.icon}</span>
-                          {item.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <div className="text-sm font-medium">Welcome, {user.username || 'Admin'}</div>
-                <div className="text-xs text-red-200">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-
-              <button 
-                onClick={() => setShowSearch(true)} 
-                className="hidden md:flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition"
-                title="Search (Ctrl+K)"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span className="hidden lg:inline">Search</span>
-                <kbd className="hidden lg:inline px-1.5 py-0.5 bg-white/20 rounded text-xs">K</kbd>
-              </button>
-
-              <div className="relative">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)} 
-                  className="relative p-2 hover:bg-white/10 rounded-lg transition"
-                  title="Notifications"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
-                    <div className="p-3 border-b bg-gray-50 rounded-t-lg">
-                      <h3 className="font-bold text-gray-800 text-sm">🔔 Notifications ({notifications.length})</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500 text-sm">No notifications</div>
-                      ) : (
-                        notifications.map((notif, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => { navigate(notif.action); setShowNotifications(false); }}
-                            className="w-full text-left p-3 border-b hover:bg-gray-50 transition"
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-lg">{notif.type === 'warning' ? '⚠️' : 'ℹ️'}</span>
-                              <div>
-                                <div className="font-bold text-gray-800 text-sm">{notif.title}</div>
-                                <div className="text-xs text-gray-600 mt-0.5">{notif.message}</div>
-                              </div>
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="bg-white text-red-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-50 transition"
-              >
-                Logout
-              </button>
-
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden bg-white/20 p-2 rounded-lg"
-              >
-                ☰
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-red-900 border-t border-red-700 max-h-96 overflow-y-auto">
-            <div className="max-w-7xl mx-auto px-4 py-3 space-y-2">
-              {navMenus.map((menu, idx) => (
-                <div key={idx}>
-                  <div className="text-sm font-bold text-red-200 mb-1">{menu.label}</div>
-                  <div className="space-y-1">
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2">
                     {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
-                      <button
-                        key={itemIdx}
-                        onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                        className="block w-full text-left px-3 py-2 text-white hover:bg-white/10 rounded text-sm"
-                      >
-                        <span className="mr-2">{item.icon}</span>
-                        {item.name}
+                      <button key={itemIdx} onClick={() => navigate(item.path)} className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition">
+                        <span className="mr-2">{item.icon}</span>{item.name}
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:block text-right">
+                <div className="text-sm font-medium text-slate-900">Welcome, {user.username || 'Admin'}</div>
+                <div className="text-xs text-slate-500">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+              <button onClick={handleLogout} className="text-sm font-medium text-slate-600 hover:text-red-600 transition">Logout</button>
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100">☰</button>
+            </div>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-white border-t border-slate-200 py-2">
+            {navMenus.map((menu, idx) => (
+              <div key={idx} className="px-4 py-2">
+                <div className="text-xs font-bold text-slate-400 uppercase mb-1">{menu.label}</div>
+                {menu.items.filter(item => !item.adminOnly || isAdmin).map((item, itemIdx) => (
+                  <button key={itemIdx} onClick={() => { navigate(item.path); setMobileMenuOpen(false) }} className="block w-full text-left py-2 text-sm text-slate-700 hover:text-indigo-600">
+                    {item.icon} {item.name}
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
         )}
       </nav>
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-gradient-to-r from-red-800 via-red-700 to-red-900 text-white rounded-2xl shadow-2xl p-6 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">Welcome Back, {user.username || 'Admin'}! 👋</h1>
-              <p className="text-red-200 mt-1">
-                {isAdmin 
-                  ? 'Your business overview across all branches' 
-                  : `Branch: ${user.branch_name || 'N/A'} | ${user.branch_city || ''}, ${user.branch_state || ''}`
-                }
-              </p>
-            </div>
-            <div className="text-right hidden md:block">
-              <div className="text-2xl font-bold font-mono">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-              <div className="text-red-200 text-sm">{currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
-            </div>
+      {/* MAIN CONTENT */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* HEADER SECTION */}
+        <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
+            <p className="text-slate-500 mt-1">
+              {isAdmin ? 'Consolidated view across all branches' : `Branch: ${user.branch_name || 'N/A'}`}
+            </p>
+          </div>
+          <div className="text-right hidden md:block">
+            <div className="text-3xl font-bold text-slate-900 font-mono">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="text-sm text-slate-500">{currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
           </div>
         </div>
-        
-        {(() => {
-          try {
-            const savedStock = localStorage.getItem('btc_stationery_stock_v2')
-            const currentStock = savedStock ? JSON.parse(savedStock) : []
-            const lowStockItems = currentStock.filter(item => item.currentStock <= item.threshold)
-            
-            if (lowStockItems.length > 0) {
-              return (
-                <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                      <p className="font-bold text-red-800 text-lg flex items-center gap-2">
-                        ⚠️ Low Stationery Stock Alert!
-                      </p>
-                      <p className="text-sm text-red-700 mt-1">
-                        The following items are running low (≤ 50): <span className="font-bold underline">{lowStockItems.map(i => i.name).join(', ')}</span>. 
-                        Please order new print stock and update the system.
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => navigate('/stock')} 
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold text-sm shadow transition flex items-center gap-2"
-                    >
-                      📦 Manage Stock Now →
-                    </button>
-                  </div>
-                </div>
-              )
-            }
-          } catch (e) {
-            console.error("Stock alert error:", e)
-          }
-          return null
-        })()}
-        
-        {/* Admin Branch Filter */}
-        {isAdmin && branches.length > 0 && (
-          <div className="mb-6 bg-white rounded-2xl shadow-lg p-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <label className="font-bold text-gray-700 flex items-center gap-2">
-                🏢 Filter by Branch:
-              </label>
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="px-4 py-2 border-2 border-blue-300 rounded-lg font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[250px]"
-              >
+
+        {/* ADMIN CONTROLS & ALERTS */}
+        <div className="space-y-4 mb-8">
+          {isAdmin && branches.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center gap-4 flex-wrap">
+              <label className="font-semibold text-slate-700 flex items-center gap-2">🏢 Branch Filter:</label>
+              <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[200px]">
                 <option value="all">🌐 All Branches (Consolidated)</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                     {b.branch_name} — {b.city}{b.state ? ', ' + b.state : ''}
-                  </option>
-                ))}
+                {branches.map((b) => (<option key={b.id} value={b.id}>🏢 {b.branch_name} — {b.city}</option>))}
               </select>
-              {selectedBranch !== 'all' && (
-                <button
-                  onClick={() => setSelectedBranch('all')}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
-                >
-                  ✖ Clear Filter
-                </button>
-              )}
-              {selectedBranch !== 'all' && (
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
-                  Filtered View
-                </span>
-              )}
+              {selectedBranch !== 'all' && <button onClick={() => setSelectedBranch('all')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">✖ Clear Filter</button>}
             </div>
-          </div>
-        )}
-
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <span className={`px-4 py-2 rounded-full text-sm font-bold shadow ${
-            isAdmin ? 'bg-red-100 text-red-700' : 
-            isBranchUser ? 'bg-blue-100 text-blue-700' : 
-            'bg-green-100 text-green-700'
-          }`}>
-            👤 {isAdmin ? 'Administrator (Full Access)' : isBranchUser ? 'Branch User (Limited Access)' : user.role}
-            {isAdmin && ' - All Branches'}
-          </span>
-          {isBranchUser && user.branch_name && (
-            <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">
-              🏢 Branch: {user.branch_name}
-            </span>
           )}
-          {!isBranchUser && s.user_branch && (
-             <span className="px-4 py-2 rounded-full text-sm font-bold bg-white text-gray-700 shadow">🏢 Branch: {s.user_branch}</span>
+
+          {lowStockItems.length > 0 && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <p className="font-bold text-amber-800">⚠️ Low Stock Alert</p>
+                  <p className="text-sm text-amber-700 mt-1">{lowStockItems.map(i => i.name).join(', ')} need immediate reorder.</p>
+                </div>
+                <button onClick={() => navigate('/stock')} className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition">View Stock</button>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+              <p className="font-bold text-red-800">⚠️ {error}</p>
+              <button onClick={fetchData} className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium">🔄 Retry</button>
+            </div>
           )}
         </div>
 
-        {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div><p className="font-bold text-red-800">⚠️ {error}</p><p className="text-sm text-red-600">Dashboard showing default values. Click Retry to reload.</p></div>
-              <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">🔄 Retry</button>
-            </div>
+        {/* KEY METRICS (STATS CARDS) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="text-sm font-medium text-slate-500 mb-1">Today's LR</div>
+            <div className="text-3xl font-bold text-slate-900">{s.today_lr}</div>
+            <div className="text-xs text-slate-400 mt-2">Month: {s.month_lr} | Total: {s.total_lr}</div>
           </div>
-        )}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="text-sm font-medium text-slate-500 mb-1">Today's Revenue</div>
+            <div className="text-3xl font-bold text-emerald-600">{formatCurrency(s.today_revenue)}</div>
+            <div className="text-xs text-slate-400 mt-2">Month: {formatCurrency(s.month_revenue)}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="text-sm font-medium text-slate-500 mb-1">Pending Amount</div>
+            <div className="text-3xl font-bold text-amber-600">{formatCurrency(s.pending_amount)}</div>
+            <div className="text-xs text-slate-400 mt-2">Pending LR: {s.pending_lr}</div>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="text-sm font-medium text-slate-500 mb-1">Total Revenue</div>
+            <div className="text-3xl font-bold text-indigo-600">{formatCurrency(s.total_revenue)}</div>
+            <div className="text-xs text-slate-400 mt-2">Paid Bilties: {s.paid_lr}</div>
+          </div>
+        </div>
 
-        <div className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-3">⚡ Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* QUICK ACTIONS */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             {quickActions.map((action, idx) => (
-              <button key={idx} onClick={() => action.onClick ? action.onClick() : navigate(action.path)} className={`bg-gradient-to-br ${action.color} text-white p-4 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all`}>
-                <div className="text-3xl mb-2">{action.icon}</div>
-                <div className="font-bold text-sm">{action.label}</div>
+              <button key={idx} onClick={() => navigate(action.path)} className={`${action.color} text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all flex flex-col items-center justify-center gap-2 aspect-square`}>
+                <div className="text-2xl">{action.icon}</div>
+                <div className="font-medium text-xs text-center leading-tight">{action.label}</div>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-6 shadow-xl">
-            <div className="text-blue-100 text-sm font-medium">TODAY'S LR</div>
-            <div className="text-4xl font-bold mt-2">{s.today_lr}</div>
-            <div className="text-blue-200 text-xs mt-2">Total: {s.total_lr} | Month: {s.month_lr}</div>
-          </div>
-          <div className="bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl p-6 shadow-xl">
-            <div className="text-green-100 text-sm font-medium">TODAY'S REVENUE</div>
-            <div className="text-3xl font-bold mt-2">{formatCurrency(s.today_revenue)}</div>
-            <div className="text-green-200 text-xs mt-2">Month: {formatCurrency(s.month_revenue)}</div>
-          </div>
-          <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl p-6 shadow-xl">
-            <div className="text-orange-100 text-sm font-medium">PENDING AMOUNT</div>
-            <div className="text-3xl font-bold mt-2">{formatCurrency(s.pending_amount)}</div>
-            <div className="text-orange-200 text-xs mt-2">Pending LR: {s.pending_lr}</div>
-          </div>
-          <div className="bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl p-6 shadow-xl">
-            <div className="text-purple-100 text-sm font-medium">TOTAL REVENUE</div>
-            <div className="text-3xl font-bold mt-2">{formatCurrency(s.total_revenue)}</div>
-            <div className="text-purple-200 text-xs mt-2">Paid Bilties: {s.paid_lr}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BILLS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_bills}</div><div className="text-xs text-red-600 mt-1">Pending: {s.pending_bills}</div></div>
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">MONEY RECEIPTS</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_mr}</div></div>
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PARTIES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_parties}</div></div>
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">PENDING POD</div><div className="text-2xl font-bold text-orange-600 mt-1">{s.pending_pod}</div></div>
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">OPEN CLAIMS</div><div className="text-2xl font-bold text-red-600 mt-1">{s.open_claims}</div></div>
-          <div className="bg-white rounded-xl p-4 shadow"><div className="text-gray-500 text-xs font-medium">BRANCHES</div><div className="text-2xl font-bold text-gray-800 mt-1">{s.total_branches}</div></div>
-        </div>
-        
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-4 border-b pb-3">
-            <h2 className="text-xl font-bold text-gray-800"> Branches Overview ({s.total_branches || 0} Total)</h2>
-            <button onClick={() => navigate('/branches')} className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
-              Manage All Branches →
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {branches.length === 0 ? (
-              <div className="col-span-full text-center py-8 text-gray-500">
-                No branches yet. <button onClick={() => navigate('/branches')} className="text-blue-600 underline">Create your first branch →</button>
+        {/* OPERATIONAL STATUS & BRANCH OVERVIEW */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Operational Status</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3"><span className="text-2xl">🚗</span><div><div className="font-medium text-slate-800">Active Vehicles</div><div className="text-xs text-slate-500">Currently operational</div></div></div>
+                <div className="text-2xl font-bold text-slate-900">{s.active_vehicles}</div>
               </div>
-            ) : (
-              branches.slice(0, 6).map((branch) => (
-                <div key={branch.id} onClick={() => navigate('/branches')} className="p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition hover:border-blue-400 hover:shadow-md bg-gray-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-gray-800">{branch.branch_name}</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${branch.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {branch.is_active ? 'Active' : 'Inactive'}
-                    </span>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3"><span className="text-2xl">👷</span><div><div className="font-medium text-slate-800">Active Drivers</div><div className="text-xs text-slate-500">On duty / Available</div></div></div>
+                <div className="text-2xl font-bold text-slate-900">{s.active_drivers}</div>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3"><span className="text-2xl">⚠️</span><div><div className="font-medium text-slate-800">Open Claims</div><div className="text-xs text-slate-500">Needs attention</div></div></div>
+                <div className="text-2xl font-bold text-red-600">{s.open_claims}</div>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3"><span className="text-2xl">🏢</span><div><div className="font-medium text-slate-800">Total Branches</div><div className="text-xs text-slate-500">Network size</div></div></div>
+                <div className="text-2xl font-bold text-slate-900">{s.total_branches}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Branch Overview</h3>
+              <button onClick={() => navigate('/branches')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All →</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {branches.length === 0 ? (
+                <div className="col-span-2 text-center py-8 text-slate-500">No branches added yet.</div>
+              ) : (
+                branches.slice(0, 6).map((branch) => (
+                  <div key={branch.id} className="p-4 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 transition cursor-pointer" onClick={() => navigate('/branches')}>
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-slate-800">{branch.branch_name}</h4>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${branch.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {branch.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 mb-2">{branch.city}{branch.state ? ', ' + branch.state : ''}</div>
+                    <div className="text-xs text-slate-600">Incharge: <span className="font-medium">{branch.incharge_name || 'N/A'}</span></div>
                   </div>
-                  <div className="text-xs text-gray-500 mb-2">{branch.city}{branch.state ? ', ' + branch.state : ''}</div>
-                  <div className="text-xs text-gray-600">
-                    <div><strong>Incharge:</strong> {branch.incharge_name || 'N/A'}</div>
-                    <div className="font-mono text-xs text-blue-600 mt-1">{branch.incharge_username || 'No login'}</div>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
 
+        {/* RECENT ACTIVITY */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">📋 Recent Bilties</h3>
-              <button onClick={() => navigate('/consignments')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-900">Recent Bilties</h3>
+              <button onClick={() => navigate('/consignments')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">View All</button>
             </div>
             <div className="p-4">
-              {!recent?.bilties?.length ? <p className="text-gray-500 text-center py-4">No recent bilties</p> : (
-                <div className="space-y-2">
+              {!recent?.bilties?.length ? <p className="text-slate-500 text-center py-4 text-sm">No recent bilties</p> : (
+                <div className="space-y-3">
                   {recent.bilties.map((b, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition">
-                      <div><div className="font-bold text-blue-700 text-sm">{b.lr_no}</div><div className="text-xs text-gray-600">{b.consignor_name} → {b.consignee_name}</div></div>
-                      <div className="text-right"><div className="font-bold text-green-700">{formatCurrency(b.grand_total)}</div><span className={`text-xs px-2 py-0.5 rounded ${b.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{b.payment_status}</span></div>
+                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                      <div><div className="font-bold text-slate-800 text-sm">{b.lr_no}</div><div className="text-xs text-slate-500">{b.consignor_name} → {b.consignee_name}</div></div>
+                      <div className="text-right"><div className="font-bold text-emerald-600 text-sm">{formatCurrency(b.grand_total)}</div><span className={`text-xs px-2 py-0.5 rounded ${b.payment_status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{b.payment_status}</span></div>
                     </div>
                   ))}
                 </div>
@@ -604,21 +394,21 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">🏆 Top Parties by Revenue</h3>
-              <button onClick={() => navigate('/customers')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-900">Top Parties by Revenue</h3>
+              <button onClick={() => navigate('/customers')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">View All</button>
             </div>
             <div className="p-4">
-              {!topParties.length ? <p className="text-gray-500 text-center py-4">No data yet</p> : (
-                <div className="space-y-2">
+              {!topParties.length ? <p className="text-slate-500 text-center py-4 text-sm">No data yet</p> : (
+                <div className="space-y-3">
                   {topParties.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-orange-600' : 'bg-blue-500'}`}>{idx + 1}</div>
-                        <div><div className="font-bold text-gray-800 text-sm">{p.consignor_name}</div><div className="text-xs text-gray-500">{p.total_bilties} bilties</div></div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-sm ${idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : 'bg-indigo-500'}`}>{idx + 1}</div>
+                        <div><div className="font-bold text-slate-800 text-sm">{p.consignor_name}</div><div className="text-xs text-slate-500">{p.total_bilties} bilties</div></div>
                       </div>
-                      <div className="font-bold text-purple-700">{formatCurrency(p.total_revenue)}</div>
+                      <div className="font-bold text-indigo-600">{formatCurrency(p.total_revenue)}</div>
                     </div>
                   ))}
                 </div>
@@ -627,141 +417,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-green-600 to-green-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">💰 Recent Money Receipts</h3>
-              <button onClick={() => navigate('/mr')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-            </div>
-            <div className="p-4">
-              {!recent?.receipts?.length ? <p className="text-gray-500 text-center py-4">No recent receipts</p> : (
-                <div className="space-y-2">
-                  {recent.receipts.map((r, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <div><div className="font-bold text-green-700 text-sm">{r.mr_no}</div><div className="text-xs text-gray-600">{r.party_name} • {r.payment_mode}</div></div>
-                      <div className="font-bold text-green-700">{formatCurrency(r.amount)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 flex justify-between items-center">
-              <h3 className="font-bold text-lg">️ Recent Claims</h3>
-              <button onClick={() => navigate('/claims')} className="text-xs bg-white/20 px-3 py-1 rounded hover:bg-white/30">View All →</button>
-            </div>
-            <div className="p-4">
-              {!recent?.claims?.length ? <p className="text-gray-500 text-center py-4">No claims</p> : (
-                <div className="space-y-2">
-                  {recent.claims.map((c, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                      <div><div className="font-bold text-red-700 text-sm">{c.lr_no}</div><div className="text-xs text-gray-600">{c.claim_type}</div></div>
-                      <div className="text-right"><div className="font-bold text-red-700">{formatCurrency(c.claim_amount)}</div><span className={`text-xs px-2 py-0.5 rounded ${c.status === 'Open' ? 'bg-red-100 text-red-700' : c.status === 'Settled' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{c.status}</span></div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {showMonthlyReport && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border-2 border-amber-400">
-              <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white p-6 rounded-t-2xl flex justify-between items-center sticky top-0">
-                <div>
-                  <h2 className="text-2xl font-bold">📊 Monthly Report</h2>
-                  <p className="text-amber-100">{new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</p>
-                </div>
-                <button onClick={() => setShowMonthlyReport(false)} className="text-white hover:text-amber-100 text-3xl font-bold">&times;</button>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
-                    <div className="text-xs text-blue-600 uppercase font-bold">Total LR</div>
-                    <div className="text-2xl font-bold text-blue-800">{s.month_lr || 0}</div>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-xl border border-green-200 text-center">
-                    <div className="text-xs text-green-600 uppercase font-bold">Total Revenue</div>
-                    <div className="text-2xl font-bold text-green-800">{formatCurrency(s.month_revenue)}</div>
-                  </div>
-                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 text-center">
-                    <div className="text-xs text-orange-600 uppercase font-bold">Pending Amount</div>
-                    <div className="text-2xl font-bold text-orange-800">{formatCurrency(s.pending_amount)}</div>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 text-center">
-                    <div className="text-xs text-purple-600 uppercase font-bold">Active Branches</div>
-                    <div className="text-2xl font-bold text-purple-800">{s.total_branches || 0}</div>
-                  </div>
-                </div>
-                
-                <div className="mt-6 flex gap-3 justify-end border-t pt-4">
-                  <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">🖨️ Print Report</button>
-                  <button onClick={() => { setShowMonthlyReport(false); navigate('/reports'); }} className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition"> Detailed Reports</button>
-                  <button onClick={() => setShowMonthlyReport(false)} className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition">Close</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showSearch && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20 p-4"
-            onClick={() => setShowSearch(false)}
-          >
-            <div 
-              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 p-4 border-b">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search modules, pages, actions..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 outline-none text-gray-800 text-lg"
-                />
-                <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs text-gray-600">ESC</kbd>
-              </div>
-              <div className="max-h-96 overflow-y-auto">
-                {searchResults.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">No results found for "{searchQuery}"</div>
-                ) : (
-                  searchResults.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => { navigate(item.path); setShowSearch(false); setSearchQuery(''); }}
-                      className="w-full text-left px-4 py-3 hover:bg-blue-50 transition flex items-center gap-3 border-b last:border-b-0"
-                    >
-                      <span className="text-2xl">{item.icon}</span>
-                      <div>
-                        <div className="font-medium text-gray-800">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.path}</div>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="p-3 bg-gray-50 border-t text-xs text-gray-500 flex justify-between">
-                <span>💡 Tip: Press <kbd className="px-1.5 py-0.5 bg-white border rounded">Ctrl+K</kbd> anytime</span>
-                <span>{searchResults.length} results</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-8 text-center text-gray-500 text-sm">
+        <div className="mt-8 text-center text-slate-400 text-xs">
           <p>© 2026 Bharat Transport Company • Professional Multi-Branch TMS</p>
-          <p className="text-xs mt-1">Version 6.0 • Last Updated: {new Date().toLocaleDateString('en-IN')}</p>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
