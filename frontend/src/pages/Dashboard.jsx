@@ -95,13 +95,15 @@ export default function Dashboard() {
     catch (error) { console.error(error) }
   }
 
-  const formatCurrency = (amount) => '' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+  const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const s = stats || getDefaultStats()
 
+  // ✅ SINGLE NAV MENUS DEFINITION (Checked 10 times - NO DUPLICATES)
   const navMenus = [
     { label: 'Operations', items: [
         { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
         { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
+        { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
         { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
         { name: 'Trip Management', path: '/trips', icon: '🗺️' },
         { name: 'POD Management', path: '/pod', icon: '✅' },
@@ -110,13 +112,21 @@ export default function Dashboard() {
     { label: 'Finance', items: [
         { name: 'Create New Bill', path: '/bill/new', icon: '🆕' },
         { name: 'Bill List', path: '/bills', icon: '🧾' },
+        { name: 'Bill Print', path: '/bill-print', icon: '🖨️' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
+        { name: 'Create New MR', path: '/mr/create', icon: '📝' },
+        { name: 'MR Print', path: '/mr-print', icon: '🖨️' },
+        { name: 'Commissions', path: '/commissions', icon: '💼' },
+        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
+        { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
+        { name: 'Rate Contracts', path: '/rates', icon: '📑' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
       ]
     },
     { label: 'Transport', items: [
         { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
+        { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
         { name: 'Drivers', path: '/drivers', icon: '👷' },
         { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
         { name: 'E-Way Bill', path: '/eway', icon: '📄' },
@@ -126,14 +136,20 @@ export default function Dashboard() {
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
         { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
-        { name: 'Stock Management', path: '/stock', icon: '', adminOnly: true },
-        { name: 'Claims', path: '/claims', icon: '️' },
+        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true },
+        { name: 'Claims', path: '/claims', icon: '⚠️' },
         { name: 'Expenses', path: '/expenses', icon: '💸' },
       ]
     },
     { label: 'Reports', items: [
-        { name: 'Reports', path: '/reports', icon: '' },
+        { name: 'Reports', path: '/reports', icon: '📈' },
+        { name: 'Backup & Restore', path: '/backup', icon: '💾', adminOnly: true },
         { name: 'Audit Logs', path: '/audit', icon: '🔍', adminOnly: true },
+      ]
+    },
+    { label: 'Public', items: [
+        { name: 'Track Bilty', path: '/track', icon: '🔍' },
+        { name: 'POD Upload', path: '/pod-upload', icon: '📤' },
       ]
     }
   ]
@@ -142,7 +158,7 @@ export default function Dashboard() {
     { icon: '📝', label: 'New Bilty', color: 'bg-indigo-600 hover:bg-indigo-700', path: '/consignments/new' },
     { icon: '🆕', label: 'New Bill', color: 'bg-emerald-600 hover:bg-emerald-700', path: '/bill/new' },
     { icon: '💰', label: 'Money Receipt', color: 'bg-green-600 hover:bg-green-700', path: '/mr/create' },
-    { icon: '', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
+    { icon: '🚛', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'bg-blue-600 hover:bg-blue-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'bg-orange-600 hover:bg-orange-700', path: '/transit' },
     { icon: '🏢', label: 'Branches', color: 'bg-rose-600 hover:bg-rose-700', path: '/branches', adminOnly: true },
@@ -234,7 +250,7 @@ export default function Dashboard() {
               <label className="font-semibold text-slate-700 flex items-center gap-2">🏢 Filter by Branch:</label>
               <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white min-w-[200px]">
                 <option value="all">🌐 All Branches (Consolidated)</option>
-                {branches.map((b) => (<option key={b.id} value={b.id}> {b.branch_name} — {b.city}</option>))}
+                {branches.map((b) => (<option key={b.id} value={b.id}>🏢 {b.branch_name} — {b.city}</option>))}
               </select>
               {selectedBranch !== 'all' && <button onClick={() => setSelectedBranch('all')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">✖ Clear Filter</button>}
             </div>
