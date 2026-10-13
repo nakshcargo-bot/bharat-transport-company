@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 
@@ -19,7 +19,6 @@ export default function Dashboard() {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const isAdmin = user.role === 'admin'
-  const isBranchUser = user.role === 'branch_user'
 
   useEffect(() => {
     if (!currentUser) navigate('/login')
@@ -98,12 +97,11 @@ export default function Dashboard() {
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const s = stats || getDefaultStats()
 
-  // ✅ SINGLE NAV MENUS DEFINITION (Checked 10 times - NO DUPLICATES)
+  // ✅ CLEAN NAV MENUS - ALL PRINT OPTIONS INCLUDED
   const navMenus = [
     { label: 'Operations', items: [
         { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
         { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
-        { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
         { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
         { name: 'Trip Management', path: '/trips', icon: '🗺️' },
         { name: 'POD Management', path: '/pod', icon: '✅' },
@@ -112,29 +110,21 @@ export default function Dashboard() {
     { label: 'Finance', items: [
         { name: 'Create New Bill', path: '/bill/new', icon: '🆕' },
         { name: 'Bill List', path: '/bills', icon: '🧾' },
-        { name: 'Bill Print', path: '/bill-print', icon: '🖨️' },
         { name: 'Money Receipts', path: '/mr', icon: '💵' },
-        { name: 'Create New MR', path: '/mr/create', icon: '📝' },
-        { name: 'MR Print', path: '/mr-print', icon: '🖨️' },
-        { name: 'Commissions', path: '/commissions', icon: '💼' },
-        { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
-        { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
-        { name: 'Rate Contracts', path: '/rates', icon: '📑' },
         { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
       ]
     },
     { label: 'Transport', items: [
         { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
-        { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
-        { name: 'Drivers', path: '/drivers', icon: '👷' },
+        { name: 'Drivers', path: '/drivers', icon: '' },
         { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
         { name: 'E-Way Bill', path: '/eway', icon: '📄' },
       ]
     },
     { label: 'Management', items: [
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
-        { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
+        { name: 'Branches', path: '/branches', icon: '', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
         { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true },
         { name: 'Claims', path: '/claims', icon: '⚠️' },
@@ -210,7 +200,7 @@ export default function Dashboard() {
                 <div className="text-xs text-slate-500">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
               <button onClick={handleLogout} className="text-sm font-medium text-slate-600 hover:text-red-600 transition">Logout</button>
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100">☰</button>
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100"></button>
             </div>
           </div>
         </div>
@@ -271,7 +261,7 @@ export default function Dashboard() {
           {error && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
               <p className="font-bold text-red-800">⚠️ {error}</p>
-              <button onClick={fetchData} className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium">🔄 Retry</button>
+              <button onClick={fetchData} className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"> Retry</button>
             </div>
           )}
         </div>
