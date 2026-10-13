@@ -1,209 +1,113 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import api from '../api'
+
+const COMPANY = {
+  name: "BHARAT TRANSPORT COMPANY",
+  gst: "08CMRPP0955N1Z5",
+  pan: "CMRPP0955N",
+  address: "Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023",
+  phone: "+91 9680264231",
+  email: "bharattrsnportcompany@gmail.com",
+  bankName: "HDFC BANK",
+  accountNo: "50200112184634",
+  ifsc: "HDFC0002795",
+  branch: "RAJGARH",
+  signatory: "Krishan"
+}
 
 export default function MRPrint() {
+  const { id } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [mr, setMr] = useState(null)
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  const mrNo = searchParams.get('mr_no')
 
   useEffect(() => {
-    if (!mrNo) { 
-      navigate('/mr')
-      return 
+    if (id) {
+      api.get(`/api/mr/${id}`)
+        .then(res => { setData(res.data); setLoading(false) })
+        .catch(() => { alert('MR not found'); navigate('/mr') })
     }
-    fetchMRData(mrNo)
-  }, [mrNo, navigate])
+  }, [id, navigate])
 
-  const fetchMRData = async (targetMrNo) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      
-      const res = await fetch(`${apiUrl}/api/mr`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      })
-      
-      if (!res.ok) throw new Error('Failed to fetch data from server')
-      
-      const result = await res.json()
-      
-      // Safely extract the array from various possible API response formats
-      const mrList = result.data || result.mrs || result.records || (Array.isArray(result) ? result : [])
-      
-      // Find the MR, trimming spaces to avoid "MR/26/0003 " !== "MR/26/0003" issues
-      const foundMR = mrList.find(m => m.mr_no && m.mr_no.toString().trim() === targetMrNo.toString().trim())
-      
-      if (!foundMR) {
-        console.warn("Available MRs in system:", mrList.map(m => m.mr_no))
-        throw new Error(`MR not found: ${targetMrNo}`)
-      }
-      
-      setMr(foundMR)
-    } catch (err) { 
-      console.error("MR Fetch Error:", err)
-      setError(err.message) 
-    } finally { 
-      setLoading(false) 
-    }
-  }
+  if (loading) return <div className="p-8 text-center">Loading...</div>
+  if (!data) return null
 
-  const handlePrint = () => window.print()
-
-  const handleWhatsApp = () => {
-    if (!mr) return
-    const msg = `*MONEY RECEIPT*%0A%0A` +
-      `MR No: ${mr.mr_no}%0A` +
-      `Date: ${mr.mr_date || 'N/A'}%0A` +
-      `Party: ${mr.party_name || 'N/A'}%0A` +
-      `Amount: Rs.${parseFloat(mr.amount || 0).toLocaleString('en-IN')}%0A` +
-      `Mode: ${mr.payment_mode || 'Cash'}%0A` +
-      `${mr.bilty_lr_no ? `LR No: ${mr.bilty_lr_no}%0A` : ''}` +
-      `%0A- Bharat Transport Company`
-    window.open(`https://wa.me/?text=${msg}`, '_blank')
-  }
-
-  const handleEmail = () => {
-    if (!mr) return
-    const subject = `Money Receipt - ${mr.mr_no}`
-    const body = `Dear ${mr.party_name},%0D%0A%0D%0AThank you for your payment.%0D%0A%0D%0A` +
-      `MR No: ${mr.mr_no}%0D%0A` +
-      `Date: ${mr.mr_date || 'N/A'}%0D%0A` +
-      `Amount: Rs.${parseFloat(mr.amount || 0).toLocaleString('en-IN')}%0D%0A` +
-      `Mode: ${mr.payment_mode || 'Cash'}%0D%0A%0D%0A` +
-      `- Bharat Transport Company`
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`
-  }
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-700"></div>
-    </div>
-  )
-
-  if (error || !mr) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg shadow text-center">
-        <p className="text-red-600 mb-4 font-medium">{error || 'MR not found'}</p>
-        <p className="text-xs text-gray-500 mb-4">Check console (F12) for available MR numbers</p>
-        <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">← Back to MR List</button>
-      </div>
-    </div>
-  )
+  const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
 
   return (
-    <div className="min-h-screen bg-gray-200">
-      <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700">← Back</button>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">🖨️ Print / Save PDF</button>
-            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">📱 WhatsApp</button>
-            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">📧 Email</button>
-          </div>
-        </div>
-        <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800">
-          💡 "Print / Save PDF" dabao → "Save as PDF" select karo → A4 PDF ban jayega!
-        </div>
+    <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
+      <div className="no-print mb-4 flex justify-between items-center max-w-4xl mx-auto">
+        <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">🖨️ Print MR</button>
       </div>
 
-      <div className="max-w-3xl mx-auto my-6 bg-white shadow-lg print:shadow-none print:my-0">
-        <div className="p-8 print:p-6">
-          <div className="text-center border-b-4 border-double border-gray-800 pb-4 mb-6">
-            <h1 className="text-3xl font-bold text-red-800">BHARAT TRANSPORT</h1>
-            <p className="text-sm text-gray-700">Professional Multi-Branch TMS</p>
-            <h2 className="text-2xl font-bold mt-4 text-gray-900 tracking-wider">MONEY RECEIPT</h2>
+      <div className="max-w-4xl mx-auto bg-white p-8 shadow-lg print:shadow-none print:p-4 border-2 border-gray-800">
+        {/* HEADER */}
+        <div className="text-center border-b-4 border-black pb-4 mb-4">
+          <h1 className="text-3xl font-black text-red-700 uppercase tracking-wide">{COMPANY.name}</h1>
+          <p className="text-xs font-bold mt-2">{COMPANY.address}</p>
+          <div className="flex justify-center gap-6 text-xs font-bold mt-2">
+            <span>📞 {COMPANY.phone}</span>
+            <span>✉️ {COMPANY.email}</span>
+          </div>
+          <div className="flex justify-center gap-6 text-xs font-bold mt-2 text-blue-900">
+            <span>GSTIN: {COMPANY.gst}</span>
+            <span>PAN: {COMPANY.pan}</span>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-end mb-6 border-b-2 border-gray-300 pb-4">
+          <div>
+            <h2 className="text-2xl font-black text-gray-800">MONEY RECEIPT</h2>
+            <p className="text-sm font-bold mt-1">MR No: <span className="text-red-700 text-xl">{data.mr_no}</span></p>
+            <p className="text-sm">Date: {new Date(data.mr_date).toLocaleDateString('en-IN')}</p>
+          </div>
+          <div className="text-right text-sm">
+            <p className="font-bold">Original Copy (For Party)</p>
+          </div>
+        </div>
+
+        {/* DETAILS */}
+        <div className="mb-6 text-sm">
+          <p className="mb-2"><span className="font-bold">Received with thanks from:</span> <span className="text-lg font-black">{data.party_name}</span></p>
+          <p className="mb-2"><span className="font-bold">Party Type:</span> {data.party_type}</p>
+          <p className="mb-4"><span className="font-bold">Against Bilty/LR No:</span> {data.bilty_lr_no || 'N/A'} | <span className="font-bold">Bill No:</span> {data.bill_no || 'N/A'}</p>
+          
+          <div className="bg-gray-100 border-2 border-gray-800 p-4 rounded text-center my-4">
+            <p className="text-sm font-bold text-gray-600 uppercase">Amount Received</p>
+            <p className="text-4xl font-black text-green-700 my-2">{formatCurrency(data.amount)}</p>
+            <p className="text-sm font-bold">Payment Mode: {data.payment_mode} {data.is_advance ? '(Advance)' : ''}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded border">
-            <div>
-              <div className="text-xs text-gray-600 font-bold">MR NUMBER</div>
-              <div className="text-xl font-bold text-green-800">{mr.mr_no}</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 font-bold">DATE</div>
-              <div className="text-xl font-bold">{mr.mr_date ? new Date(mr.mr_date).toLocaleDateString('en-IN') : 'N/A'}</div>
-            </div>
-          </div>
-
-          <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded">
-            <h3 className="font-bold text-green-900 mb-2">💰 RECEIVED FROM</h3>
-            <p className="text-xl font-bold">{mr.party_name || 'N/A'}</p>
-            <p className="text-sm text-gray-700">Party Type: {mr.party_type || 'N/A'}</p>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="font-bold text-gray-900 border-b-2 border-gray-800 pb-1 mb-3">PAYMENT DETAILS</h3>
-            <table className="w-full border-collapse border border-gray-400">
-              <tbody>
-                <tr className="border-b border-gray-300">
-                  <td className="p-3 font-bold bg-gray-100 w-1/2">Payment Mode</td>
-                  <td className="p-3 font-semibold">{mr.payment_mode || 'Cash'}</td>
-                </tr>
-                {mr.bilty_lr_no && (
-                  <tr className="border-b border-gray-300">
-                    <td className="p-3 font-bold bg-gray-100">Against LR / Bilty No</td>
-                    <td className="p-3 font-semibold text-blue-700">{mr.bilty_lr_no}</td>
-                  </tr>
-                )}
-                {mr.bill_no && (
-                  <tr className="border-b border-gray-300">
-                    <td className="p-3 font-bold bg-gray-100">Against Bill No</td>
-                    <td className="p-3 font-semibold text-blue-700">{mr.bill_no}</td>
-                  </tr>
-                )}
-                <tr className="border-b border-gray-300">
-                  <td className="p-3 font-bold bg-gray-100">Advance Payment</td>
-                  <td className="p-3 font-semibold">{mr.is_advance ? 'Yes' : 'No'}</td>
-                </tr>
-                <tr className="bg-green-100 font-bold text-xl">
-                  <td className="p-4 text-green-900">AMOUNT RECEIVED</td>
-                  <td className="p-4 text-right text-green-900">₹{parseFloat(mr.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {mr.remarks && (
-            <div className="mb-6 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-              <p className="text-sm font-bold text-yellow-800">Remarks:</p>
-              <p className="text-sm text-yellow-700">{mr.remarks}</p>
+          {data.remarks && (
+            <div className="mb-4">
+              <p className="font-bold">Remarks:</p>
+              <p className="border-b border-gray-400 pb-1">{data.remarks}</p>
             </div>
           )}
+        </div>
 
-          <div className="grid grid-cols-2 gap-8 mt-12 pt-4 border-t-2 border-gray-400">
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16"></div>
-              <p className="text-xs font-bold mt-1">Prepared By: {mr.created_by || 'Admin'}</p>
-            </div>
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16"></div>
-              <p className="text-xs font-bold mt-1">Authorized Signatory</p>
-              <p className="text-xs text-gray-600">For Bharat Transport</p>
-            </div>
+        {/* SIGNATURE */}
+        <div className="mt-12 pt-4 border-t-2 border-black flex justify-between items-end">
+          <div className="text-sm">
+            <p className="font-bold">For {COMPANY.name}</p>
           </div>
+          <div className="text-right">
+            <div className="font-cursive text-3xl text-blue-900 mb-1" style={{ fontFamily: "'Mrs Saint Delafield', cursive" }}>{COMPANY.signatory}</div>
+            <p className="text-xs font-bold border-t-2 border-black inline-block pt-1">Authorized Signatory</p>
+          </div>
+        </div>
 
-          <div className="mt-8 text-center text-xs text-gray-500">
-            <p>This is a computer generated receipt.</p>
-            <p className="mt-1">© 2026 Bharat Transport Company • Generated: {new Date().toLocaleString('en-IN')}</p>
-          </div>
+        <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-2">
+          This is a computer generated receipt. Subject to Rajgarh (Rajasthan) jurisdiction.
         </div>
       </div>
 
       <style>{`
-        @page { size: A4; margin: 10mm; }
         @media print {
-          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .print\\:hidden { display: none !important; }
-          .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:my-0 { margin: 0; }
-          .print\\:p-6 { padding: 1.5rem; }
-          * { box-shadow: none !important; }
+          .no-print { display: none !important; }
+          body { background: white; }
         }
       `}</style>
     </div>
