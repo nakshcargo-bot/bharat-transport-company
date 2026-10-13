@@ -11,23 +11,35 @@ export default function BiltyPrint() {
   const lrNo = searchParams.get('lr_no')
 
   useEffect(() => {
-    if (!lrNo) { navigate('/consignments'); return }
-    fetchBiltyData(lrNo)
+    let active = true
+    setBilty(null)
+    setLoading(true)
+    setError(null)
+    if (!lrNo) {
+      setError('Select a bilty to print.')
+      setLoading(false)
+      return () => { active = false }
+    }
+    fetchBiltyData(lrNo, () => active)
+    return () => { active = false }
   }, [lrNo, navigate])
 
-  const fetchBiltyData = async (lrNo) => {
+  const fetchBiltyData = async (lrNo, isActive) => {
     try {
-      setLoading(true); setError(null)
       const token = localStorage.getItem('token')
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const res = await fetch(`${apiUrl}/api/consignments`, { headers: { 'Authorization': `Bearer ${token}` } })
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
-      const foundBilty = data.data.find(b => b.lr_no === lrNo)
+      const bilties = Array.isArray(data) ? data : data.data
+      const foundBilty = Array.isArray(bilties) ? bilties.find(b => b.lr_no === lrNo) : null
       if (!foundBilty) throw new Error('Bilty not found')
-      setBilty(foundBilty)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+      if (isActive()) setBilty(foundBilty)
+    } catch (err) {
+      if (isActive()) setError(err.message)
+    } finally {
+      if (isActive()) setLoading(false)
+    }
   }
 
   const handlePrint = () => window.print()
@@ -89,9 +101,9 @@ export default function BiltyPrint() {
       {/* Action Bar */}
       <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back to List</button>
+          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back</button>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print / Save PDF</button>
+            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print</button>
             <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">📱 WhatsApp</button>
             <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium">📧 Email</button>
           </div>
@@ -140,9 +152,10 @@ export default function BiltyPrint() {
                 padding: '5px 0', background: theme.bgAccent,
                 position: 'relative', zIndex: 2
               }}>
-                <h1 style={{ margin: 0, fontSize: '24px', color: theme.primary }}>BHARAT TRANSPORT COMPANY</h1>
-                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan 331023</p>
-                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>GST NO: 08CMRPP0955N1Z5 | PAN NO: CMRPP0955N</p>
+                <h1 style={{ margin: 0, fontSize: '24px', color: '#b91c1c', fontWeight: 900 }}>BHARAT TRANSPORT COMPANY</h1>
+                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023</p>
+                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>📞 +91 9680264231 | ✉️ bharattrsnportcompany@gmail.com</p>
+                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>GSTIN: 08CMRPP0955N1Z5 | PAN: CMRPP0955N</p>
               </div>
 
               {/* Copy Label */}
@@ -324,16 +337,17 @@ export default function BiltyPrint() {
                     <span style={{ border: '2px solid #000', padding: '3px 6px', background: '#ffffcc', minWidth: '90px', textAlign: 'right' }}>₹{bilty.grand_total || '0'}/-</span>
                   </div>
                   <div style={{ border: '1px solid #000', marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.95)' }}>
-                    <strong style={{ fontSize: '10px' }}>For BHARAT TRANSPORT COMPANY</strong>
+                    <strong style={{ fontSize: '10px' }}>FOR BHARAT TRANSPORT COMPANY</strong>
                     <br /><br />
-                    <p style={{ borderTop: '1px solid #000', margin: 0, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>Signature</p>
+                    <p style={{ borderTop: '1px solid #000', margin: 0, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>Authorized Signatory</p>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
               <div style={{ marginTop: '5px', paddingTop: '5px', fontSize: '10px', borderTop: '1px solid #000', position: 'relative', zIndex: 2 }}>
-                • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
+                <div>HDFC BANK | A/c: 50200112184634 | IFSC: HDFC0002795 | Branch: RAJGARH</div>
+                <div style={{ marginTop: '3px' }}>• Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.</div>
               </div>
             </div>
           )

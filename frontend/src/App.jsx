@@ -97,7 +97,8 @@ function App() {
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print" element={<BiltyPrint />} />
           <Route path="/mr/print" element={<MRPrint />} />
-          <Route path="/gadi-challan-print" element={<GadiChallanPrint />} />
+          <Route path="/mr-print/:id?" element={<MRPrint />} />
+          <Route path="/gadi-challan-print/:id?" element={<GadiChallanPrint />} />
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
           
@@ -114,7 +115,7 @@ function App() {
           <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
-          <Route path="/bill-print/:id" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
+          <Route path="/bill-print/:id?" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
 
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />

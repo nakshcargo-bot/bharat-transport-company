@@ -17,7 +17,12 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [lowStockItems, setLowStockItems] = useState([])
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  let user = {}
+  try {
+    user = JSON.parse(localStorage.getItem('user') || '{}')
+  } catch (e) {
+    localStorage.removeItem('user')
+  }
   const isAdmin = user.role === 'admin'
 
   useEffect(() => {
@@ -101,8 +106,8 @@ export default function Dashboard() {
   const navMenus = [
     { label: 'Operations', items: [
         { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
-        { name: 'Create New Bilty', path: '/consignments/new', icon: '' },
-        { name: 'Bilty Print', path: '/bilty-print', icon: '️' },
+        { name: 'Create New Bilty', path: '/consignments/new', icon: '📝' },
+        { name: 'Bilty Print', path: '/bilty-print', icon: '🖨️' },
         { name: 'Manifest/Transit', path: '/transit', icon: '🚚' },
         { name: 'Trip Management', path: '/trips', icon: '🗺️' },
         { name: 'POD Management', path: '/pod', icon: '✅' },
@@ -119,7 +124,7 @@ export default function Dashboard() {
         { name: 'Branch Payments', path: '/branch-payments', icon: '🏦' },
         { name: 'Accounts Summary', path: '/accounts', icon: '📊' },
         { name: 'Rate Contracts', path: '/rates', icon: '📑' },
-        { name: 'Party Ledger', path: '/ledger', icon: '' },
+        { name: 'Party Ledger', path: '/ledger', icon: '📒' },
         { name: 'Outstanding', path: '/outstanding', icon: '⏳' },
       ]
     },
@@ -127,7 +132,7 @@ export default function Dashboard() {
         { name: 'Gadi Challan', path: '/gadi-challan', icon: '🚛' },
         { name: 'Gadi Challan Print', path: '/gadi-challan-print', icon: '🖨️' },
         { name: 'Gate Pass', path: '/gate-pass', icon: '🎫' },
-        { name: 'Drivers', path: '/drivers', icon: '' },
+        { name: 'Drivers', path: '/drivers', icon: '👷' },
         { name: 'Vehicles', path: '/vehicles', icon: '🚗' },
         { name: 'E-Way Bill', path: '/eway', icon: '📄' },
       ]
@@ -155,14 +160,14 @@ export default function Dashboard() {
   ]
 
   const quickActions = [
-    { icon: '', label: 'New Bilty', color: 'bg-indigo-600 hover:bg-indigo-700', path: '/consignments/new' },
+    { icon: '📝', label: 'New Bilty', color: 'bg-indigo-600 hover:bg-indigo-700', path: '/consignments/new' },
     { icon: '🆕', label: 'New Bill', color: 'bg-emerald-600 hover:bg-emerald-700', path: '/bill/new' },
     { icon: '💰', label: 'Money Receipt', color: 'bg-green-600 hover:bg-green-700', path: '/mr/create' },
     { icon: '🚛', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'bg-blue-600 hover:bg-blue-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'bg-orange-600 hover:bg-orange-700', path: '/transit' },
     { icon: '🏢', label: 'Branches', color: 'bg-rose-600 hover:bg-rose-700', path: '/branches', adminOnly: true },
-    { icon: '', label: 'Stock Mgmt', color: 'bg-cyan-600 hover:bg-cyan-700', path: '/stock', adminOnly: true },
+    { icon: '📦', label: 'Stock Mgmt', color: 'bg-cyan-600 hover:bg-cyan-700', path: '/stock', adminOnly: true },
   ].filter(a => !a.adminOnly || isAdmin)
 
   if (!currentUser || loading) {
@@ -238,7 +243,7 @@ export default function Dashboard() {
               {isAdmin ? 'Consolidated view across all branches' : `Branch: ${user.branch_name || 'N/A'}`}
             </p>
           </div>
-          <div className="text-right hidden md:block">
+          <div className="text-right">
             <div className="text-3xl font-bold text-slate-900 font-mono">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
             <div className="text-sm text-slate-500">{currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
           </div>
