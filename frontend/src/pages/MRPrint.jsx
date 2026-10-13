@@ -12,8 +12,7 @@ const COMPANY = {
   bankName: "HDFC BANK",
   accountNo: "50200112184634",
   ifsc: "HDFC0002795",
-  branch: "RAJGARH",
-  signatory: "Krishan"
+  branch: "RAJGARH"
 }
 
 export default function MRPrint() {
@@ -26,7 +25,10 @@ export default function MRPrint() {
     if (id) {
       api.get(`/api/mr/${id}`)
         .then(res => { setData(res.data); setLoading(false) })
-        .catch(() => { alert('MR not found'); navigate('/mr') })
+        .catch(() => { 
+          alert('MR not found!'); 
+          navigate('/mr') 
+        })
     }
   }, [id, navigate])
 
@@ -37,9 +39,10 @@ export default function MRPrint() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
+      {/* PRINT BUTTON - NO PRINT SECTION */}
       <div className="no-print mb-4 flex justify-between items-center max-w-4xl mx-auto">
         <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
-        <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">🖨️ Print MR</button>
+        <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">️ Print MR</button>
       </div>
 
       <div className="max-w-4xl mx-auto bg-white p-8 shadow-lg print:shadow-none print:p-4 border-2 border-gray-800">
@@ -94,8 +97,9 @@ export default function MRPrint() {
             <p className="font-bold">For {COMPANY.name}</p>
           </div>
           <div className="text-right">
-            <div className="font-cursive text-3xl text-blue-900 mb-1" style={{ fontFamily: "'Mrs Saint Delafield', cursive" }}>{COMPANY.signatory}</div>
-            <p className="text-xs font-bold border-t-2 border-black inline-block pt-1">Authorized Signatory</p>
+            <div className="border-t-2 border-black inline-block pt-1">
+              <p className="text-xs font-bold">Authorized Signatory</p>
+            </div>
           </div>
         </div>
 
