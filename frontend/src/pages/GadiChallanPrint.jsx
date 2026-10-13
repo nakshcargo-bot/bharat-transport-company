@@ -1,313 +1,137 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import api from '../api'
+
+const COMPANY = {
+  name: "BHARAT TRANSPORT COMPANY",
+  gst: "08CMRPP0955N1Z5",
+  pan: "CMRPP0955N",
+  address: "Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023",
+  phone: "+91 9680264231",
+  email: "bharattrsnportcompany@gmail.com",
+  bankName: "HDFC BANK",
+  accountNo: "50200112184634",
+  ifsc: "HDFC0002795",
+  branch: "RAJGARH",
+  signatory: "Krishan"
+}
 
 export default function GadiChallanPrint() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const { id } = useParams()
-  const [challan, setChallan] = useState(null)
+  const navigate = useNavigate()
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
-    const challanId = id || searchParams.get('id')
-    if (challanId) {
-      fetchChallan(challanId)
-    } else {
-      setError('Challan ID not found')
-      setLoading(false)
+    if (id) {
+      api.get(`/api/gadi-challan/${id}`)
+        .then(res => { setData(res.data); setLoading(false) })
+        .catch(() => { alert('Challan not found'); navigate('/gadi-challan') })
     }
-  }, [id, searchParams])
+  }, [id, navigate])
 
-  const fetchChallan = async (challanId) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const token = localStorage.getItem('token')
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
-      const res = await fetch(`${apiUrl}/api/gadi-challan/${challanId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      
-      if (!res.ok) {
-        if (res.status === 404) throw new Error('Challan not found')
-        throw new Error('Failed to fetch challan')
-      }
-      
-      const data = await res.json()
-      setChallan(data)
-    } catch (err) {
-      console.error('Error fetching challan:', err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  if (loading) return <div className="p-8 text-center">Loading...</div>
+  if (!data) return null
 
-  const handlePrint = () => window.print()
-
-  const handleWhatsApp = () => {
-    if (!challan) return
-    const msg = `*GADI CHALLAN*%0A%0A` +
-      `Challan No: ${challan.challan_no}%0A` +
-      `Date: ${new Date(challan.issue_date).toLocaleDateString('en-IN')}%0A` +
-      `Vehicle: ${challan.vehicle_no}%0A` +
-      `Driver: ${challan.driver_name}%0A` +
-      `Route: ${challan.from_place} → ${challan.to_place}%0A` +
-      `Freight: ₹${parseFloat(challan.freight_amount || 0).toLocaleString('en-IN')}%0A` +
-      `%0A- Bharat Transport`
-    window.open(`https://wa.me/?text=${msg}`, '_blank')
-  }
-
-  const handleEmail = () => {
-    if (!challan) return
-    const subject = `Gadi Challan - ${challan.challan_no}`
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}`
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-700 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading Challan...</p>
-          <p className="text-xs text-gray-400 mt-2">If stuck, please refresh the page</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !challan) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md text-center">
-          <div className="text-red-600 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Challan Not Found</h2>
-          <p className="text-gray-600 mb-4">{error || 'The requested challan does not exist or has been deleted.'}</p>
-          <div className="flex gap-2 justify-center">
-            <button 
-              onClick={() => navigate('/gadi-challan')} 
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
-            >
-              ← Back to Challan List
-            </button>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 print:p-0 print:bg-white">
-      {/* Action Buttons - Print Only */}
-      <div className="max-w-5xl mx-auto mb-4 flex gap-2 print:hidden">
-        <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">← Back</button>
-        <div className="flex-1"></div>
-        <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">🖨️ Print / Save PDF</button>
-        <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">📱 WhatsApp</button>
-        <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"> Email</button>
+      <div className="no-print mb-4 flex justify-between items-center max-w-4xl mx-auto">
+        <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        <button onClick={() => window.print()} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold">🖨️ Print Challan</button>
       </div>
 
-      {/* Challan Content */}
-      <div className="max-w-5xl mx-auto bg-white shadow-lg p-8 print:shadow-none print:p-4">
-        {/* Header */}
-        <div className="border-b-4 border-purple-800 pb-4 mb-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold text-purple-800">BHARAT TRANSPORT</h1>
-              <p className="text-gray-600 mt-1">Professional Multi-Branch Transport Management System</p>
-              <p className="text-sm text-gray-500 mt-1">GST: 27AAAAA0000A1Z5 | PAN: AAAAA0000A</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-3xl font-bold text-gray-800">GADI CHALLAN</h2>
-              <p className="text-lg mt-2"><strong>Challan No:</strong> {challan.challan_no}</p>
-              <p className="text-lg"><strong>Date:</strong> {new Date(challan.issue_date).toLocaleDateString('en-IN')}</p>
+      <div className="max-w-4xl mx-auto bg-white p-8 shadow-lg print:shadow-none print:p-4 border-2 border-gray-800">
+        {/* HEADER */}
+        <div className="text-center border-b-4 border-black pb-4 mb-4">
+          <h1 className="text-3xl font-black text-red-700 uppercase tracking-wide">{COMPANY.name}</h1>
+          <p className="text-xs font-bold mt-2">{COMPANY.address}</p>
+          <div className="flex justify-center gap-6 text-xs font-bold mt-2">
+            <span>📞 {COMPANY.phone}</span>
+            <span>✉️ {COMPANY.email}</span>
+          </div>
+          <div className="flex justify-center gap-6 text-xs font-bold mt-2 text-blue-900">
+            <span>GSTIN: {COMPANY.gst}</span>
+            <span>PAN: {COMPANY.pan}</span>
+          </div>
+        </div>
+
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-black border-2 border-black inline-block px-8 py-2 rounded">GADI CHALLAN</h2>
+          <p className="mt-2 font-bold">Challan No: <span className="text-red-700 text-xl">{data.challan_no}</span> | Date: {new Date(data.issue_date).toLocaleDateString('en-IN')}</p>
+        </div>
+
+        {/* DETAILS GRID */}
+        <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+          <div className="border-2 border-gray-400 p-3 rounded">
+            <p className="font-bold text-gray-600 text-xs uppercase">Vehicle Details</p>
+            <p><span className="font-bold">Vehicle No:</span> {data.vehicle_no}</p>
+            <p><span className="font-bold">Driver:</span> {data.driver_name} ({data.driver_mobile})</p>
+            <p><span className="font-bold">License:</span> {data.driver_license}</p>
+          </div>
+          <div className="border-2 border-gray-400 p-3 rounded">
+            <p className="font-bold text-gray-600 text-xs uppercase">Owner / Broker Details</p>
+            <p><span className="font-bold">Owner:</span> {data.owner_name} ({data.owner_mobile})</p>
+            <p><span className="font-bold">Broker:</span> {data.broker_name} ({data.broker_mobile})</p>
+          </div>
+          <div className="border-2 border-gray-400 p-3 rounded col-span-2">
+            <p className="font-bold text-gray-600 text-xs uppercase">Route & Material</p>
+            <div className="grid grid-cols-2 gap-2">
+              <p><span className="font-bold">From:</span> {data.from_place}</p>
+              <p><span className="font-bold">To:</span> {data.to_place}</p>
+              <p><span className="font-bold">Material:</span> {data.material_desc}</p>
+              <p><span className="font-bold">Weight:</span> {data.weight} | <span className="font-bold">Packages:</span> {data.packages}</p>
             </div>
           </div>
         </div>
 
-        {/* Vehicle & Driver Details */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
-            <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
-              <span className="text-2xl">🚛</span> VEHICLE DETAILS
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-600">Vehicle No:</span><span className="font-bold">{challan.vehicle_no}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Vehicle Type:</span><span>{challan.vehicle_type || 'Truck'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Owner Name:</span><span className="font-bold">{challan.owner_name}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Owner Mobile:</span><span>{challan.owner_mobile}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">RC Expiry:</span><span>{challan.rc_expiry ? new Date(challan.rc_expiry).toLocaleDateString('en-IN') : 'N/A'}</span></div>
-            </div>
-          </div>
+        {/* FINANCIALS */}
+        <table className="w-full border-collapse border-2 border-black text-sm mb-6">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border border-black p-2 text-left">Description</th>
+              <th className="border border-black p-2 text-right">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td className="border border-black p-2">Freight Amount</td><td className="border border-black p-2 text-right">{formatCurrency(data.freight_amount)}</td></tr>
+            <tr><td className="border border-black p-2">Broker Commission</td><td className="border border-black p-2 text-right">{formatCurrency(data.broker_commission)}</td></tr>
+            <tr><td className="border border-black p-2">Toll Expense</td><td className="border border-black p-2 text-right">{formatCurrency(data.toll_expense)}</td></tr>
+            <tr><td className="border border-black p-2">Diesel Expense</td><td className="border border-black p-2 text-right">{formatCurrency(data.diesel_expense)}</td></tr>
+            <tr><td className="border border-black p-2">Other Expenses</td><td className="border border-black p-2 text-right">{formatCurrency(data.other_expense)}</td></tr>
+            <tr><td className="border border-black p-2 font-bold">TDS Deduction</td><td className="border border-black p-2 text-right font-bold text-red-600">- {formatCurrency(data.tds_deduction)}</td></tr>
+            <tr className="bg-gray-100">
+              <td className="border border-black p-2 font-black text-lg">NET PAYABLE</td>
+              <td className="border border-black p-2 text-right font-black text-lg text-green-700">{formatCurrency(data.net_payable)}</td></tr>
+          </tbody>
+        </table>
 
-          <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
-            <h3 className="font-bold text-green-900 mb-3 flex items-center gap-2">
-              <span className="text-2xl"></span> DRIVER DETAILS
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-600">Driver Name:</span><span className="font-bold">{challan.driver_name}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">License No:</span><span>{challan.driver_license}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Mobile:</span><span>{challan.driver_mobile}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Address:</span><span>{challan.driver_address || 'N/A'}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Aadhar:</span><span>{challan.driver_aadhar || 'N/A'}</span></div>
-            </div>
+        {/* BANK DETAILS & SIGNATURE */}
+        <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t-2 border-black">
+          <div className="text-sm">
+            <p className="font-black text-gray-800 mb-2 uppercase border-b border-gray-400 pb-1">Payment To Be Made To:</p>
+            <p><span className="font-bold">Bank:</span> {COMPANY.bankName}</p>
+            <p><span className="font-bold">Branch:</span> {COMPANY.branch}</p>
+            <p><span className="font-bold">A/c No:</span> {COMPANY.accountNo}</p>
+            <p><span className="font-bold">IFSC:</span> {COMPANY.ifsc}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-bold mb-8">For {COMPANY.name}</p>
+            <div className="font-cursive text-3xl text-blue-900 mb-1" style={{ fontFamily: "'Mrs Saint Delafield', cursive" }}>{COMPANY.signatory}</div>
+            <p className="text-xs font-bold border-t-2 border-black inline-block pt-1">Authorized Signatory</p>
           </div>
         </div>
 
-        {/* Route & Material */}
-        <div className="border-2 border-orange-200 rounded-lg p-4 mb-6 bg-orange-50">
-          <h3 className="font-bold text-orange-900 mb-3 flex items-center gap-2">
-            <span className="text-2xl">📍</span> ROUTE & MATERIAL DETAILS
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-600">FROM</div>
-              <div className="font-bold text-lg">{challan.from_place}</div>
-              {challan.from_branch && <div className="text-sm text-gray-500">{challan.from_branch}</div>}
-            </div>
-            <div className="flex items-center justify-center">
-              <div className="text-3xl">➡️</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600">TO</div>
-              <div className="font-bold text-lg">{challan.to_place}</div>
-              {challan.to_branch && <div className="text-sm text-gray-500">{challan.to_branch}</div>}
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-orange-200">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-gray-600">Material Description:</div>
-                <div className="font-bold">{challan.material_desc}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-600">Weight / Packages:</div>
-                <div className="font-bold">{challan.weight} MT / {challan.packages} Pkgs</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Consignor & Consignee */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="border border-gray-300 rounded p-3">
-            <h4 className="font-bold text-sm text-gray-700 mb-2">CONSIGNOR (Booker)</h4>
-            <div className="text-sm">
-              <div className="font-bold">{challan.consignor_name}</div>
-              <div className="text-gray-600">{challan.consignor_address}</div>
-              <div className="text-gray-600">GST: {challan.consignor_gst}</div>
-            </div>
-          </div>
-          <div className="border border-gray-300 rounded p-3">
-            <h4 className="font-bold text-sm text-gray-700 mb-2">CONSIGNEE (Receiver)</h4>
-            <div className="text-sm">
-              <div className="font-bold">{challan.consignee_name}</div>
-              <div className="text-gray-600">{challan.consignee_address}</div>
-              <div className="text-gray-600">GST: {challan.consignee_gst}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Financial Details */}
-        <div className="border-2 border-gray-800 rounded-lg p-4 mb-6">
-          <h3 className="font-bold text-lg mb-3">💰 FINANCIAL DETAILS</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <table className="w-full text-sm">
-                <tbody>
-                  <tr className="border-b"><td className="py-2">Freight Amount:</td><td className="text-right font-bold">₹{parseFloat(challan.freight_amount || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr className="border-b"><td className="py-2">Advance Paid:</td><td className="text-right">₹{parseFloat(challan.advance_paid || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr><td className="py-2">Balance Due:</td><td className="text-right font-bold text-red-600">₹{parseFloat(challan.balance_due || 0).toLocaleString('en-IN')}</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div>
-              <table className="w-full text-sm">
-                <tbody>
-                  <tr className="border-b"><td className="py-2">Toll Expense:</td><td className="text-right">₹{parseFloat(challan.toll_expense || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr className="border-b"><td className="py-2">Diesel Expense:</td><td className="text-right">₹{parseFloat(challan.diesel_expense || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr className="border-b"><td className="py-2">Other Expense:</td><td className="text-right">₹{parseFloat(challan.other_expense || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr className="border-b"><td className="py-2">TDS Deduction:</td><td className="text-right">₹{parseFloat(challan.tds_deduction || 0).toLocaleString('en-IN')}</td></tr>
-                  <tr><td className="py-2 font-bold">Net Payable:</td><td className="text-right font-bold text-green-700">₹{parseFloat(challan.net_payable || 0).toLocaleString('en-IN')}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Broker Details */}
-        {challan.broker_name && (
-          <div className="border border-gray-300 rounded p-3 mb-6">
-            <h4 className="font-bold text-sm text-gray-700 mb-2">BROKER DETAILS</h4>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div><span className="text-gray-600">Name:</span> {challan.broker_name}</div>
-              <div><span className="text-gray-600">Mobile:</span> {challan.broker_mobile}</div>
-              <div><span className="text-gray-600">Commission:</span> ₹{parseFloat(challan.broker_commission || 0).toLocaleString('en-IN')}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Bilty Reference */}
-        {challan.lr_no && (
-          <div className="bg-gray-50 border border-gray-300 rounded p-3 mb-6">
-            <div className="text-sm">
-              <span className="font-bold">Reference LR/Bilty No:</span> {challan.lr_no} | 
-              <span className="ml-4 font-bold">Bilty Date:</span> {challan.bilty_date ? new Date(challan.bilty_date).toLocaleDateString('en-IN') : 'N/A'}
-            </div>
-          </div>
-        )}
-
-        {/* Remarks */}
-        {challan.remarks && (
-          <div className="border-l-4 border-yellow-400 bg-yellow-50 p-3 mb-6">
-            <div className="text-sm font-bold text-yellow-800">Remarks:</div>
-            <div className="text-sm text-yellow-700">{challan.remarks}</div>
-          </div>
-        )}
-
-        {/* Footer Signatures */}
-        <div className="mt-12 pt-6 border-t-2 border-gray-400">
-          <div className="grid grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16 mb-2"></div>
-              <div className="text-xs font-bold">Prepared By</div>
-              <div className="text-xs text-gray-600">{challan.created_by || 'Admin'}</div>
-            </div>
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16 mb-2"></div>
-              <div className="text-xs font-bold">Driver Signature</div>
-              <div className="text-xs text-gray-600">{challan.driver_name}</div>
-            </div>
-            <div className="text-center">
-              <div className="border-b border-gray-400 h-16 mb-2"></div>
-              <div className="text-xs font-bold">Authorized Signatory</div>
-              <div className="text-xs text-gray-600">For Bharat Transport</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Note */}
-        <div className="mt-8 text-center text-xs text-gray-500 border-t pt-4">
-          <p>This is a computer generated challan.</p>
-          <p className="mt-1">© 2026 Bharat Transport Company • Generated: {new Date().toLocaleString('en-IN')}</p>
-          <p className="mt-2 text-purple-600 font-bold">Thank you for your business!</p>
+        <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-2">
+          This is a computer generated challan. Subject to Rajgarh (Rajasthan) jurisdiction.
         </div>
       </div>
 
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          .no-print { display: none !important; }
           body { background: white; }
-          .print\\:hidden { display: none !important; }
-          .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:p-4 { padding: 1rem; }
         }
       `}</style>
     </div>
