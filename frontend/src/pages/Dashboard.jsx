@@ -15,13 +15,8 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [lowStockItems, setLowStockItems] = useState([])
-  const searchInputRef = useRef(null)
 
-  // ✅ SAFE: Define user and roles BEFORE they are used in fetchData
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const isAdmin = user.role === 'admin'
   const isBranchUser = user.role === 'branch_user'
@@ -37,28 +32,14 @@ export default function Dashboard() {
     return () => clearInterval(timer)
   }, [selectedBranch])
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true) }
-      if (e.key === 'Escape') { setShowSearch(false); setShowNotifications(false) }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  useEffect(() => {
-    if (showSearch && searchInputRef.current) searchInputRef.current.focus()
-  }, [showSearch])
-
   const checkStockAlerts = () => {
     try {
       const savedStock = localStorage.getItem('btc_stationery_stock_v2')
       if (savedStock) {
         const currentStock = JSON.parse(savedStock)
-        const low = currentStock.filter(item => item.currentStock <= item.threshold)
-        setLowStockItems(low)
+        setLowStockItems(currentStock.filter(item => item.currentStock <= item.threshold))
       }
-    } catch (e) { console.error("Stock check error", e) }
+    } catch (e) {}
   }
 
   const fetchData = async () => {
@@ -68,7 +49,6 @@ export default function Dashboard() {
       const apiUrl = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com'
       const headers = { 'Authorization': `Bearer ${token}` }
 
-      // ✅ 401 Token Fix
       if (token) {
         try {
           const testRes = await fetch(`${apiUrl}/api/dashboard/stats`, { headers })
@@ -78,10 +58,9 @@ export default function Dashboard() {
             navigate('/login')
             return
           }
-        } catch (e) { console.error(e) }
+        } catch (e) {}
       }
 
-      // ✅ Branch Filter Logic
       const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''
       
       const [resStats, resRecent, resParties, resBranches] = await Promise.all([
@@ -116,7 +95,7 @@ export default function Dashboard() {
     catch (error) { console.error(error) }
   }
 
-  const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+  const formatCurrency = (amount) => '' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const s = stats || getDefaultStats()
 
   const navMenus = [
@@ -147,13 +126,13 @@ export default function Dashboard() {
         { name: 'Parties/Customers', path: '/customers', icon: '👥' },
         { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
-        { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true }, // ✅ ADDED
-        { name: 'Claims', path: '/claims', icon: '⚠️' },
+        { name: 'Stock Management', path: '/stock', icon: '', adminOnly: true },
+        { name: 'Claims', path: '/claims', icon: '️' },
         { name: 'Expenses', path: '/expenses', icon: '💸' },
       ]
     },
     { label: 'Reports', items: [
-        { name: 'Reports', path: '/reports', icon: '📈' },
+        { name: 'Reports', path: '/reports', icon: '' },
         { name: 'Audit Logs', path: '/audit', icon: '🔍', adminOnly: true },
       ]
     }
@@ -163,11 +142,11 @@ export default function Dashboard() {
     { icon: '📝', label: 'New Bilty', color: 'bg-indigo-600 hover:bg-indigo-700', path: '/consignments/new' },
     { icon: '🆕', label: 'New Bill', color: 'bg-emerald-600 hover:bg-emerald-700', path: '/bill/new' },
     { icon: '💰', label: 'Money Receipt', color: 'bg-green-600 hover:bg-green-700', path: '/mr/create' },
-    { icon: '🚛', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
+    { icon: '', label: 'Gadi Challan', color: 'bg-purple-600 hover:bg-purple-700', path: '/gadi-challan' },
     { icon: '📄', label: 'E-Way Bill', color: 'bg-blue-600 hover:bg-blue-700', path: '/eway' },
     { icon: '📦', label: 'Manifest', color: 'bg-orange-600 hover:bg-orange-700', path: '/transit' },
     { icon: '🏢', label: 'Branches', color: 'bg-rose-600 hover:bg-rose-700', path: '/branches', adminOnly: true },
-    { icon: '📦', label: 'Stock Mgmt', color: 'bg-cyan-600 hover:bg-cyan-700', path: '/stock', adminOnly: true }, // ✅ ADDED
+    { icon: '📦', label: 'Stock Mgmt', color: 'bg-cyan-600 hover:bg-cyan-700', path: '/stock', adminOnly: true },
   ].filter(a => !a.adminOnly || isAdmin)
 
   if (!currentUser || loading) {
@@ -183,7 +162,6 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      {/* TOP NAVIGATION */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -236,10 +214,7 @@ export default function Dashboard() {
         )}
       </nav>
 
-      {/* MAIN CONTENT */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* HEADER SECTION */}
         <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
@@ -253,14 +228,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ADMIN CONTROLS & ALERTS */}
         <div className="space-y-4 mb-8">
           {isAdmin && branches.length > 0 && (
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center gap-4 flex-wrap">
-              <label className="font-semibold text-slate-700 flex items-center gap-2">🏢 Branch Filter:</label>
-              <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white min-w-[200px]">
+              <label className="font-semibold text-slate-700 flex items-center gap-2">🏢 Filter by Branch:</label>
+              <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white min-w-[200px]">
                 <option value="all">🌐 All Branches (Consolidated)</option>
-                {branches.map((b) => (<option key={b.id} value={b.id}>🏢 {b.branch_name} — {b.city}</option>))}
+                {branches.map((b) => (<option key={b.id} value={b.id}> {b.branch_name} — {b.city}</option>))}
               </select>
               {selectedBranch !== 'all' && <button onClick={() => setSelectedBranch('all')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">✖ Clear Filter</button>}
             </div>
@@ -286,7 +260,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* KEY METRICS (STATS CARDS) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
             <div className="text-sm font-medium text-slate-500 mb-1">Today's LR</div>
@@ -310,7 +283,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS */}
         <div className="mb-8">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -323,25 +295,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* OPERATIONAL STATUS & BRANCH OVERVIEW */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Operational Status</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3"><span className="text-2xl">🚗</span><div><div className="font-medium text-slate-800">Active Vehicles</div><div className="text-xs text-slate-500">Currently operational</div></div></div>
+                <div className="flex items-center gap-3"><span className="text-2xl">🚗</span><div><div className="font-medium text-slate-800">Active Vehicles</div></div></div>
                 <div className="text-2xl font-bold text-slate-900">{s.active_vehicles}</div>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3"><span className="text-2xl">👷</span><div><div className="font-medium text-slate-800">Active Drivers</div><div className="text-xs text-slate-500">On duty / Available</div></div></div>
+                <div className="flex items-center gap-3"><span className="text-2xl">👷</span><div><div className="font-medium text-slate-800">Active Drivers</div></div></div>
                 <div className="text-2xl font-bold text-slate-900">{s.active_drivers}</div>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-3"><span className="text-2xl">⚠️</span><div><div className="font-medium text-slate-800">Open Claims</div><div className="text-xs text-slate-500">Needs attention</div></div></div>
+                <div className="flex items-center gap-3"><span className="text-2xl">⚠️</span><div><div className="font-medium text-slate-800">Open Claims</div></div></div>
                 <div className="text-2xl font-bold text-red-600">{s.open_claims}</div>
               </div>
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3"><span className="text-2xl">🏢</span><div><div className="font-medium text-slate-800">Total Branches</div><div className="text-xs text-slate-500">Network size</div></div></div>
+                <div className="flex items-center gap-3"><span className="text-2xl">🏢</span><div><div className="font-medium text-slate-800">Total Branches</div></div></div>
                 <div className="text-2xl font-bold text-slate-900">{s.total_branches}</div>
               </div>
             </div>
@@ -373,7 +344,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* RECENT ACTIVITY */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
