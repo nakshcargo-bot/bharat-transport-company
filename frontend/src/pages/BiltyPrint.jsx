@@ -79,7 +79,7 @@ export default function BiltyPrint() {
     <div className="min-h-screen bg-gray-100 p-4">
       <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Select a bilty to print</h1>
+          <h1 className="text-2xl font-bold">Select a Bilty to Print</h1>
           <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
         </div>
         {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
@@ -97,7 +97,7 @@ export default function BiltyPrint() {
                   <td className="p-3">{item.lr_date?.split('T')[0] || '—'}</td>
                   <td className="p-3">{item.consignor_name || 'N/A'}</td>
                   <td className="p-3">{item.consignee_name || 'N/A'}</td>
-                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${item.id}`} onClick={(event) => event.stopPropagation()}>View / Print</Link></td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${item.id}`} onClick={(event) => event.stopPropagation()}>Print</Link></td>
                 </tr>
               ))}
             </tbody>
@@ -379,7 +379,6 @@ export default function BiltyPrint() {
 
               {/* Footer */}
               <div style={{ marginTop: '5px', paddingTop: '5px', fontSize: '10px', borderTop: '1px solid #000', position: 'relative', zIndex: 2 }}>
-                <div>HDFC BANK | A/c: 50200112184634 | IFSC: HDFC0002795 | Branch: RAJGARH</div>
                 <div style={{ marginTop: '3px' }}>• Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.</div>
               </div>
             </div>

@@ -9,10 +9,6 @@ const COMPANY = {
   address: "Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023",
   phone: "+91 9680264231",
   email: "bharattrsnportcompany@gmail.com",
-  bankName: "HDFC BANK",
-  accountNo: "50200112184634",
-  ifsc: "HDFC0002795",
-  branch: "RAJGARH"
 }
 
 export default function MRPrint() {
@@ -60,7 +56,7 @@ export default function MRPrint() {
     <div className="min-h-screen bg-gray-100 p-4">
       <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Select a money receipt to print</h1>
+          <h1 className="text-2xl font-bold">Select a MR to Print</h1>
           <button onClick={() => navigate('/mr')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
         </div>
         {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
@@ -78,7 +74,7 @@ export default function MRPrint() {
                   <td className="p-3">{receipt.mr_date?.split('T')[0] || '—'}</td>
                   <td className="p-3">{receipt.party_name || 'N/A'}</td>
                   <td className="p-3 text-right">₹{Number(receipt.amount || 0).toLocaleString('en-IN')}</td>
-                  <td className="p-3"><button className="text-blue-700 underline" onClick={(event) => { event.stopPropagation(); navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`) }}>View / Print</button></td>
+                  <td className="p-3"><button className="text-blue-700 underline" onClick={(event) => { event.stopPropagation(); navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`) }}>Print</button></td>
                 </tr>
               ))}
             </tbody>
@@ -163,7 +159,6 @@ export default function MRPrint() {
         </div>
 
         <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-2">
-          <p>HDFC BANK | A/c: {COMPANY.accountNo} | IFSC: {COMPANY.ifsc} | Branch: {COMPANY.branch}</p>
           <p className="mt-1">This is a computer generated receipt. Subject to Rajgarh (Rajasthan) jurisdiction.</p>
         </div>
       </div>

@@ -296,7 +296,7 @@ export default function BillPrint() {
       <div className="min-h-screen bg-gray-100 p-4">
         <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Select a bill to print</h1>
+            <h1 className="text-2xl font-bold">Select a Bill to Print</h1>
             <button onClick={() => navigate('/bills')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
           </div>
           <div className="overflow-x-auto">

@@ -9,10 +9,6 @@ const COMPANY = {
   address: "Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023",
   phone: "+91 9680264231",
   email: "bharattrsnportcompany@gmail.com",
-  bankName: "HDFC BANK",
-  accountNo: "50200112184634",
-  ifsc: "HDFC0002795",
-  branch: "RAJGARH"
 }
 
 export default function GadiChallanPrint() {
@@ -55,7 +51,7 @@ export default function GadiChallanPrint() {
     <div className="min-h-screen bg-gray-100 p-4">
       <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Select a challan to print</h1>
+          <h1 className="text-2xl font-bold">Select a Challan to Print</h1>
           <button onClick={() => navigate('/gadi-challan')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
         </div>
         {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
@@ -73,7 +69,7 @@ export default function GadiChallanPrint() {
                   <td className="p-3">{challan.issue_date?.split('T')[0] || '—'}</td>
                   <td className="p-3">{challan.vehicle_no || 'N/A'}</td>
                   <td className="p-3">{challan.driver_name || 'N/A'}</td>
-                  <td className="p-3"><Link className="text-blue-700 underline" to={`/gadi-challan-print/${challan.id}`} onClick={(event) => event.stopPropagation()}>View / Print</Link></td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/gadi-challan-print/${challan.id}`} onClick={(event) => event.stopPropagation()}>Print</Link></td>
                 </tr>
               ))}
             </tbody>
@@ -167,16 +163,9 @@ export default function GadiChallanPrint() {
           </tbody>
         </table>
 
-        {/* BANK DETAILS & SIGNATURE */}
+        {/* SIGNATURE */}
         <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t-2 border-black">
-          <div className="text-sm">
-            <p className="font-black text-gray-800 mb-2 uppercase border-b border-gray-400 pb-1">Payment To Be Made To:</p>
-            <p><span className="font-bold">Bank:</span> {COMPANY.bankName}</p>
-            <p><span className="font-bold">Branch:</span> {COMPANY.branch}</p>
-            <p><span className="font-bold">A/c No:</span> {COMPANY.accountNo}</p>
-            <p><span className="font-bold">IFSC:</span> {COMPANY.ifsc}</p>
-          </div>
-          <div className="text-right">
+          <div className="col-start-2 text-right">
             <p className="text-sm font-bold mb-8">FOR {COMPANY.name}</p>
             <div className="border-t-2 border-black inline-block pt-1">
               <p className="text-xs font-bold">Authorized Signatory</p>
@@ -185,7 +174,6 @@ export default function GadiChallanPrint() {
         </div>
 
         <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-2">
-          <p>HDFC BANK | A/c: {COMPANY.accountNo} | IFSC: {COMPANY.ifsc} | Branch: {COMPANY.branch}</p>
           <p className="mt-1">This is a computer generated challan. Subject to Rajgarh (Rajasthan) jurisdiction.</p>
         </div>
       </div>
