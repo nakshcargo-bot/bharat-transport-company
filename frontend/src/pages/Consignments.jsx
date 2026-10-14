@@ -12,6 +12,19 @@ const Consignments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const dateParts = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const date = dateParts
+      ? new Date(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]))
+      : new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   useEffect(() => {
     fetchConsignments();
   }, []);
@@ -159,7 +172,7 @@ const Consignments = () => {
                 filteredConsignments.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-blue-600">{c.lr_no}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{c.lr_date}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDate(c.lr_date)}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{c.consignor_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{c.consignee_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{c.from_name} → {c.to_name}</td>
@@ -170,25 +183,25 @@ const Consignments = () => {
                         {c.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex gap-2">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 justify-start">
                         <button
                           onClick={() => navigate(`/bilty-print/${c.id}`)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Print"
+                          className="text-blue-600 hover:text-blue-800 p-1 transition"
+                          title="Print Bilty"
                         >
                           🖨️
                         </button>
                         <button
-                          onClick={() => navigate(`/consignments/edit/${c.id}`)}
-                          className="text-green-600 hover:text-green-800"
+                          onClick={() => navigate(`/consignments/${c.id}/edit`)}
+                          className="text-green-600 hover:text-green-800 p-1 transition"
                           title="Edit"
                         >
-                          ️
+                          ✏️
                         </button>
                         <button
                           onClick={() => handleDelete(c.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 p-1 transition"
                           title="Delete"
                         >
                           🗑️
