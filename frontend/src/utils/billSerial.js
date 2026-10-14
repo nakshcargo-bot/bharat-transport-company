@@ -1,21 +1,19 @@
 import api from '../api'
 
-const SERIAL_STORAGE_KEY = 'btc_last_serial'
-const BILL_PREFIX = 'BTC/26-27/'
+const INV_PREFIX = 'BTC/26-27/'
 
-export async function getNextSerialNumber() {
-  let lastSerial
-
+export const getNextSerialNumber = async () => {
   try {
     const response = await api.get('/api/bills/last-serial')
-    lastSerial = Number(response.data?.lastSerial)
-    if (!Number.isSafeInteger(lastSerial) || lastSerial < 0) {
-      throw new Error('The bill serial endpoint returned an invalid serial number.')
-    }
-  } catch (error) {
-    const storedSerial = Number.parseInt(localStorage.getItem(SERIAL_STORAGE_KEY) || '0', 10)
-    lastSerial = Number.isSafeInteger(storedSerial) && storedSerial > 0 ? storedSerial : 0
+    const lastNum = Number(response.data?.lastSerial) || 0
+    return INV_PREFIX + (lastNum + 1).toString().padStart(3, '0')
+  } catch (err) {
+    const lastSaved = parseInt(localStorage.getItem('btc_last_serial') || '0', 10) || 0
+    return INV_PREFIX + (lastSaved + 1).toString().padStart(3, '0')
   }
+}
 
-  return `${BILL_PREFIX}${String(lastSerial + 1).padStart(3, '0')}`
+export const updateLastSerial = (serial) => {
+  const num = parseInt(serial.split('/').pop(), 10) || 0
+  localStorage.setItem('btc_last_serial', String(num))
 }

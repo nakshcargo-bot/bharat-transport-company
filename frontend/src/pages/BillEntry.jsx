@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
-import { getNextSerialNumber } from '../utils/billSerial'
+import { getNextSerialNumber, updateLastSerial } from '../utils/billSerial'
 
 export default function BillEntry() {
   const navigate = useNavigate()
@@ -302,7 +302,9 @@ export default function BillEntry() {
       const savedBill = response.data
       const serial = Number.parseInt((savedBill.bill_no || billData.invNo).split('/').pop(), 10)
       const cachedSerial = Number.parseInt(localStorage.getItem('btc_last_serial') || '0', 10)
-      if (Number.isFinite(serial)) localStorage.setItem('btc_last_serial', String(Math.max(serial, cachedSerial || 0)))
+      if (Number.isFinite(serial) && serial >= (cachedSerial || 0)) {
+        updateLastSerial(savedBill.bill_no || billData.invNo)
+      }
       const localHistory = JSON.parse(localStorage.getItem('btc_history') || '[]')
       const nextHistory = [savedBill, ...localHistory.filter(bill => bill.id !== savedBill.id)]
       localStorage.setItem('btc_history', JSON.stringify(nextHistory))

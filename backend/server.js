@@ -855,11 +855,14 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
 app.get('/api/bills/last-serial', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT COALESCE(MAX(SUBSTRING(bill_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
+      SELECT bill_no
       FROM bill_book
-      WHERE bill_no LIKE 'BTC/26-27/%'
+      WHERE bill_no IS NOT NULL
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
     `);
-    res.json({ lastSerial: Number(result.rows[0].last_serial) || 0 });
+    const match = (result.rows[0]?.bill_no || '').match(/\/(\d+)$/);
+    res.json({ lastSerial: match ? Number.parseInt(match[1], 10) : 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
