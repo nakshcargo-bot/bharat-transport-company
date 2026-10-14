@@ -20,6 +20,10 @@ export default function Login() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err) {
+      console.error('Sign-in request failed', {
+        status: err.response?.status ?? null,
+        code: err.code ?? null
+      })
       setError(err.response?.data?.error || err.message || 'Unable to sign in. Check your credentials and try again.')
     } finally {
       setLoading(false)
