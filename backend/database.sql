@@ -233,9 +233,16 @@ CREATE TABLE IF NOT EXISTS consignments (
     mr_party_name VARCHAR(200),
     mr_no VARCHAR(50),
     mr_date DATE,
-    mr_amount NUMERIC(12,2),
+    mr_amount NUMERIC(12,2) DEFAULT 0,
     mr_payment_mode VARCHAR(30),
     mr_remarks TEXT,
+    mr_party_type VARCHAR(30),
+    mr_is_advance BOOLEAN DEFAULT FALSE,
+    mr_bilty_id INTEGER,
+    mr_bilty_lr_no VARCHAR(50),
+    mr_bill_id INTEGER,
+    mr_bill_no VARCHAR(50),
+    mr_created_by VARCHAR(100),
     load_type VARCHAR(30),
     
     -- Charges

@@ -57,7 +57,9 @@ app.use('/api/branch-login', createBranchAuthRouter(pool));
 async function addColumnIfNotExists(table, column, definition) {
   try {
     const check = await pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2`,
       [table, column]
     );
     if (check.rows.length === 0) {
@@ -66,6 +68,7 @@ async function addColumnIfNotExists(table, column, definition) {
     }
   } catch (err) {
     console.error(`  ⚠️ Error adding ${column} to ${table}:`, err.message);
+    throw err;
   }
 }
 
@@ -152,9 +155,9 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
-  await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN NOT NULL DEFAULT FALSE');
+  await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN DEFAULT FALSE');
   await addColumnIfNotExists('consignments', 'mr_party_name', 'TEXT');
-  await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC(12,2)');
+  await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC DEFAULT 0');
   await addColumnIfNotExists('consignments', 'mr_payment_mode', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_date', 'DATE');

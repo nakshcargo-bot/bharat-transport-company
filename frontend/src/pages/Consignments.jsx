@@ -230,12 +230,8 @@ export default function Consignments({ isNew }) {
 
       const payload = { ...formData }
       if (!mrActive) {
-        for (const field of [
-          'mr_party_name', 'mr_active', 'mr_amount', 'mr_payment_mode', 'mr_remarks',
-          'mr_date', 'mr_party_type', 'mr_is_advance', 'mr_bilty_id', 'mr_bilty_lr_no',
-          'mr_bill_id', 'mr_bill_no', 'mr_created_by', 'mr_no'
-        ]) {
-          delete payload[field]
+        for (const field of Object.keys(payload)) {
+          if (field.startsWith('mr_')) delete payload[field]
         }
       } else {
         payload.mr_active = true
