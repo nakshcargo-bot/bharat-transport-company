@@ -17,6 +17,19 @@ const BiltyPrint = () => {
     HO_COPY: true
   });
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const dateParts = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const date = dateParts
+      ? new Date(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]))
+      : new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   useEffect(() => {
     if (id) fetchBiltyData();
   }, [id]);
@@ -40,7 +53,7 @@ const BiltyPrint = () => {
   const handleWhatsAppShare = () => {
     if (!data) return;
     const mrText = includeMR ? `\nMR Party: ${mrData.party_name}\nMR Amount: ₹${mrData.amount} (${mrData.payment_mode})` : '';
-    const text = `*🚚 BHARAT TRANSPORT COMPANY - Bilty Details*\n\n📜 LR No: ${data.lr_no}\n📅 Date: ${data.lr_date}\n Consignor: ${data.consignor_name}\n🏁 Consignee: ${data.consignee_name}\n📍 Route: ${data.from_name} → ${data.to_name}\n💰 Total Freight: ₹${data.grand_total || data.freight}\n📦 Status: ${data.status}${mrText}\n\nThank you for choosing us!`;
+    const text = `*🚚 BHARAT TRANSPORT COMPANY - Bilty Details*\n\n📜 LR No: ${data.lr_no}\n📅 Date: ${formatDate(data.lr_date)}\n Consignor: ${data.consignor_name}\n🏁 Consignee: ${data.consignee_name}\n📍 Route: ${data.from_name} → ${data.to_name}\n💰 Total Freight: ₹${data.grand_total || data.freight}\n📦 Status: ${data.status}${mrText}\n\nThank you for choosing us!`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -75,7 +88,7 @@ const BiltyPrint = () => {
               <div className="flex items-start"><span className="font-bold text-xs mt-1 mr-1">M/s.</span><div className="font-bold text-sm uppercase w-full border-b border-dotted border-gray-600">{data.consignor_name}</div></div>
               <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">{data.consignor_address}</div>
               <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">GST: {data.consignor_gst}</div>
-              <div className="flex gap-4 mt-1 text-xs"><div>Inv No: <span className="font-bold">{data.invoice_no}</span></div><div>Date: <span className="font-bold">{data.invoice_date}</span></div></div>
+              <div className="flex gap-4 mt-1 text-xs"><div>Inv No: <span className="font-bold">{data.invoice_no}</span></div><div>Date: <span className="font-bold">{formatDate(data.invoice_date)}</span></div></div>
             </div>
             <div className="border border-black p-2 bg-white">
               <span className="font-bold text-xs underline block mb-1" style={{ color: 'var(--primary-color, #000)' }}>CONSIGNEE:</span>
@@ -91,7 +104,7 @@ const BiltyPrint = () => {
               <label className="font-bold text-xs block" style={{ color: 'var(--primary-color, #000)' }}>CONSIGNMENT NO:</label>
               <div className="font-bold text-xl text-center">{data.lr_no}</div>
             </div>
-            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">DATE:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold">{data.lr_date}</div></div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">DATE:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold">{formatDate(data.lr_date)}</div></div>
             <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">FROM:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.from_name}</div></div>
             <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">TO:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.to_name}</div></div>
             <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">LORRY NO:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.lorry_no}</div></div>
