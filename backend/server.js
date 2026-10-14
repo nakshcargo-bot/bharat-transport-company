@@ -191,6 +191,7 @@ async function runMigrations() {
   await addColumnIfNotExists('bill_book', 'lr_nos', 'TEXT');
   await addColumnIfNotExists('bill_items', 'packages', 'INTEGER DEFAULT 0');
   await addColumnIfNotExists('bill_items', 'freight', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('bill_items', 'trip_date', 'TEXT');
   await addColumnIfNotExists('party_ledger', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('expenses', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('claims', 'branch_id', 'INTEGER');
@@ -847,7 +848,7 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
   try {
     const isAdmin = req.user.role === 'admin';
     const branchCondition = isAdmin ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
-    const result = await pool.query(`SELECT * FROM bill_book ${branchCondition} ORDER BY id DESC LIMIT 500`);
+    const result = await pool.query(`SELECT * FROM bill_book ${branchCondition} ORDER BY id DESC`);
     res.json({ data: result.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -893,9 +894,9 @@ const checkBillValidation = (req, res, next) => {
 const insertBillItems = async (client, billId, items) => {
   for (const item of items) {
     await client.query(
-      `INSERT INTO bill_items (bill_id, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [billId, item.lr_no || null, item.invoice_no || null, item.from_name || null, item.to_name || null,
+      `INSERT INTO bill_items (bill_id, trip_date, lr_no, invoice_no, from_name, to_name, weight_mt, packages, freight, loading, unloading, other_charges, total)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [billId, item.trip_date || null, item.lr_no || null, item.invoice_no || null, item.from_name || null, item.to_name || null,
         Number(item.weight_mt) || 0, parseInt(item.packages, 10) || 0, Number(item.freight) || 0,
         Number(item.loading) || 0, Number(item.unloading) || 0, Number(item.other_charges) || 0,
         Number(item.total) || 0]
@@ -945,7 +946,7 @@ app.put('/api/bills/:id', authMiddleware, validateBill, checkBillValidation, asy
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Bill not found' });
     }
-    const bill = Object.fromEntries(Object.entries(req.body).filter(([key]) => billFields.includes(key) && key !== 'bill_no' && key !== 'created_by'));
+    const bill = Object.fromEntries(Object.entries(req.body).filter(([key]) => billFields.includes(key) && key !== 'created_by'));
     if (!bill.branch_id) bill.branch_id = existing.rows[0].branch_id || req.user.branch_id;
     const fields = Object.keys(bill);
     const values = Object.values(bill);
@@ -960,8 +961,19 @@ app.put('/api/bills/:id', authMiddleware, validateBill, checkBillValidation, asy
     res.json({ ...result.rows[0], items });
   } catch (err) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    res.status(err.code === '23505' ? 409 : 500).json({
+      error: err.code === '23505' ? 'Bill number already exists' : err.message
+    });
   } finally { client.release(); }
+});
+app.delete('/api/bills/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM bill_book WHERE id = $1 RETURNING id', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Bill not found' });
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ==========================================

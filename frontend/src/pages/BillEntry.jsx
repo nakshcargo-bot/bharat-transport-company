@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
+import { getNextSerialNumber } from '../utils/billSerial'
 
 export default function BillEntry() {
   const navigate = useNavigate()
@@ -19,7 +20,7 @@ export default function BillEntry() {
   const [lrSearch, setLrSearch] = useState('')
 
   const [billData, setBillData] = useState({
-    invNo: 'BTC/26-27/001',
+    invNo: '',
     billDate: new Date().toISOString().split('T')[0],
     partyName: '',
     partyGst: '',
@@ -55,39 +56,32 @@ export default function BillEntry() {
   }, [id])
 
   const fetchNextBillNo = async () => {
-    let lastSerial = 0
     try {
-      const res = await api.get('/api/bills/last-serial')
-      lastSerial = Number(res.data?.lastSerial) || 0
-      localStorage.setItem('btc_last_serial', String(lastSerial))
-    } catch (e) {
-      lastSerial = Number.parseInt(localStorage.getItem('btc_last_serial') || '0', 10) || 0
+      const nextSerial = await getNextSerialNumber()
+      setBillData(prev => ({ ...prev, invNo: nextSerial }))
+    } catch (error) {
+      alert(`Unable to generate the next bill number: ${error.message}`)
     }
-    const nextNum = String(lastSerial + 1).padStart(3, '0')
-    setBillData(prev => ({ ...prev, invNo: `BTC/26-27/${nextNum}` }))
   }
 
-  const mapBillToForm = (bill) => ({
-    invNo: bill.bill_no || bill.invNo || '',
-    billDate: (bill.bill_date || bill.billDate || new Date().toISOString()).split('T')[0],
-    partyName: bill.party_name || bill.partyName || '',
-    partyGst: bill.party_gst || bill.partyGst || '',
-    fromAddr: bill.from_name || bill.fromAddr || '',
-    toAddr: bill.to_name || bill.toAddr || '',
-    vehNo: bill.vehicle_no || bill.vehNo || '',
-    advInput: bill.advance_received ?? bill.advInput ?? 0,
-    advCash: bill.advCash || '',
-    advChq: bill.advChq || '',
-    advUpi: bill.advUpi || '',
-    gstPer: bill.gst_percent ?? bill.gstPer ?? 0,
-    subtotal: Number(bill.trip_subtotal ?? bill.subtotal) || 0,
-    gstAmt: Number(bill.gst_amount ?? bill.gstAmt) || 0,
-    grandtotal: Number(bill.grand_total ?? bill.grandtotal ?? bill.totalAmt) || 0,
-    balance: Number(bill.net_balance ?? bill.balance_due ?? bill.balance) || 0,
-    amountWords: bill.amount_in_words || bill.amountWords || '',
-    remarks: bill.remarks || '',
-    rows: (bill.items || bill.rows || []).map(row => ({
-      date: row.date || '',
+  const mapBillToForm = (bill) => {
+    let paymentDetails = {}
+    if (bill.payment_details) {
+      try {
+        const parsedDetails = typeof bill.payment_details === 'string'
+          ? JSON.parse(bill.payment_details)
+          : bill.payment_details
+        if (parsedDetails && typeof parsedDetails === 'object' && !Array.isArray(parsedDetails)) {
+          paymentDetails = parsedDetails
+        } else {
+          throw new Error('Saved payment details are not a valid object.')
+        }
+      } catch (error) {
+        console.error('Unable to read saved bill payment details.', error)
+      }
+    }
+    const rows = (bill.items || bill.rows || []).map(row => ({
+      date: row.trip_date || row.date || '',
       lr: row.lr_no || row.lr || '',
       inv: row.invoice_no || row.inv || '',
       from: row.from_name || row.from || '',
@@ -98,20 +92,29 @@ export default function BillEntry() {
       oth: row.other_charges ?? row.oth ?? '',
       freight: row.freight || '',
       total: row.total || '0.00'
-    })).length ? (bill.items || bill.rows || []).map(row => ({
-      date: row.date || '',
-      lr: row.lr_no || row.lr || '',
-      inv: row.invoice_no || row.inv || '',
-      from: row.from_name || row.from || '',
-      to: row.to_name || row.to || '',
-      wt: row.weight_mt || row.wt || '',
-      load: row.loading ?? row.load ?? '',
-      unload: row.unloading ?? row.unload ?? '',
-      oth: row.other_charges ?? row.oth ?? '',
-      freight: row.freight || '',
-      total: row.total || '0.00'
-    })) : [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
-  })
+    }))
+    return {
+      invNo: bill.bill_no || bill.invNo || '',
+      billDate: (bill.bill_date || bill.billDate || new Date().toISOString()).split('T')[0],
+      partyName: bill.party_name || bill.partyName || '',
+      partyGst: bill.party_gst || bill.partyGst || '',
+      fromAddr: bill.from_name || bill.fromAddr || '',
+      toAddr: bill.to_name || bill.toAddr || '',
+      vehNo: bill.vehicle_no || bill.vehNo || '',
+      advInput: bill.advance_received ?? bill.advInput ?? 0,
+      advCash: paymentDetails.cash || bill.advCash || '',
+      advChq: paymentDetails.cheque || bill.advChq || '',
+      advUpi: paymentDetails.online || bill.advUpi || '',
+      gstPer: bill.gst_percent ?? bill.gstPer ?? 0,
+      subtotal: Number(bill.trip_subtotal ?? bill.subtotal) || 0,
+      gstAmt: Number(bill.gst_amount ?? bill.gstAmt) || 0,
+      grandtotal: Number(bill.grand_total ?? bill.grandtotal ?? bill.totalAmt) || 0,
+      balance: Number(bill.net_balance ?? bill.balance_due ?? bill.balance) || 0,
+      amountWords: bill.amount_in_words || bill.amountWords || '',
+      remarks: bill.remarks || '',
+      rows: rows.length ? rows : [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
+    }
+  }
 
   const loadBill = async (billId) => {
     setLoading(true)
@@ -289,6 +292,7 @@ export default function BillEntry() {
           loading: row.load,
           unloading: row.unload,
           other_charges: row.oth,
+          trip_date: row.date || null,
           total: row.total
         }))
       }
@@ -297,7 +301,8 @@ export default function BillEntry() {
         : await api.post('/api/bills', payload)
       const savedBill = response.data
       const serial = Number.parseInt((savedBill.bill_no || billData.invNo).split('/').pop(), 10)
-      if (Number.isFinite(serial)) localStorage.setItem('btc_last_serial', String(serial))
+      const cachedSerial = Number.parseInt(localStorage.getItem('btc_last_serial') || '0', 10)
+      if (Number.isFinite(serial)) localStorage.setItem('btc_last_serial', String(Math.max(serial, cachedSerial || 0)))
       const localHistory = JSON.parse(localStorage.getItem('btc_history') || '[]')
       const nextHistory = [savedBill, ...localHistory.filter(bill => bill.id !== savedBill.id)]
       localStorage.setItem('btc_history', JSON.stringify(nextHistory))
@@ -376,6 +381,16 @@ export default function BillEntry() {
     text += `*GRAND TOTAL: Rs. ${total.toLocaleString('en-IN')}*`
     
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  const emailToCA = () => {
+    const selectedData = historyList.filter(inv => selectedInvoices.includes(inv.id))
+    if (selectedData.length === 0) { alert("Pehle select karo!"); return }
+    const subject = `Bharat Transport Company bills for CA - ${new Date().toLocaleDateString()}`
+    const body = selectedData.map((inv, index) =>
+      `${index + 1}. ${inv.invNo} | ${inv.partyName} | GST: ${inv.partyGst || 'N/A'} | Date: ${inv.billDate || inv.date} | Total: ₹${inv.grandtotal || 0} | Balance: ₹${inv.balance || 0}`
+    ).join('\n')
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
   // 📄 PDF GENERATE
@@ -486,8 +501,10 @@ export default function BillEntry() {
         .history-item { display: grid; grid-template-columns: 40px 1.2fr 1.8fr 1fr 1fr 1fr 70px; gap: 8px; padding: 10px; border-bottom: 1px solid #ddd; align-items: center; font-size:12px; }
         .history-item:hover { background: #f9f9f9; }
         .history-header { font-weight: 900; background: var(--primary); color: white; padding: 10px; border-radius: 5px; }
+        .row-remove { border: none; background: #b91c1c; color: #fff; border-radius: 3px; font-size: 8px; margin-top: 2px; padding: 2px 4px; cursor: pointer; }
         @media print {
           .no-print, #historyModal { display: none!important; } 
+          .row-remove { display: none!important; }
           body { background: white; } 
           .invoice-wrapper { margin: 0; box-shadow: none; width: 100%; padding: 5mm; } 
           @page { size: A4; margin: 5mm; } 
@@ -525,6 +542,7 @@ export default function BillEntry() {
               <span id="selectedCount" style={{fontWeight:'900', color:'var(--accent)'}}>{selectedInvoices.length} Selected</span>
               <button className="btn" style={{background:'#2e7d32'}} onClick={generateCAPDF}>ORIGINAL BILL PDF</button>
               <button className="btn" style={{background:'#25D366'}} onClick={shareToCA}>WhatsApp to CA</button>
+              <button className="btn" style={{background:'#1976d2'}} onClick={emailToCA}>Email to CA</button>
               <button className="btn" style={{background:'#ff6f00'}} onClick={exportExcel}>Excel (GST+Gadi)</button>
             </div>
             <div className="history-item history-header">
@@ -615,7 +633,7 @@ export default function BillEntry() {
 
           <div className="dashboard">
             <div className="card"><span>Grand Total</span><strong>₹ {formatINR(billData.grandtotal)}</strong></div>
-            <div className="card"><span>Advance Received</span><strong>₹ <input type="number" value={billData.advInput} onChange={(e) => { setBillData({...billData, advInput: e.target.value}); calculate() }} /></strong></div>
+            <div className="card"><span>Advance Received</span><strong>₹ <input type="number" value={billData.advInput} onChange={(e) => updateBillField('advInput', e.target.value)} /></strong></div>
             <div className="card"><span>Balance Due</span><strong>₹ {formatINR(billData.balance)}</strong></div>
           </div>
 
@@ -648,7 +666,10 @@ export default function BillEntry() {
                   <td><input type="number" value={row.unload} onChange={(e) => updateRow(idx, 'unload', e.target.value)} /></td>
                   <td><input type="number" value={row.oth} onChange={(e) => updateRow(idx, 'oth', e.target.value)} /></td>
                   <td><input type="number" value={row.freight} onChange={(e) => updateRow(idx, 'freight', e.target.value)} className="row-total" /></td>
-                  <td><input type="number" value={row.total} readOnly className="row-total" /></td>
+                  <td>
+                    <input type="number" value={row.total} readOnly className="row-total" />
+                    {billData.rows.length > 1 && <button type="button" className="row-remove" aria-label={`Remove trip row ${idx + 1}`} onClick={() => removeRow(idx)}>Remove</button>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -673,7 +694,7 @@ export default function BillEntry() {
               <table className="calc-table" style={{width:'100%'}}>
                 <tbody>
                   <tr><td>Trip Sub-Total:</td><td>{formatINR(billData.subtotal)}</td></tr>
-                  <tr><td>GST (<input type="number" value={billData.gstPer} onChange={(e) => { setBillData({...billData, gstPer: e.target.value}); calculate() }} style={{width:'30px', borderBottom:'1px solid #000', textAlign:'center'}} />%):</td><td>{formatINR(billData.gstAmt)}</td></tr>
+                  <tr><td>GST (<input type="number" value={billData.gstPer} onChange={(e) => updateBillField('gstPer', e.target.value)} style={{width:'30px', borderBottom:'1px solid #000', textAlign:'center'}} />%):</td><td>{formatINR(billData.gstAmt)}</td></tr>
                   <tr className="net-payable-row"><td>Grand Total:</td><td>{formatINR(billData.grandtotal)}</td></tr>
                   <tr style={{color:'var(--accent)'}}><td>Advance Recd:</td><td>-{formatINR(billData.advInput)}</td></tr>
                   <tr style={{borderTop:'2px solid #000', fontWeight:'900', fontSize:'16px', color:'#2e7d32'}}><td>NET BALANCE:</td><td>{formatINR(billData.balance)}</td></tr>
@@ -700,7 +721,7 @@ export default function BillEntry() {
                   <textPath href="#circlePath">BHARAT TRANSPORT COMPANY • BHARAT TRANSPORT COMPANY</textPath>
                 </text>
               </svg>
-              {/* "Krishan" signature removed as requested */}
+              <span style={{position:'relative',zIndex:1,display:'inline-block',fontFamily:'cursive',fontSize:'22px',color:'#1a237e',transform:'rotate(-8deg)'}}>Krishan</span>
             </div>
             <p>Authorized Signatory</p>
             <strong style={{fontSize:'9px'}}>FOR {COMPANY.name}</strong>

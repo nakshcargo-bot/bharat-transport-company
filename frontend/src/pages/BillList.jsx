@@ -24,6 +24,16 @@ export default function BillList() {
     }
   }
 
+  const deleteBill = async (bill) => {
+    if (!window.confirm(`Delete bill ${bill.bill_no || ''}? This cannot be undone.`)) return
+    try {
+      await api.delete(`/api/bills/${bill.id}`)
+      setBills(current => current.filter(item => item.id !== bill.id))
+    } catch (err) {
+      window.alert(err.response?.data?.error || 'Unable to delete this bill.')
+    }
+  }
+
   const filtered = bills.filter(b => 
     b.bill_no?.toLowerCase().includes(search.toLowerCase()) ||
     b.party_name?.toLowerCase().includes(search.toLowerCase())
@@ -35,7 +45,7 @@ export default function BillList() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="font-bold text-lg">📋 Bill List ({bills.length})</h1>
           <div className="flex gap-2">
-            <Link to="/bill/new" className="bg-white text-red-700 px-4 py-2 rounded-lg text-sm font-medium">+ New Bill</Link>
+            <Link to="/bill-entry" className="bg-white text-red-700 px-4 py-2 rounded-lg text-sm font-medium">+ New Bill</Link>
             <button onClick={() => navigate('/dashboard')} className="bg-white/20 px-4 py-2 rounded-lg text-sm">← Back</button>
           </div>
         </div>
@@ -83,18 +93,25 @@ export default function BillList() {
                     ₹{Number(bill.net_balance || bill.balance_due || 0).toLocaleString('en-IN')}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Link 
-                      to={`/bill-print/${bill.id}`} 
-                      className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium inline-block"
-                    >
-                      🖨️ View / Print
-                    </Link>
                     <Link
-                      to={`/bill/edit/${bill.id}`}
+                      to={`/bill-edit/${bill.id}`}
                       className="ml-2 bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 text-sm font-medium inline-block"
                     >
                       Edit
                     </Link>
+                    <Link
+                      to={`/bill-print/${bill.id}`}
+                      className="ml-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 text-sm font-medium inline-block"
+                    >
+                      Print
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => deleteBill(bill)}
+                      className="ml-2 bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
