@@ -166,6 +166,7 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'mr_party_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN DEFAULT false');
   await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('consignments', 'mr_payment_mode', 'TEXT');
   await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('bill_book', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('bill_book', 'payment_status', "TEXT DEFAULT 'Unpaid'");
