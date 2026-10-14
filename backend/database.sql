@@ -229,9 +229,13 @@ CREATE TABLE IF NOT EXISTS consignments (
     
     -- Private Marks / MR
     private_marks TEXT,
+    mr_active BOOLEAN NOT NULL DEFAULT FALSE,
+    mr_party_name VARCHAR(200),
     mr_no VARCHAR(50),
     mr_date DATE,
     mr_amount NUMERIC(12,2),
+    mr_payment_mode VARCHAR(30),
+    mr_remarks TEXT,
     load_type VARCHAR(30),
     
     -- Charges

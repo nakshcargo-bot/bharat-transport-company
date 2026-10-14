@@ -61,7 +61,7 @@ async function addColumnIfNotExists(table, column, definition) {
       [table, column]
     );
     if (check.rows.length === 0) {
-      await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${definition}`);
       console.log(`  ✅ Added column "${column}" to "${table}"`);
     }
   } catch (err) {
@@ -152,6 +152,19 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
   await addColumnIfNotExists('consignments', 'updated_at', 'TIMESTAMP DEFAULT NOW()');
   await addColumnIfNotExists('consignments', 'payment_status', "TEXT DEFAULT 'Unpaid'");
+  await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN NOT NULL DEFAULT FALSE');
+  await addColumnIfNotExists('consignments', 'mr_party_name', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC(12,2)');
+  await addColumnIfNotExists('consignments', 'mr_payment_mode', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_remarks', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_date', 'DATE');
+  await addColumnIfNotExists('consignments', 'mr_party_type', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_is_advance', 'BOOLEAN DEFAULT FALSE');
+  await addColumnIfNotExists('consignments', 'mr_bilty_id', 'INTEGER');
+  await addColumnIfNotExists('consignments', 'mr_bilty_lr_no', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_bill_id', 'INTEGER');
+  await addColumnIfNotExists('consignments', 'mr_bill_no', 'TEXT');
+  await addColumnIfNotExists('consignments', 'mr_created_by', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_no', 'TEXT');
   await addColumnIfNotExists('consignments', 'from_state', 'TEXT');
   await addColumnIfNotExists('consignments', 'to_state', 'TEXT');

@@ -9,6 +9,7 @@ export default function Consignments({ isNew }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(isNew || false)
   const [mrError, setMrError] = useState('')
+  const [mrActive, setMrActive] = useState(false)
 
   const [formData, setFormData] = useState({
     lr_no: '', lr_date: formatDateForInput(new Date()), from_name: '', to_name: '',
@@ -23,7 +24,7 @@ export default function Consignments({ isNew }) {
     insurance_company: '', policy_no: '', insurance_amount: '',
     freight: '', aoc_percent: '', material_charges: '', collection_charges: '', door_delivery: '', misc_charges: '', grand_total: '',
     status: 'Booked',
-    mr_party_name: '', mr_amount: '', mr_payment_mode: 'Cash', mr_remarks: ''
+    mr_party_name: '', mr_amount: '', mr_payment_mode: 'Cash', mr_remarks: '', mr_date: formatDateForInput(new Date())
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -157,17 +158,30 @@ export default function Consignments({ isNew }) {
       setTimeout(() => calculateTotal(newData), 0)
     }
 
-    if (name === 'basis_booking' && value === 'PAID') {
-      setFormData(prev => ({
-        ...prev,
-        basis_booking: 'PAID',
-        mr_party_name: prev.consignor_name || '',
-        mr_amount: prev.grand_total || ''
-      }))
-    }
-
     if (['mr_party_name', 'mr_amount', 'mr_payment_mode'].includes(name)) {
       setMrError('')
+    }
+  }
+
+  const handleMrToggle = (e) => {
+    const enabled = e.target.checked
+    setMrActive(enabled)
+    setMrError('')
+    if (enabled) {
+      setFormData(prev => ({
+        ...prev,
+        mr_party_name: prev.mr_party_name || prev.consignor_name || '',
+        mr_amount: prev.mr_amount || prev.grand_total || ''
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        mr_party_name: '',
+        mr_amount: '',
+        mr_payment_mode: 'Cash',
+        mr_remarks: '',
+        mr_date: formatDateForInput(new Date())
+      }))
     }
   }
 
@@ -187,15 +201,17 @@ export default function Consignments({ isNew }) {
     e.preventDefault()
     setMrError('')
 
-    if (formData.basis_booking === 'PAID') {
-      if (!formData.mr_party_name || !formData.mr_amount || !formData.mr_payment_mode) {
-        setMrError('⚠️ PAID selected है - MR Party Name, Amount और Payment Mode भरना जरूरी है!')
+    if (mrActive) {
+      const mrAmount = Number(formData.mr_amount)
+      if (!formData.mr_party_name.trim() || !Number.isFinite(mrAmount) || mrAmount <= 0 || !formData.mr_payment_mode) {
+        setMrError('⚠️ MR enabled है - MR Party Name, positive Amount और Payment Mode भरना जरूरी है!')
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
         return
       }
     }
 
     setSubmitting(true)
+    let savedBiltyNo = ''
     try {
       const token = localStorage.getItem('token')
       const apiUrl = 'https://bharat-transport-api.onrender.com'
@@ -212,8 +228,10 @@ export default function Consignments({ isNew }) {
         finalConsigneeCode = getNextPartyCode(existingCodes)
       }
 
+      const { mr_party_name, mr_amount, mr_payment_mode, mr_remarks, mr_date, ...biltyFields } = formData
       const biltyData = {
-        ...formData,
+        ...biltyFields,
+        ...(mrActive ? { mr_active: true, mr_party_name, mr_amount, mr_payment_mode, mr_remarks, mr_date } : {}),
         consignor_code: finalConsignorCode,
         consignee_code: finalConsigneeCode,
         payment_status: formData.basis_booking === 'PAID' ? 'Paid' : 'Unpaid'
@@ -227,6 +245,7 @@ export default function Consignments({ isNew }) {
 
       if (res.ok) {
         const savedBilty = await res.json()
+        savedBiltyNo = savedBilty.lr_no
 
         if (finalConsignorCode && formData.consignor_name) {
           await fetch(`${apiUrl}/api/parties`, {
@@ -255,15 +274,16 @@ export default function Consignments({ isNew }) {
           })
         }
 
-        if (formData.basis_booking === 'PAID') {
-          const mrAmount = formData.mr_amount || formData.grand_total
-          if (mrAmount && parseFloat(mrAmount) > 0) {
-            await fetch(`${apiUrl}/api/mr`, {
+        if (mrActive) {
+          const mrAmount = Number(formData.mr_amount)
+          if (Number.isFinite(mrAmount) && mrAmount > 0) {
+            const mrRes = await fetch(`${apiUrl}/api/mr`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({
                 party_type: 'Consignor',
                 party_name: formData.mr_party_name || formData.consignor_name,
+                mr_date: formData.mr_date,
                 bilty_id: savedBilty.id,
                 bilty_lr_no: savedBilty.lr_no,
                 amount: mrAmount,
@@ -272,6 +292,10 @@ export default function Consignments({ isNew }) {
                 remarks: formData.mr_remarks || `Auto MR for Bilty ${savedBilty.lr_no}`
               })
             })
+            if (!mrRes.ok) {
+              const error = await mrRes.json()
+              throw new Error(error.error || error.message || `MR request failed (HTTP ${mrRes.status})`)
+            }
           }
         }
 
@@ -288,15 +312,14 @@ export default function Consignments({ isNew }) {
         alert('Error: ' + (err.error || err.message))
       }
     } catch (err) {
-      alert('Error: ' + err.message)
+      const savedBiltyMessage = savedBiltyNo ? `Bilty ${savedBiltyNo} was saved, but the MR operation did not complete: ` : ''
+      alert('Error: ' + savedBiltyMessage + err.message)
     } finally {
       setSubmitting(false)
     }
   }
 
   if (showForm) {
-    const isPaid = formData.basis_booking === 'PAID'
-
     return (
       <div className="min-h-screen bg-gray-100 pb-20">
         <nav className="bg-red-700 text-white shadow-lg sticky top-0 z-50">
@@ -455,7 +478,7 @@ export default function Consignments({ isNew }) {
                   </label>
                   <label className={`flex items-center gap-1 cursor-pointer px-3 py-2 rounded border-2 ${formData.basis_booking === 'PAID' ? 'border-green-600 bg-green-50' : 'border-gray-300'}`}>
                     <input type="radio" name="basis_booking" value="PAID" checked={formData.basis_booking === 'PAID'} onChange={handleChange} />
-                    <span className="font-bold text-sm">PAID ⚠️ MR Required</span>
+                    <span className="font-bold text-sm">PAID</span>
                   </label>
                   <label className={`flex items-center gap-1 cursor-pointer px-3 py-2 rounded border-2 ${formData.basis_booking === 'TO BB' ? 'border-purple-600 bg-purple-50' : 'border-gray-300'}`}>
                     <input type="radio" name="basis_booking" value="TO BB" checked={formData.basis_booking === 'TO BB'} onChange={handleChange} />
@@ -510,9 +533,14 @@ export default function Consignments({ isNew }) {
               </div>
             </div>
 
-            {isPaid && (
+            <label className="flex items-center gap-2 font-bold text-green-900">
+              <input type="checkbox" checked={mrActive} onChange={handleMrToggle} />
+              Enable MR
+            </label>
+
+            {mrActive && (
               <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
-                <h3 className="font-bold text-green-900 mb-3 text-lg">💰 MR Details (PAID Basis - Mandatory)</h3>
+                <h3 className="font-bold text-green-900 mb-3 text-lg">💰 MR Details</h3>
                 <div className="grid md:grid-cols-4 gap-4">
                   <div className="md:col-span-2">
                     <label className="text-sm font-bold text-gray-700">MR Party Name *</label>
@@ -528,6 +556,10 @@ export default function Consignments({ isNew }) {
                       <option>Cash</option><option>Cheque</option><option>Bank Transfer</option><option>UPI</option><option>DD</option>
                     </select>
                   </div>
+                </div>
+                <div className="mt-3">
+                  <label className="text-sm font-bold text-gray-700">MR Date *</label>
+                  <input name="mr_date" type="date" value={formData.mr_date} onChange={handleChange} className="w-full border-2 border-green-500 p-2 rounded mt-1" required />
                 </div>
                 <div className="mt-3">
                   <label className="text-sm font-bold text-gray-700">Remarks</label>
