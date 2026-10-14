@@ -4,6 +4,7 @@ import api from '../api'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 import { getNextSerialNumber } from '../utils/billSerial'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function BillEntry() {
   const navigate = useNavigate()
@@ -21,7 +22,7 @@ export default function BillEntry() {
 
   const [billData, setBillData] = useState({
     invNo: '',
-    billDate: new Date().toISOString().split('T')[0],
+    billDate: formatDateForInput(new Date()),
     partyName: '',
     partyGst: '',
     fromAddr: '',
@@ -81,7 +82,7 @@ export default function BillEntry() {
       }
     }
     const rows = (bill.items || bill.rows || []).map(row => ({
-      date: row.trip_date || row.date || '',
+      date: row.trip_date ? formatDate(row.trip_date) : row.date || '',
       lr: row.lr_no || row.lr || '',
       inv: row.invoice_no || row.inv || '',
       from: row.from_name || row.from || '',
@@ -95,7 +96,7 @@ export default function BillEntry() {
     }))
     return {
       invNo: bill.bill_no || bill.invNo || '',
-      billDate: (bill.bill_date || bill.billDate || new Date().toISOString()).split('T')[0],
+      billDate: formatDateForInput(bill.bill_date || bill.billDate || new Date()),
       partyName: bill.party_name || bill.partyName || '',
       partyGst: bill.party_gst || bill.partyGst || '',
       fromAddr: bill.from_name || bill.fromAddr || '',
@@ -158,7 +159,7 @@ export default function BillEntry() {
             vehNo: bilty.vehicle_no || prev.vehNo,
             rows: prev.rows.map((row, idx) => idx === 0 ? {
               ...row,
-              date: bilty.date ? bilty.date.split('T')[0] : '',
+              date: bilty.date ? formatDate(bilty.date) : '',
               lr: bilty.lr_no,
               inv: bilty.invoice_no,
               from: bilty.from_name,
@@ -309,7 +310,7 @@ export default function BillEntry() {
         navigate('/bills')
       } else if (window.confirm('Create another bill?')) {
         setBillData({
-          invNo: '', billDate: new Date().toISOString().split('T')[0], partyName: '', partyGst: '',
+          invNo: '', billDate: formatDateForInput(new Date()), partyName: '', partyGst: '',
           fromAddr: '', toAddr: '', vehNo: '', advInput: 0, advCash: '', advChq: '', advUpi: '',
           gstPer: 0, subtotal: 0, gstAmt: 0, grandtotal: 0, balance: 0, amountWords: '', remarks: '',
           rows: [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
@@ -331,7 +332,7 @@ export default function BillEntry() {
       }
       setBillData({
         invNo: '',
-        billDate: new Date().toISOString().split('T')[0],
+        billDate: formatDateForInput(new Date()),
         partyName: '', partyGst: '', fromAddr: '', toAddr: '', vehNo: '', subtotal: 0,
         gstAmt: 0, grandtotal: 0, balance: 0, amountWords: '',
         advInput: 0, advCash: '', advChq: '', advUpi: '', gstPer: 0, remarks: '',
@@ -354,12 +355,12 @@ export default function BillEntry() {
     
     let csv = "Invoice No,Date,Party Name,GST Number,Gadi Number,From,To,Total Trips,SubTotal,GST %,GST Amount,Grand Total,Advance,Balance,Remarks\n"
     selectedData.forEach(inv => {
-      csv += `"${inv.invNo}","${inv.billDate || inv.date}","${inv.partyName}","${inv.partyGst || 'N/A'}","${inv.vehNo || 'N/A'}","${(inv.fromAddr || '').replace(/"/g, '""')}","${(inv.toAddr || '').replace(/"/g, '""')}","${(inv.rows || []).length}","${inv.subtotal || ''}","${inv.gstPer || 0}","${inv.gstAmt || ''}","${inv.grandtotal || inv.totalAmt}","${inv.advInput || 0}","${inv.balance || ''}","${(inv.remarks || '').replace(/"/g, '""')}"\n`
+      csv += `"${inv.invNo}","${formatDate(inv.billDate || inv.date)}","${inv.partyName}","${inv.partyGst || 'N/A'}","${inv.vehNo || 'N/A'}","${(inv.fromAddr || '').replace(/"/g, '""')}","${(inv.toAddr || '').replace(/"/g, '""')}","${(inv.rows || []).length}","${inv.subtotal || ''}","${inv.gstPer || 0}","${inv.gstAmt || ''}","${inv.grandtotal || inv.totalAmt}","${inv.advInput || 0}","${inv.balance || ''}","${(inv.remarks || '').replace(/"/g, '""')}"\n`
     })
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `BTC_CA_Excel_GST_Gadi_${new Date().toLocaleDateString()}.csv`
+    a.download = `BTC_CA_Excel_GST_Gadi_${formatDateForInput(new Date())}.csv`
     a.click()
   }
 
@@ -368,12 +369,12 @@ export default function BillEntry() {
     const selectedData = historyList.filter(inv => selectedInvoices.includes(inv.id))
     if (selectedData.length === 0) { alert("Pehle select karo!"); return }
     
-    let text = `*BHARAT TRANSPORT COMPANY - BILLS FOR CA*\n*Date: ${new Date().toLocaleDateString()}*\n*Total Bills: ${selectedData.length}*\n\n`
+    let text = `*BHARAT TRANSPORT COMPANY - BILLS FOR CA*\n*Date: ${formatDate(new Date())}*\n*Total Bills: ${selectedData.length}*\n\n`
     let total = 0
     selectedData.forEach((inv, i) => {
       let amt = parseFloat((inv.grandtotal || inv.totalAmt || '0').toString().replace(/[^0-9.]/g, '')) || 0
       total += amt
-      text += `${i + 1}. *Party:* ${inv.partyName}\n *GST No:* ${inv.partyGst || 'N/A'}\n *Gadi No:* ${inv.vehNo || 'N/A'}\n *Inv:* ${inv.invNo} | *Date:* ${inv.billDate || inv.date}\n *Amount:* ₹${amt.toLocaleString('en-IN')}\n\n`
+      text += `${i + 1}. *Party:* ${inv.partyName}\n *GST No:* ${inv.partyGst || 'N/A'}\n *Gadi No:* ${inv.vehNo || 'N/A'}\n *Inv:* ${inv.invNo} | *Date:* ${formatDate(inv.billDate || inv.date)}\n *Amount:* ₹${amt.toLocaleString('en-IN')}\n\n`
     })
     text += `*GRAND TOTAL: Rs. ${total.toLocaleString('en-IN')}*`
     
@@ -383,9 +384,9 @@ export default function BillEntry() {
   const emailToCA = () => {
     const selectedData = historyList.filter(inv => selectedInvoices.includes(inv.id))
     if (selectedData.length === 0) { alert("Pehle select karo!"); return }
-    const subject = `Bharat Transport Company bills for CA - ${new Date().toLocaleDateString()}`
+    const subject = `Bharat Transport Company bills for CA - ${formatDate(new Date())}`
     const body = selectedData.map((inv, index) =>
-      `${index + 1}. ${inv.invNo} | ${inv.partyName} | GST: ${inv.partyGst || 'N/A'} | Date: ${inv.billDate || inv.date} | Total: ₹${inv.grandtotal || 0} | Balance: ₹${inv.balance || 0}`
+      `${index + 1}. ${inv.invNo} | ${inv.partyName} | GST: ${inv.partyGst || 'N/A'} | Date: ${formatDate(inv.billDate || inv.date)} | Total: ₹${inv.grandtotal || 0} | Balance: ₹${inv.balance || 0}`
     ).join('\n')
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
@@ -406,7 +407,7 @@ export default function BillEntry() {
       doc.text(`Mobile: ${COMPANY.phone} | Email: ${COMPANY.email}`, 105, 20, { align: "center" })
       doc.setDrawColor(0); doc.line(10, 22, 200, 22)
       
-      doc.setFontSize(10); doc.text(`Invoice No: ${inv.invNo}`, 10, 28); doc.text(`Date: ${inv.billDate || inv.date}`, 150, 28)
+      doc.setFontSize(10); doc.text(`Invoice No: ${inv.invNo}`, 10, 28); doc.text(`Date: ${formatDate(inv.billDate || inv.date)}`, 150, 28)
       doc.text(`Vehicle No: ${inv.vehNo || 'N/A'}`, 10, 33); doc.text(`GSTIN: ${COMPANY.gst}`, 150, 33)
       doc.setFontSize(11); doc.text(`BILL TO: ${inv.partyName}`, 10, 40)
       doc.setFontSize(9); doc.text(`GST No: ${inv.partyGst || 'N/A'}`, 10, 44)
@@ -428,7 +429,7 @@ export default function BillEntry() {
       doc.setFont("helvetica", "normal"); doc.setTextColor(211, 47, 47); doc.text(`Advance: -${inv.advInput || 0}`, 130, finalY); finalY += 5
       doc.setTextColor(46, 125, 50); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text(`NET BALANCE: ${inv.balance}`, 130, finalY)
     })
-    doc.save(`BTC_Original_Bills_${new Date().toLocaleDateString()}.pdf`)
+    doc.save(`BTC_Original_Bills_${formatDateForInput(new Date())}.pdf`)
   }
 
   const formatINR = (num) => parseFloat(num || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -559,7 +560,7 @@ export default function BillEntry() {
                   <div>{inv.invNo}</div>
                   <div>{inv.partyName}</div>
                   <div>{inv.partyGst || 'N/A'}</div>
-                  <div>{inv.billDate || inv.date}</div>
+                  <div>{formatDate(inv.billDate || inv.date)}</div>
                   <div>₹{inv.grandtotal || inv.totalAmt}</div>
                   <div><button className="btn" style={{background:'#0d1b3e', padding:'4px 8px'}} onClick={() => {
                     setBillData(inv)

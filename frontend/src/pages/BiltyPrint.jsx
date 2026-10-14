@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function BiltyPrint() {
   const navigate = useNavigate()
@@ -50,7 +51,7 @@ export default function BiltyPrint() {
     if (!bilty) return
     const msg = `🚛 *BILTY DETAILS*%0A%0A` +
       `📋 LR No: ${bilty.lr_no}%0A` +
-      `📅 Date: ${bilty.lr_date || 'N/A'}%0A` +
+      `📅 Date: ${formatDate(bilty.lr_date)}%0A` +
       `👤 Consignor: ${bilty.consignor_name || 'N/A'}%0A` +
       `📍 From: ${bilty.from_name || 'N/A'}%0A` +
       `👤 Consignee: ${bilty.consignee_name || 'N/A'}%0A` +
@@ -66,7 +67,7 @@ export default function BiltyPrint() {
     const subject = `Bilty Details - ${bilty.lr_no}`
     const body = `Dear Sir/Madam,%0D%0A%0D%0APlease find the Bilty details below:%0D%0A%0D%0A` +
       `LR No: ${bilty.lr_no}%0D%0A` +
-      `Date: ${bilty.lr_date || 'N/A'}%0D%0A` +
+      `Date: ${formatDate(bilty.lr_date)}%0D%0A` +
       `Consignor: ${bilty.consignor_name || 'N/A'}%0D%0A` +
       `Consignee: ${bilty.consignee_name || 'N/A'}%0D%0A` +
       `Grand Total: Rs.${bilty.grand_total || '0'}%0D%0A%0D%0A` +
@@ -94,7 +95,7 @@ export default function BiltyPrint() {
               ) : bilties.map((item) => (
                 <tr key={item.id} onClick={() => navigate(`/bilty-print/${item.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
                   <td className="p-3 font-semibold">{item.lr_no || 'N/A'}</td>
-                  <td className="p-3">{item.lr_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{formatDate(item.lr_date)}</td>
                   <td className="p-3">{item.consignor_name || 'N/A'}</td>
                   <td className="p-3">{item.consignee_name || 'N/A'}</td>
                   <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${item.id}`} onClick={(event) => event.stopPropagation()}>Print</Link></td>
@@ -220,7 +221,7 @@ export default function BiltyPrint() {
                     <div style={{ borderBottom: '1px dotted #666', padding: '2px', fontSize: '12px', fontWeight: 600 }}>GST: {bilty.consignor_gst || 'N/A'}</div>
                     <div style={{ display: 'flex', gap: '15px', marginTop: '4px' }}>
                       <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Inv No: <span style={{ borderBottom: '1px dotted #666', padding: '0 20px' }}>{bilty.invoice_no || ''}</span></div>
-                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Date: <span style={{ borderBottom: '1px dotted #666', padding: '0 15px' }}>{bilty.invoice_date || ''}</span></div>
+                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Date: <span style={{ borderBottom: '1px dotted #666', padding: '0 15px' }}>{bilty.invoice_date ? formatDate(bilty.invoice_date) : ''}</span></div>
                     </div>
                   </div>
                   {/* Consignee */}
@@ -244,7 +245,7 @@ export default function BiltyPrint() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
                     <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>DATE:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.lr_date ? new Date(bilty.lr_date).toLocaleDateString('en-IN') : 'N/A'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{formatDate(bilty.lr_date)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
                     <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>FROM:</label>
@@ -338,7 +339,7 @@ export default function BiltyPrint() {
                   <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
                     <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>RECEIPT VOUCHER</label>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>No: <span style={{ fontWeight: 'bold' }}>{bilty.rv_no || 'N/A'}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>Dt: <span style={{ fontWeight: 'bold' }}>{bilty.rv_dt || 'N/A'}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>Dt: <span style={{ fontWeight: 'bold' }}>{formatDate(bilty.rv_dt)}</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>Amt: <span style={{ fontWeight: 'bold' }}>{bilty.rv_am || '0'}</span></div>
                   </div>
                   <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>

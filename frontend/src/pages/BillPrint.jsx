@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../api'
+import { formatDate } from '../utils/dateFormatter'
 
 const BillPrint = () => {
   const { id } = useParams()
@@ -28,7 +29,7 @@ const BillPrint = () => {
       ...bill,
       id: bill.id || bill._id,
       invNo: bill.invNo || bill.bill_no || bill.billNo,
-      date: bill.date || bill.bill_date || bill.billDate,
+      date: formatDate(bill.date || bill.bill_date || bill.billDate),
       partyName: bill.partyName || bill.party_name,
       partyGst: bill.partyGst || bill.party_gst,
       fromAddr: bill.fromAddr || bill.from_name,
@@ -44,7 +45,7 @@ const BillPrint = () => {
       advChq: bill.advChq || paymentDetails.cheque || '',
       advUpi: bill.advUpi || paymentDetails.online || '',
       rows: (bill.rows || bill.items || []).map(row => ({
-        date: row.date || row.trip_date || '',
+        date: row.date || row.trip_date ? formatDate(row.date || row.trip_date) : '',
         lr: row.lr || row.lr_no || '',
         inv: row.inv || row.invoice_no || '',
         from: row.from || row.from_name || '',
@@ -148,7 +149,7 @@ const BillPrint = () => {
               {bills.map((bill) => (
                 <tr key={bill._id || bill.id} style={{borderBottom: '1px solid #ddd'}}>
                   <td style={{padding: '10px', border: '1px solid #ddd', fontWeight: 'bold'}}>{bill.invNo || bill.billNo}</td>
-                  <td style={{padding: '10px', border: '1px solid #ddd'}}>{bill.date}</td>
+                  <td style={{padding: '10px', border: '1px solid #ddd'}}>{formatDate(bill.date)}</td>
                   <td style={{padding: '10px', border: '1px solid #ddd'}}>{bill.partyName}</td>
                   <td style={{padding: '10px', border: '1px solid #ddd', fontWeight: 'bold'}}>₹{formatINR(bill.grandtotal || bill.totalAmt)}</td>
                   <td style={{padding: '10px', border: '1px solid #ddd'}}>
@@ -232,7 +233,7 @@ const BillPrint = () => {
               </div>
               <div style={{marginBottom: '5px'}}>
                 <div style={{fontSize: '9px', fontWeight: '900', color: '#0d1b3e', textTransform: 'uppercase', borderBottom: '1px solid #ccc', marginBottom: '2px'}}>Date</div>
-                <div style={{fontSize: '13px', fontWeight: '900', color: '#000', textAlign: 'center'}}>{bill.date}</div>
+                <div style={{fontSize: '13px', fontWeight: '900', color: '#000', textAlign: 'center'}}>{formatDate(bill.date)}</div>
               </div>
               <div>
                 <div style={{fontSize: '9px', fontWeight: '900', color: '#0d1b3e', textTransform: 'uppercase', borderBottom: '1px solid #ccc', marginBottom: '2px'}}>Vehicle No.</div>
@@ -276,7 +277,7 @@ const BillPrint = () => {
           <tbody>
             {bill.rows && bill.rows.map((row, idx) => (
               <tr key={idx}>
-                <td style={{border: '1px solid #ccc', padding: '3px 1px', fontSize: '10px', textAlign: 'center'}}>{row.date}</td>
+                <td style={{border: '1px solid #ccc', padding: '3px 1px', fontSize: '10px', textAlign: 'center'}}>{formatDate(row.date)}</td>
                 <td style={{border: '1px solid #ccc', padding: '3px 1px', fontSize: '10px', textAlign: 'center'}}>{row.lr}</td>
                 <td style={{border: '1px solid #ccc', padding: '3px 1px', fontSize: '10px', textAlign: 'center'}}>{row.inv}</td>
                 <td style={{border: '1px solid #ccc', padding: '3px 1px', fontSize: '10px', textAlign: 'center'}}>{row.from}</td>

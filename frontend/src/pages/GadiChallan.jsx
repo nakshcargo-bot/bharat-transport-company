@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDateForInput } from '../utils/dateFormatter'
 
 export default function GadiChallan() {
   const navigate = useNavigate()
@@ -36,7 +37,7 @@ export default function GadiChallan() {
     other_expense: '',
     tds_deduction: '',
     net_payable: '',
-    issue_date: new Date().toISOString().split('T')[0]
+    issue_date: formatDateForInput(new Date())
   })
 
   useEffect(() => {
@@ -115,7 +116,7 @@ export default function GadiChallan() {
         packages: selectedBilty.packages || selectedBilty.no_of_packages || selectedBilty.qty || '',
         weight: selectedBilty.actual_weight || selectedBilty.charged_weight || '',
         freight_amount: selectedBilty.grand_total || '',
-        bilty_date: selectedBilty.lr_date ? selectedBilty.lr_date.split('T')[0] : ''
+        bilty_date: formatDateForInput(selectedBilty.lr_date)
       })
     }
   }
@@ -164,7 +165,7 @@ export default function GadiChallan() {
           from_place: '', to_place: '', material_desc: '', weight: '', packages: '', bilty_date: '',
           consignor_name: '', consignee_name: '', freight_amount: '', advance_paid: '', balance_due: '',
           toll_expense: '', diesel_expense: '', other_expense: '', tds_deduction: '', net_payable: '',
-          issue_date: new Date().toISOString().split('T')[0]
+          issue_date: formatDateForInput(new Date())
         })
         fetchData()
       } else {
@@ -182,8 +183,8 @@ export default function GadiChallan() {
   const handleEdit = (challan) => {
     setFormData({
       ...challan,
-      bilty_date: challan.bilty_date ? challan.bilty_date.split('T')[0] : '',
-      issue_date: challan.issue_date ? challan.issue_date.split('T')[0] : new Date().toISOString().split('T')[0]
+      bilty_date: formatDateForInput(challan.bilty_date),
+      issue_date: formatDateForInput(challan.issue_date) || formatDateForInput(new Date())
     })
     setEditId(challan.id)
     setShowForm(true)

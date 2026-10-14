@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function Commissions() {
   const navigate = useNavigate()
@@ -130,7 +131,7 @@ export default function Commissions() {
                       <td className="px-4 py-3 text-sm font-bold">{r.agent_name}</td>
                       <td className="px-4 py-3 text-sm text-right">{r.commission_percent || 0}%</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-purple-700">{fmt(r.commission_amount)}</td>
-                      <td className="px-4 py-3 text-sm">{r.paid_date ? new Date(r.paid_date).toLocaleDateString('en-IN') : '-'}</td>
+                      <td className="px-4 py-3 text-sm">{r.paid_date ? formatDate(r.paid_date) : '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-3 py-1 rounded-full font-bold ${r.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{r.status}</span>
                       </td>

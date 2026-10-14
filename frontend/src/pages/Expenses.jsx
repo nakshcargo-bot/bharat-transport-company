@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Expenses() {
   const navigate = useNavigate()
@@ -7,7 +8,7 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
-    expense_date: new Date().toISOString().split('T')[0],
+    expense_date: formatDateForInput(new Date()),
     category: 'Fuel', description: '', amount: '', payment_mode: 'Cash', bill_no: ''
   })
   const [saving, setSaving] = useState(false)
@@ -47,13 +48,13 @@ export default function Expenses() {
   }
 
   const fmt = (n) => '₹' + parseFloat(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '-'
+  const fmtDate = (d) => d ? formatDate(d) : '-'
 
   const categories = ['Fuel', 'Driver Salary', 'Maintenance', 'Toll', 'Office', 'Rent', 'Electricity', 'Tea/Snacks', 'Other']
   const filtered = filterCat ? data.filter(r => r.category === filterCat) : data
   const total = filtered.reduce((s, r) => s + parseFloat(r.amount || 0), 0)
-  const todayTotal = data.filter(r => r.expense_date === new Date().toISOString().split('T')[0]).reduce((s, r) => s + parseFloat(r.amount || 0), 0)
-  const monthTotal = data.filter(r => (r.expense_date || '').startsWith(new Date().toISOString().slice(0, 7))).reduce((s, r) => s + parseFloat(r.amount || 0), 0)
+  const todayTotal = data.filter(r => r.expense_date === formatDateForInput(new Date())).reduce((s, r) => s + parseFloat(r.amount || 0), 0)
+  const monthTotal = data.filter(r => (r.expense_date || '').startsWith(formatDateForInput(new Date()).slice(0, 7))).reduce((s, r) => s + parseFloat(r.amount || 0), 0)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">

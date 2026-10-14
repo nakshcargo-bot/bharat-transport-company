@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Vehicles() {
   const navigate = useNavigate()
@@ -107,11 +108,11 @@ export default function Vehicles() {
       vehicle_type: vehicle.vehicle_type || 'Truck',
       owner_name: vehicle.owner_name || '',
       owner_phone: vehicle.owner_phone || '',
-      rc_expiry: vehicle.rc_expiry || '',
-      insurance_expiry: vehicle.insurance_expiry || '',
-      fitness_expiry: vehicle.fitness_expiry || '',
-      permit_expiry: vehicle.permit_expiry || '',
-      puc_expiry: vehicle.puc_expiry || '',
+      rc_expiry: formatDateForInput(vehicle.rc_expiry),
+      insurance_expiry: formatDateForInput(vehicle.insurance_expiry),
+      fitness_expiry: formatDateForInput(vehicle.fitness_expiry),
+      permit_expiry: formatDateForInput(vehicle.permit_expiry),
+      puc_expiry: formatDateForInput(vehicle.puc_expiry),
       status: vehicle.status || 'Active'
     })
     setShowForm(true)
@@ -150,9 +151,10 @@ export default function Vehicles() {
 
   const getDaysUntilExpiry = (dateStr) => {
     if (!dateStr) return null
-    const today = new Date()
-    const expiry = new Date(dateStr)
-    return Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
+    const expiry = formatDateForInput(dateStr).split('-').map(Number)
+    const today = formatDateForInput(new Date()).split('-').map(Number)
+    if (expiry.length !== 3 || expiry.some(Number.isNaN)) return null
+    return (Date.UTC(expiry[0], expiry[1] - 1, expiry[2]) - Date.UTC(today[0], today[1] - 1, today[2])) / (1000 * 60 * 60 * 24)
   }
 
   const isExpiringSoon = (dateStr) => {
@@ -206,9 +208,9 @@ export default function Vehicles() {
                 <div key={v.id} className="bg-white p-3 rounded border border-red-200 text-sm shadow-sm">
                   <div className="font-bold text-gray-800">{v.vehicle_no} <span className="text-xs font-normal text-gray-500">({v.vehicle_type})</span></div>
                   <div className="mt-1 space-y-1">
-                    {isExpired(v.insurance_expiry) && <div className="text-red-600">❌ Insurance Expired: {v.insurance_expiry}</div>}
+                    {isExpired(v.insurance_expiry) && <div className="text-red-600">❌ Insurance Expired: {formatDate(v.insurance_expiry)}</div>}
                     {isExpiringSoon(v.insurance_expiry) && !isExpired(v.insurance_expiry) && <div className="text-orange-600">⚠️ Insurance expires in {getDaysUntilExpiry(v.insurance_expiry)} days</div>}
-                    {isExpired(v.fitness_expiry) && <div className="text-red-600">❌ Fitness Expired: {v.fitness_expiry}</div>}
+                    {isExpired(v.fitness_expiry) && <div className="text-red-600">❌ Fitness Expired: {formatDate(v.fitness_expiry)}</div>}
                     {isExpiringSoon(v.fitness_expiry) && !isExpired(v.fitness_expiry) && <div className="text-orange-600">⚠️ Fitness expires in {getDaysUntilExpiry(v.fitness_expiry)} days</div>}
                   </div>
                 </div>
@@ -366,18 +368,18 @@ export default function Vehicles() {
                         <div className="flex justify-between">
                           <span className="text-gray-600">Insurance:</span>
                           <span className={`font-bold ${isExpired(v.insurance_expiry) ? 'text-red-600' : isExpiringSoon(v.insurance_expiry) ? 'text-orange-600' : 'text-green-600'}`}>
-                            {v.insurance_expiry || '-'} {isExpired(v.insurance_expiry) && '❌'} {isExpiringSoon(v.insurance_expiry) && !isExpired(v.insurance_expiry) && '⚠️'}
+                            {v.insurance_expiry ? formatDate(v.insurance_expiry) : '-'} {isExpired(v.insurance_expiry) && '❌'} {isExpiringSoon(v.insurance_expiry) && !isExpired(v.insurance_expiry) && '⚠️'}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Fitness:</span>
                           <span className={`font-bold ${isExpired(v.fitness_expiry) ? 'text-red-600' : isExpiringSoon(v.fitness_expiry) ? 'text-orange-600' : 'text-green-600'}`}>
-                            {v.fitness_expiry || '-'} {isExpired(v.fitness_expiry) && '❌'} {isExpiringSoon(v.fitness_expiry) && !isExpired(v.fitness_expiry) && '⚠️'}
+                            {v.fitness_expiry ? formatDate(v.fitness_expiry) : '-'} {isExpired(v.fitness_expiry) && '❌'} {isExpiringSoon(v.fitness_expiry) && !isExpired(v.fitness_expiry) && '⚠️'}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Permit:</span>
-                          <span className="font-bold text-gray-800">{v.permit_expiry || '-'}</span>
+                          <span className="font-bold text-gray-800">{v.permit_expiry ? formatDate(v.permit_expiry) : '-'}</span>
                         </div>
                       </div>
 

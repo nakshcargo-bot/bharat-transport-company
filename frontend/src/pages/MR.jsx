@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function MR() {
   const navigate = useNavigate()
@@ -43,26 +44,16 @@ export default function MR() {
     }
   }
 
-  // ✅ FIX 1: Date ko Indian Format (DD/MM/YYYY) mein convert karna
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString('en-IN', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    })
-  }
-
   const filteredMRs = mrs.filter(mr => {
     if (filter === 'advance') return mr.is_advance
     if (filter === 'bilty') return mr.bilty_lr_no
     if (filter === 'bill') return mr.bill_no
     if (filter === 'today') {
-      const today = new Date().toISOString().split('T')[0]
+      const today = formatDateForInput(new Date())
       return mr.mr_date && mr.mr_date.startsWith(today)
     }
     if (filter === 'month') {
-      const thisMonth = new Date().toISOString().substring(0, 7)
+      const thisMonth = formatDateForInput(new Date()).substring(0, 7)
       return mr.mr_date && mr.mr_date.startsWith(thisMonth)
     }
     return true

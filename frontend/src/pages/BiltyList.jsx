@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { biltyAPI } from '../api'
 import toast from 'react-hot-toast'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function BiltyList() {
   const navigate = useNavigate()
@@ -147,7 +148,7 @@ export default function BiltyList() {
                   filteredBilties.map((bilty) => (
                     <tr key={bilty.lr_no} className="hover:bg-white/5 transition cursor-pointer" onClick={() => navigate(`/bilty/view/${bilty.lr_no}`)}>
                       <td className="px-6 py-4 text-sm font-bold text-white">{bilty.lr_no}</td>
-                      <td className="px-6 py-4 text-sm text-gray-300">{new Date(bilty.lr_date).toLocaleDateString('en-IN')}</td>
+                      <td className="px-6 py-4 text-sm text-gray-300">{formatDate(bilty.lr_date)}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">{bilty.from_code}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">{bilty.to_code}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">{bilty.consignor_name}</td>

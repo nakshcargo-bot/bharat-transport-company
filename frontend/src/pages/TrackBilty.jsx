@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function TrackBilty() {
   const [lrNo, setLrNo] = useState('')
@@ -101,7 +102,7 @@ export default function TrackBilty() {
                 <div className="space-y-2 text-sm md:text-base">
                   <p><span className="text-gray-600">From:</span> <span className="font-semibold">{bilty.from_name}</span></p>
                   <p><span className="text-gray-600">To:</span> <span className="font-semibold">{bilty.to_name}</span></p>
-                  <p><span className="text-gray-600">Date:</span> <span className="font-semibold">{new Date(bilty.lr_date).toLocaleDateString('en-IN')}</span></p>
+                  <p><span className="text-gray-600">Date:</span> <span className="font-semibold">{formatDate(bilty.lr_date)}</span></p>
                 </div>
               </div>
 

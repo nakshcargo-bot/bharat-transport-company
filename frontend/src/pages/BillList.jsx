@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function BillList() {
   const [bills, setBills] = useState([])
@@ -82,7 +83,7 @@ export default function BillList() {
                   <td className="px-4 py-3 font-medium text-red-700" style={{ wordBreak: 'break-word' }}>
                     {bill.bill_no || 'N/A'}
                   </td>
-                  <td className="px-4 py-3 text-sm">{bill.bill_date?.split('T')[0] || '-'}</td>
+                  <td className="px-4 py-3 text-sm">{bill.bill_date ? formatDate(bill.bill_date) : '-'}</td>
                   <td className="px-4 py-3 text-sm" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
                     {bill.party_name || 'N/A'}
                   </td>

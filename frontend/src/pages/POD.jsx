@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function POD() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export default function POD() {
 
   const [formData, setFormData] = useState({
     lr_no: '',
-    delivery_date: new Date().toISOString().split('T')[0],
+    delivery_date: formatDateForInput(new Date()),
     delivered_by: '',
     receiver_name: '',
     receiver_phone: '',
@@ -108,7 +109,7 @@ export default function POD() {
   const resetForm = () => {
     setFormData({
       lr_no: '',
-      delivery_date: new Date().toISOString().split('T')[0],
+      delivery_date: formatDateForInput(new Date()),
       delivered_by: user.username || '',
       receiver_name: '',
       receiver_phone: '',
@@ -179,7 +180,7 @@ export default function POD() {
             <div className="bg-green-50 p-4 rounded-lg mb-4">
               <div className="grid md:grid-cols-3 gap-4 text-sm">
                 <div><b>LR No:</b> {selectedBilty.lr_no}</div>
-                <div><b>Date:</b> {selectedBilty.lr_date}</div>
+                <div><b>Date:</b> {formatDate(selectedBilty.lr_date)}</div>
                 <div><b>From → To:</b> {selectedBilty.from_name} → {selectedBilty.to_name}</div>
                 <div><b>Consignor:</b> {selectedBilty.consignor_name}</div>
                 <div><b>Consignee:</b> {selectedBilty.consignee_name}</div>
@@ -265,7 +266,7 @@ export default function POD() {
                   {filteredPending.map(b => (
                     <tr key={b.id} className="border-t hover:bg-orange-50 cursor-pointer" onClick={() => handleSelectBilty(b)}>
                       <td className="p-3 font-bold text-red-700">{b.lr_no}</td>
-                      <td className="p-3 text-sm">{b.lr_date}</td>
+                      <td className="p-3 text-sm">{formatDate(b.lr_date)}</td>
                       <td className="p-3 text-sm">{b.consignor_name}</td>
                       <td className="p-3 text-sm">{b.consignee_name}</td>
                       <td className="p-3 text-sm">{b.to_name}</td>
@@ -304,7 +305,7 @@ export default function POD() {
                   {filteredDelivered.map(p => (
                     <tr key={p.id} className="border-t hover:bg-green-50">
                       <td className="p-3 font-bold text-green-700">{p.lr_no}</td>
-                      <td className="p-3 text-sm">{p.delivery_date}</td>
+                      <td className="p-3 text-sm">{formatDate(p.delivery_date)}</td>
                       <td className="p-3 text-sm font-bold">{p.receiver_name}</td>
                       <td className="p-3 text-sm">{p.receiver_phone || '-'}</td>
                       <td className="p-3 text-sm">{p.delivered_by || '-'}</td>

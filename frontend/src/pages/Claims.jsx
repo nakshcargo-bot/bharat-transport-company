@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Claims() {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export default function Claims() {
 
   const [formData, setFormData] = useState({
     lr_no: '',
-    claim_date: new Date().toISOString().split('T')[0],
+    claim_date: formatDateForInput(new Date()),
     claim_type: 'Damage',
     description: '',
     claim_amount: '',
@@ -72,7 +73,7 @@ export default function Claims() {
         setEditId(null)
         setFormData({
           lr_no: '',
-          claim_date: new Date().toISOString().split('T')[0],
+          claim_date: formatDateForInput(new Date()),
           claim_type: 'Damage',
           description: '',
           claim_amount: '',
@@ -96,7 +97,7 @@ export default function Claims() {
   const handleEdit = (claim) => {
     setFormData({
       ...claim,
-      claim_date: claim.claim_date ? claim.claim_date.split('T')[0] : ''
+      claim_date: formatDateForInput(claim.claim_date)
     })
     setEditId(claim.id)
     setShowForm(true)
@@ -244,7 +245,7 @@ export default function Claims() {
                     {claims.map(c => (
                       <tr key={c.id} className="border-t hover:bg-rose-50/30 transition-colors">
                         <td className="p-4 font-bold text-rose-700">{c.lr_no}</td>
-                        <td className="p-4">{c.claim_date ? new Date(c.claim_date).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4">{c.claim_date ? formatDate(c.claim_date) : '-'}</td>
                         <td className="p-4">
                           <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{c.claim_type}</span>
                         </td>

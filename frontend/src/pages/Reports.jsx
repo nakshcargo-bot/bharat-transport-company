@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Reports() {
   const navigate = useNavigate()
@@ -20,7 +21,7 @@ export default function Reports() {
     } catch (err) { console.error(err) } finally { setLoading(false) }
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatDateForInput(new Date())
   const thisMonth = today.substring(0, 7)
 
   const monthlyBilties = bilties.filter(b => b.lr_date && b.lr_date.startsWith(thisMonth))
@@ -92,7 +93,7 @@ export default function Reports() {
                   <h3 className="font-bold text-lg mb-4">This Month's Bilties ({thisMonth})</h3>
                   <table className="w-full">
                     <thead className="bg-gray-100"><tr><th className="p-2 text-left">LR No</th><th className="p-2 text-left">Date</th><th className="p-2 text-left">Route</th><th className="p-2 text-left">Amount</th><th className="p-2 text-left">Status</th></tr></thead>
-                    <tbody>{monthlyBilties.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{b.lr_date}</td><td className="p-2">{b.from_name} → {b.to_name}</td><td className="p-2 font-bold">₹{parseFloat(b.grand_total||0).toLocaleString('en-IN')}</td><td className="p-2"><span className={`px-2 py-1 rounded text-xs ${b.status==='Delivered'?'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}`}>{b.status}</span></td></tr>))}</tbody>
+                    <tbody>{monthlyBilties.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{formatDate(b.lr_date)}</td><td className="p-2">{b.from_name} → {b.to_name}</td><td className="p-2 font-bold">₹{parseFloat(b.grand_total||0).toLocaleString('en-IN')}</td><td className="p-2"><span className={`px-2 py-1 rounded text-xs ${b.status==='Delivered'?'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}`}>{b.status}</span></td></tr>))}</tbody>
                   </table>
                 </div>
               </div>
@@ -105,7 +106,7 @@ export default function Reports() {
                   <h3 className="font-bold text-lg mb-4">Pending Payment Details</h3>
                   <table className="w-full">
                     <thead className="bg-gray-100"><tr><th className="p-2 text-left">LR No</th><th className="p-2 text-left">Date</th><th className="p-2 text-left">Consignor</th><th className="p-2 text-left">Amount</th><th className="p-2 text-left">Status</th></tr></thead>
-                    <tbody>{pendingBilties.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{b.lr_date}</td><td className="p-2">{b.consignor_name}</td><td className="p-2 font-bold">₹{parseFloat(b.grand_total||0).toLocaleString('en-IN')}</td><td className="p-2"><span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700">{b.status}</span></td></tr>))}</tbody>
+                    <tbody>{pendingBilties.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{formatDate(b.lr_date)}</td><td className="p-2">{b.consignor_name}</td><td className="p-2 font-bold">₹{parseFloat(b.grand_total||0).toLocaleString('en-IN')}</td><td className="p-2"><span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-700">{b.status}</span></td></tr>))}</tbody>
                   </table>
                 </div>
               </div>
@@ -118,7 +119,7 @@ export default function Reports() {
                   <h3 className="font-bold text-lg mb-4">POD Pending Bilties</h3>
                   <table className="w-full">
                     <thead className="bg-gray-100"><tr><th className="p-2 text-left">LR No</th><th className="p-2 text-left">Date</th><th className="p-2 text-left">Route</th><th className="p-2 text-left">Driver</th><th className="p-2 text-left">Vehicle</th></tr></thead>
-                    <tbody>{podPending.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{b.lr_date}</td><td className="p-2">{b.from_name} → {b.to_name}</td><td className="p-2">{b.driver_name||'-'}</td><td className="p-2">{b.lorry_no||'-'}</td></tr>))}</tbody>
+                    <tbody>{podPending.map(b => (<tr key={b.id} className="border-t"><td className="p-2 font-bold text-red-700">{b.lr_no}</td><td className="p-2">{formatDate(b.lr_date)}</td><td className="p-2">{b.from_name} → {b.to_name}</td><td className="p-2">{b.driver_name||'-'}</td><td className="p-2">{b.lorry_no||'-'}</td></tr>))}</tbody>
                   </table>
                 </div>
               </div>

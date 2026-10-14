@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function EwayBill() {
   const navigate = useNavigate()
@@ -41,7 +42,7 @@ export default function EwayBill() {
     setEditId(bill.id)
     setFormData({
       eway_bill_no: bill.eway_bill_no || '',
-      eway_valid_upto: bill.eway_valid_upto ? bill.eway_valid_upto.split('T')[0] : '',
+      eway_valid_upto: formatDateForInput(bill.eway_valid_upto),
       transporter_id: bill.transporter_id || '',
       transporter_name: bill.transporter_name || ''
     })
@@ -190,7 +191,7 @@ export default function EwayBill() {
                             <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold">Pending</span>
                           )}
                         </td>
-                        <td className="p-4 text-xs">{b.eway_valid_upto ? new Date(b.eway_valid_upto).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4 text-xs">{b.eway_valid_upto ? formatDate(b.eway_valid_upto) : '-'}</td>
                         <td className="p-4 text-center">
                           <span className={`px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Delivered' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                             {b.status}

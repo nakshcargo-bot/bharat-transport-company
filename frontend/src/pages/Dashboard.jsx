@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { formatDateLong } from '../utils/dateFormatter'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -249,7 +250,7 @@ export default function Dashboard() {
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-slate-900 font-mono">{currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-            <div className="text-sm text-slate-500">{currentTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            <div className="text-sm text-slate-500">{formatDateLong(currentTime)}</div>
           </div>
         </div>
 

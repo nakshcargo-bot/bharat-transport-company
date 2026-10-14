@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api'
+import { formatDate } from '../utils/dateFormatter'
 
 const COMPANY = {
   name: "BHARAT TRANSPORT COMPANY",
@@ -71,7 +72,7 @@ export default function MRPrint() {
               ) : receipts.map((receipt) => (
                 <tr key={receipt.id} onClick={() => navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`)} className="border-t hover:bg-gray-50 cursor-pointer">
                   <td className="p-3 font-semibold">{receipt.mr_no || 'N/A'}</td>
-                  <td className="p-3">{receipt.mr_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{formatDate(receipt.mr_date)}</td>
                   <td className="p-3">{receipt.party_name || 'N/A'}</td>
                   <td className="p-3 text-right">₹{Number(receipt.amount || 0).toLocaleString('en-IN')}</td>
                   <td className="p-3"><button className="text-blue-700 underline" onClick={(event) => { event.stopPropagation(); navigate(`/mr/print?mr_no=${encodeURIComponent(receipt.mr_no)}`) }}>Print</button></td>
@@ -121,7 +122,7 @@ export default function MRPrint() {
           <div>
             <h2 className="text-2xl font-black text-gray-800">MONEY RECEIPT</h2>
             <p className="text-sm font-bold mt-1">MR No: <span className="text-red-700 text-xl">{data.mr_no}</span></p>
-            <p className="text-sm">Date: {new Date(data.mr_date).toLocaleDateString('en-IN')}</p>
+            <p className="text-sm">Date: {formatDate(data.mr_date)}</p>
           </div>
           <div className="text-right text-sm">
             <p className="font-bold">Original Copy (For Party)</p>

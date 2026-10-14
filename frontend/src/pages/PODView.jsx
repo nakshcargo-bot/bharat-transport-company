@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function PODView() {
   const navigate = useNavigate()
@@ -101,7 +102,7 @@ export default function PODView() {
                   </div>
                   <div>
                     <div className="text-gray-500 text-xs">LR Date</div>
-                    <div className="font-bold">{result.bilty.lr_date ? new Date(result.bilty.lr_date).toLocaleDateString('en-IN') : '-'}</div>
+                    <div className="font-bold">{result.bilty.lr_date ? formatDate(result.bilty.lr_date) : '-'}</div>
                   </div>
                   <div>
                     <div className="text-gray-500 text-xs">Status</div>
@@ -150,7 +151,7 @@ export default function PODView() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                   <div>
                     <div className="text-gray-500 text-xs">Delivery Date</div>
-                    <div className="font-bold">{result.pod.delivery_date ? new Date(result.pod.delivery_date).toLocaleDateString('en-IN') : '-'}</div>
+                    <div className="font-bold">{result.pod.delivery_date ? formatDate(result.pod.delivery_date) : '-'}</div>
                   </div>
                   <div>
                     <div className="text-gray-500 text-xs">Delivered By</div>

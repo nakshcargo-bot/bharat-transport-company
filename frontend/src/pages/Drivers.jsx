@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Drivers() {
   const navigate = useNavigate()
@@ -21,7 +22,7 @@ export default function Drivers() {
     phone: '',
     address: '',
     photo_url: '',
-    joining_date: new Date().toISOString().split('T')[0],
+    joining_date: formatDateForInput(new Date()),
     status: 'Active'
   })
 
@@ -108,11 +109,11 @@ export default function Drivers() {
       father_name: driver.father_name || '',
       aadhar_no: driver.aadhar_no || '',
       license_no: driver.license_no || '',
-      license_expiry: driver.license_expiry || '',
+      license_expiry: formatDateForInput(driver.license_expiry),
       phone: driver.phone || '',
       address: driver.address || '',
       photo_url: driver.photo_url || '',
-      joining_date: driver.joining_date || '',
+      joining_date: formatDateForInput(driver.joining_date),
       status: driver.status || 'Active'
     })
     setShowForm(true)
@@ -145,17 +146,17 @@ export default function Drivers() {
       phone: '',
       address: '',
       photo_url: '',
-      joining_date: new Date().toISOString().split('T')[0],
+      joining_date: formatDateForInput(new Date()),
       status: 'Active'
     })
   }
 
   const getDaysUntilExpiry = (dateStr) => {
     if (!dateStr) return null
-    const today = new Date()
-    const expiry = new Date(dateStr)
-    const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
-    return diff
+    const expiry = formatDateForInput(dateStr).split('-').map(Number)
+    const today = formatDateForInput(new Date()).split('-').map(Number)
+    if (expiry.length !== 3 || expiry.some(Number.isNaN)) return null
+    return (Date.UTC(expiry[0], expiry[1] - 1, expiry[2]) - Date.UTC(today[0], today[1] - 1, today[2])) / (1000 * 60 * 60 * 24)
   }
 
   const filteredDrivers = drivers.filter(d => {
@@ -196,7 +197,7 @@ export default function Drivers() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
               {expiryAlerts.slice(0, 6).map(v => (
                 <div key={v.id} className="bg-white p-2 rounded border border-red-200 text-sm">
-                  <b>{v.vehicle_no}</b> - Insurance expires: {v.insurance_expiry}
+                  <b>{v.vehicle_no}</b> - Insurance expires: {v.insurance_expiry ? formatDate(v.insurance_expiry) : '-'}
                 </div>
               ))}
             </div>
@@ -359,7 +360,7 @@ export default function Drivers() {
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Expiry:</span>
                             <span className={`font-bold ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-green-600'}`}>
-                              {driver.license_expiry || '-'}
+                              {driver.license_expiry ? formatDate(driver.license_expiry) : '-'}
                               {isExpired && ' ⚠️ EXPIRED'}
                               {isExpiringSoon && ` ⚠️ ${daysUntilExpiry} days`}
                             </span>
@@ -367,7 +368,7 @@ export default function Drivers() {
                           {driver.joining_date && (
                             <div className="flex justify-between text-sm">
                               <span className="text-gray-600">Joined:</span>
-                              <span className="font-bold">{driver.joining_date}</span>
+                              <span className="font-bold">{formatDate(driver.joining_date)}</span>
                             </div>
                           )}
                         </div>

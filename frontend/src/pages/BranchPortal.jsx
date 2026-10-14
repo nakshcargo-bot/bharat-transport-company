@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
+import { formatDate } from '../utils/dateFormatter'
 
 const API_URL = 'https://bharat-transport-api.onrender.com'
-
-function formatDate(value) {
-  if (!value) return '—'
-  return new Date(value).toLocaleDateString('en-IN')
-}
 
 function DataTable({ title, rows, columns, emptyMessage }) {
   return (

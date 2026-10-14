@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function Bills() {
   const navigate = useNavigate()
@@ -33,7 +34,7 @@ export default function Bills() {
             {bills.length === 0 ? <div className="p-10 text-center text-gray-500">No bills yet</div> : (
               <table className="w-full">
                 <thead className="bg-gray-100"><tr><th className="p-3 text-left">Bill No</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Amount</th></tr></thead>
-                <tbody>{bills.map(b => (<tr key={b.id} className="border-t"><td className="p-3 font-bold">{b.bill_no || b.id}</td><td className="p-3">{b.bill_date || '-'}</td><td className="p-3 font-bold">₹{parseFloat(b.total_amount || b.grand_total || 0).toLocaleString('en-IN')}</td></tr>))}</tbody>
+                <tbody>{bills.map(b => (<tr key={b.id} className="border-t"><td className="p-3 font-bold">{b.bill_no || b.id}</td><td className="p-3">{b.bill_date ? formatDate(b.bill_date) : '-'}</td><td className="p-3 font-bold">₹{parseFloat(b.total_amount || b.grand_total || 0).toLocaleString('en-IN')}</td></tr>))}</tbody>
               </table>
             )}
           </div>

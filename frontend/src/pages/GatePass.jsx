@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateLong } from '../utils/dateFormatter'
 
 export default function GatePass() {
   const navigate = useNavigate()
@@ -96,7 +97,7 @@ export default function GatePass() {
                   <p><strong>Material:</strong> {gatePass.material_desc}</p>
                   <p><strong>Quantity:</strong> {gatePass.quantity}</p>
                   <p><strong>Weight:</strong> {gatePass.weight} kg</p>
-                  <p><strong>Valid Until:</strong> {new Date(gatePass.valid_until).toLocaleDateString('en-IN')}</p>
+                  <p><strong>Valid Until:</strong> {formatDate(gatePass.valid_until)}</p>
                 </div>
               </div>
 
@@ -107,7 +108,7 @@ export default function GatePass() {
               <div className="mt-6 flex justify-between">
                 <div>
                   <p className="text-sm">Issued By: {gatePass.issued_by}</p>
-                  <p className="text-xs text-gray-500">{new Date(gatePass.issued_at).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500">{formatDateLong(gatePass.issued_at)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold">Authorized Signature</p>

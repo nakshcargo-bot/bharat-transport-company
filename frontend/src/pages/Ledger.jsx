@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function Ledger() {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ export default function Ledger() {
   }
 
   const fmt = (n) => '₹' + parseFloat(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '-'
+  const fmtDate = (d) => d ? formatDate(d) : '-'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200">

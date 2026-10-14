@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Consignments({ isNew }) {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export default function Consignments({ isNew }) {
   const [mrError, setMrError] = useState('')
 
   const [formData, setFormData] = useState({
-    lr_no: '', lr_date: new Date().toISOString().split('T')[0], from_name: '', to_name: '',
+    lr_no: '', lr_date: formatDateForInput(new Date()), from_name: '', to_name: '',
     consignor_code: '', consignor_name: '', consignor_address: '', consignor_gst: '', invoice_no: '', invoice_date: '',
     consignee_code: '', consignee_name: '', consignee_address: '', consignee_gst: '', po_no: '',
     lorry_no: '', driver_mobile: '', delivery_type: 'DOOR DELIVERY',
@@ -98,10 +99,10 @@ export default function Consignments({ isNew }) {
           }
         })
       }
-      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/${String(maxRV + 1).padStart(4, '0')}`, rv_dt: new Date().toISOString().split('T')[0] }))
+      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/${String(maxRV + 1).padStart(4, '0')}`, rv_dt: formatDateForInput(new Date()) }))
     } catch (err) {
       const year = String(new Date().getFullYear()).slice(-2)
-      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/0001`, rv_dt: new Date().toISOString().split('T')[0] }))
+      setFormData(prev => ({ ...prev, rv_no: `RV/${year}/0001`, rv_dt: formatDateForInput(new Date()) }))
     }
   }
 
@@ -588,7 +589,7 @@ export default function Consignments({ isNew }) {
                 {bilties.map(b => (
                   <tr key={b.id} className="border-t hover:bg-gray-50">
                     <td className="p-3 font-bold text-red-700">{b.lr_no}</td>
-                    <td className="p-3 text-sm">{b.lr_date ? new Date(b.lr_date).toLocaleDateString('en-IN') : '-'}</td>
+                    <td className="p-3 text-sm">{b.lr_date ? formatDate(b.lr_date) : '-'}</td>
                     <td className="p-3 text-sm">{b.from_name} → {b.to_name}</td>
                     <td className="p-3 text-sm">{b.consignor_name}</td>
                     <td className="p-3 font-bold">₹{parseFloat(b.grand_total || 0).toLocaleString('en-IN')}</td>

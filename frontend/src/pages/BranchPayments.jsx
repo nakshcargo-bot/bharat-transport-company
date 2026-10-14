@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { branchAPI } from '../api'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function BranchPayments() {
   const [branches, setBranches] = useState([])
@@ -18,11 +19,11 @@ export default function BranchPayments() {
   const [activeTab, setActiveTab] = useState('send')
   
   const [sendForm, setSendForm] = useState({
-    branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0]
+    branch_name: '', amount: '', vehicle_no: '', destination: '', date: formatDateForInput(new Date())
   })
   
   const [receiveForm, setReceiveForm] = useState({
-    branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0]
+    branch_name: '', incharge_name: '', amount: '', date: formatDateForInput(new Date())
   })
 
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function BranchPayments() {
     }
     
     setTransactions(prev => [newTransaction, ...prev])
-    setSendForm({ branch_name: '', amount: '', vehicle_no: '', destination: '', date: new Date().toISOString().split('T')[0] })
+    setSendForm({ branch_name: '', amount: '', vehicle_no: '', destination: '', date: formatDateForInput(new Date()) })
     alert('✅ Payment record saved successfully!')
   }
 
@@ -84,7 +85,7 @@ export default function BranchPayments() {
     }
     
     setTransactions(prev => [newTransaction, ...prev])
-    setReceiveForm({ branch_name: '', incharge_name: '', amount: '', date: new Date().toISOString().split('T')[0] })
+    setReceiveForm({ branch_name: '', incharge_name: '', amount: '', date: formatDateForInput(new Date()) })
     alert('✅ Branch payment receipt recorded successfully!')
   }
 
@@ -234,7 +235,7 @@ export default function BranchPayments() {
                       <td className={`px-4 py-3 whitespace-nowrap text-sm font-bold text-right ${t.type === 'SENT' ? 'text-red-600' : 'text-green-600'}`}>
                         {t.type === 'SENT' ? '-' : '+'}₹{parseFloat(t.amount || 0).toLocaleString('en-IN')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{t.timestamp || 'N/A'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{formatDate(t.timestamp)}</td>
                     </tr>
                   ))
                 )}

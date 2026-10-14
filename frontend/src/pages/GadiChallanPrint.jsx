@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api'
+import { formatDate } from '../utils/dateFormatter'
 
 const COMPANY = {
   name: "BHARAT TRANSPORT COMPANY",
@@ -66,7 +67,7 @@ export default function GadiChallanPrint() {
               ) : challans.map((challan) => (
                 <tr key={challan.id} onClick={() => navigate(`/gadi-challan-print/${challan.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
                   <td className="p-3 font-semibold">{challan.challan_no || 'N/A'}</td>
-                  <td className="p-3">{challan.issue_date?.split('T')[0] || '—'}</td>
+                  <td className="p-3">{formatDate(challan.issue_date)}</td>
                   <td className="p-3">{challan.vehicle_no || 'N/A'}</td>
                   <td className="p-3">{challan.driver_name || 'N/A'}</td>
                   <td className="p-3"><Link className="text-blue-700 underline" to={`/gadi-challan-print/${challan.id}`} onClick={(event) => event.stopPropagation()}>Print</Link></td>
@@ -114,7 +115,7 @@ export default function GadiChallanPrint() {
 
         <div className="text-center mb-6">
           <h2 className="text-2xl font-black border-2 border-black inline-block px-8 py-2 rounded">GADI CHALLAN</h2>
-          <p className="mt-2 font-bold">Challan No: <span className="text-red-700 text-xl">{data.challan_no}</span> | Date: {new Date(data.issue_date).toLocaleDateString('en-IN')}</p>
+          <p className="mt-2 font-bold">Challan No: <span className="text-red-700 text-xl">{data.challan_no}</span> | Date: {formatDate(data.issue_date)}</p>
         </div>
 
         {/* DETAILS GRID */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function Transit() {
   const navigate = useNavigate()
@@ -269,7 +270,7 @@ export default function Transit() {
                     {manifests.map(m => (
                       <tr key={m.id} className="border-t hover:bg-indigo-50/30 transition-colors">
                         <td className="p-4 font-bold text-indigo-700">{m.manifest_no}</td>
-                        <td className="p-4 text-gray-600">{new Date(m.manifest_date).toLocaleDateString('en-IN')}</td>
+                        <td className="p-4 text-gray-600">{formatDate(m.manifest_date)}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{m.from_branch}</span>

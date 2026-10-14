@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDateForInput } from '../utils/dateFormatter'
 
 export default function PODUpload() {
   const navigate = useNavigate()
@@ -7,7 +8,7 @@ export default function PODUpload() {
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
     lr_no: '',
-    delivery_date: new Date().toISOString().split('T')[0],
+    delivery_date: formatDateForInput(new Date()),
     delivered_by: '',
     receiver_name: '',
     receiver_phone: '',
@@ -99,7 +100,7 @@ export default function PODUpload() {
         alert('✅ POD uploaded successfully! LR Number: ' + formData.lr_no)
         setFormData({
           lr_no: '',
-          delivery_date: new Date().toISOString().split('T')[0],
+          delivery_date: formatDateForInput(new Date()),
           delivered_by: '',
           receiver_name: '',
           receiver_phone: '',

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Rates() {
   const navigate = useNavigate()
@@ -21,7 +22,7 @@ export default function Rates() {
     min_charge: '',
     weight_from: '',
     weight_to: '',
-    effective_from: new Date().toISOString().split('T')[0],
+    effective_from: formatDateForInput(new Date()),
     effective_to: '',
     is_active: true,
     remarks: ''
@@ -89,7 +90,7 @@ export default function Rates() {
           min_charge: '',
           weight_from: '',
           weight_to: '',
-          effective_from: new Date().toISOString().split('T')[0],
+          effective_from: formatDateForInput(new Date()),
           effective_to: '',
           is_active: true,
           remarks: ''
@@ -110,8 +111,8 @@ export default function Rates() {
   const handleEdit = (rate) => {
     setFormData({
       ...rate,
-      effective_from: rate.effective_from ? rate.effective_from.split('T')[0] : '',
-      effective_to: rate.effective_to ? rate.effective_to.split('T')[0] : ''
+      effective_from: formatDateForInput(rate.effective_from),
+      effective_to: formatDateForInput(rate.effective_to)
     })
     setEditId(rate.id)
     setShowForm(true)
@@ -390,7 +391,7 @@ export default function Rates() {
                            formatCurrency(r.fixed_rate)}
                         </td>
                         <td className="p-4 text-right">{formatCurrency(r.min_charge)}</td>
-                        <td className="p-4 text-xs">{r.effective_from ? new Date(r.effective_from).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4 text-xs">{r.effective_from ? formatDate(r.effective_from) : '-'}</td>
                         <td className="p-4 text-center">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${r.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                             {r.is_active ? 'Active' : 'Inactive'}

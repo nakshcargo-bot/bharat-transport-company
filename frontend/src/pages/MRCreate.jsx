@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDateForInput } from '../utils/dateFormatter'
 
 export default function MRCreate() {
   const navigate = useNavigate()
@@ -9,7 +10,7 @@ export default function MRCreate() {
   
   const [formData, setFormData] = useState({
     mr_no: 'Auto-generated',
-    mr_date: new Date().toISOString().split('T')[0],
+    mr_date: formatDateForInput(new Date()),
     party_type: 'Consignor',
     party_name: '',
     bilty_id: '',

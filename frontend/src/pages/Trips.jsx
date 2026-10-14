@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
 export default function Trips() {
   const navigate = useNavigate()
@@ -10,7 +11,7 @@ export default function Trips() {
 
   const [formData, setFormData] = useState({
     trip_no: '',
-    trip_date: new Date().toISOString().split('T')[0],
+    trip_date: formatDateForInput(new Date()),
     vehicle_no: '',
     driver_name: '',
     driver_mobile: '',
@@ -78,7 +79,7 @@ export default function Trips() {
         setEditId(null)
         setFormData({
           trip_no: '',
-          trip_date: new Date().toISOString().split('T')[0],
+          trip_date: formatDateForInput(new Date()),
           vehicle_no: '',
           driver_name: '',
           driver_mobile: '',
@@ -108,9 +109,9 @@ export default function Trips() {
   const handleEdit = (trip) => {
     setFormData({
       ...trip,
-      trip_date: trip.trip_date ? trip.trip_date.split('T')[0] : '',
-      expected_departure: trip.expected_departure ? trip.expected_departure.split('T')[0] : '',
-      expected_arrival: trip.expected_arrival ? trip.expected_arrival.split('T')[0] : ''
+      trip_date: formatDateForInput(trip.trip_date),
+      expected_departure: formatDateForInput(trip.expected_departure),
+      expected_arrival: formatDateForInput(trip.expected_arrival)
     })
     setEditId(trip.id)
     setShowForm(true)
@@ -281,7 +282,7 @@ export default function Trips() {
                     {trips.map(t => (
                       <tr key={t.id} className="border-t hover:bg-cyan-50/30 transition-colors">
                         <td className="p-4 font-bold text-cyan-700">{t.trip_no}</td>
-                        <td className="p-4">{t.trip_date ? new Date(t.trip_date).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4">{t.trip_date ? formatDate(t.trip_date) : '-'}</td>
                         <td className="p-4 font-medium">{t.vehicle_no}</td>
                         <td className="p-4">
                           <div className="font-medium">{t.driver_name}</div>

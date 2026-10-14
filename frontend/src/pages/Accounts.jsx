@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function Accounts() {
   const navigate = useNavigate()
@@ -167,7 +168,7 @@ export default function Accounts() {
                     {tdsData.map((row, idx) => (
                       <tr key={idx} className="border-t hover:bg-emerald-50/30 transition-colors">
                         <td className="p-4 font-bold text-emerald-700">{row.challan_no}</td>
-                        <td className="p-4">{row.issue_date ? new Date(row.issue_date).toLocaleDateString('en-IN') : '-'}</td>
+                        <td className="p-4">{row.issue_date ? formatDate(row.issue_date) : '-'}</td>
                         <td className="p-4 font-medium">{row.broker_name || 'N/A'}</td>
                         <td className="p-4 text-right">{formatCurrency(row.freight_amount)}</td>
                         <td className="p-4 text-right font-bold text-purple-600">{formatCurrency(row.tds_deduction)}</td>

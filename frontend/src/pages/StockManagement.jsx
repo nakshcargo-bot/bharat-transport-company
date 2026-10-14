@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
+import { formatDate } from '../utils/dateFormatter'
 
 export default function StockManagement() {
   const navigate = useNavigate()
@@ -93,7 +94,7 @@ export default function StockManagement() {
     saveStock(updatedStock)
     const entry = {
       id: Date.now(),
-      date: new Date().toLocaleString(),
+      date: formatDate(new Date()),
       itemName: selectedItem.name,
       type: 'IN',
       quantity: qty,
@@ -118,7 +119,7 @@ export default function StockManagement() {
     saveStock(updatedStock)
     const entry = {
       id: Date.now(),
-      date: new Date().toLocaleString(),
+      date: formatDate(new Date()),
       itemName: selectedItem.name,
       type: 'OUT',
       quantity: qty,
@@ -327,7 +328,7 @@ export default function StockManagement() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {history.map((entry) => (
                       <tr key={entry.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{entry.date}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDate(entry.date)}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-800">{entry.itemName}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-1 rounded-full text-xs font-bold ${entry.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>

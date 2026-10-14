@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
 import toast from 'react-hot-toast'
+import { formatDateForInput } from '../utils/dateFormatter'
 
 // Custom Dropdown Component
 function CustomSelect({ label, value, onChange, options, name, required }) {
@@ -86,7 +87,7 @@ export default function BiltyEntry() {
   ])
 
   const [formData, setFormData] = useState({
-    lr_no: '', lr_date: new Date().toISOString().split('T')[0], branch_code: '', from_code: '', from_name: '', to_code: '', to_name: '',
+    lr_no: '', lr_date: formatDateForInput(new Date()), branch_code: '', from_code: '', from_name: '', to_code: '', to_name: '',
     delivery_type: 'Door Delivery', unloading_party_mobile: '', delivery_godown_address: '', pickup_address: '',
     consignor_name: '', consignor_address: '', consignor_gst: '', consignor_mobile: '', customer_code_consignor: '',
     consignee_name: '', consignee_address: '', consignee_gst: '', consignee_mobile: '', customer_code_consignee: '',
