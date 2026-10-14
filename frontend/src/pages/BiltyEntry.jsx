@@ -77,6 +77,7 @@ const numberToWords = (num) => {
 export default function BiltyEntry() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [mrActive, setMrActive] = useState(false)
   const [customers, setCustomers] = useState([])
   const [branches] = useState([
     { code: 'RAJ', name: 'Rajgarh' },
@@ -203,7 +204,20 @@ export default function BiltyEntry() {
     }
     setLoading(true)
     try {
-      await biltyAPI.create(formData)
+      const payload = { ...formData }
+      if (mrActive) {
+        payload.mr_active = true
+        payload.mr_date = payload.mr_date || null
+      } else {
+        for (const field of [
+          'mr_no', 'mr_active', 'mr_amount', 'mr_payment_mode', 'mr_remarks',
+          'mr_date', 'mr_party_name', 'mr_party_type', 'mr_is_advance',
+          'mr_bilty_id', 'mr_bilty_lr_no', 'mr_bill_id', 'mr_bill_no', 'mr_created_by'
+        ]) {
+          delete payload[field]
+        }
+      }
+      await biltyAPI.create(payload)
       toast.success('Bilty successfully created!')
       navigate('/dashboard')
     } catch (err) {
@@ -501,24 +515,34 @@ export default function BiltyEntry() {
 
           {/* Section 9: Private Marks/MR */}
           <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">🏷️ Section 9: Private Marks / MR</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">🏷️ Section 9: Private Marks / MR</h3>
+              <label className="flex items-center gap-2 text-white font-bold">
+                <input type="checkbox" checked={mrActive} onChange={(e) => setMrActive(e.target.checked)} />
+                Enable MR
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-gray-300 text-sm font-medium mb-1">Private Marks</label>
                 <textarea name="private_marks" value={formData.private_marks} onChange={handleChange} rows="2" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">M.R. No</label>
-                <input type="text" name="mr_no" value={formData.mr_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">M.R. Date</label>
-                <input type="date" name="mr_date" value={formData.mr_date} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">M.R. Amount</label>
-                <input type="number" name="mr_amount" value={formData.mr_amount} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
+              {mrActive && (
+                <>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-1">M.R. No</label>
+                    <input type="text" name="mr_no" value={formData.mr_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-1">M.R. Date</label>
+                    <input type="date" name="mr_date" value={formData.mr_date} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-1">M.R. Amount</label>
+                    <input type="number" name="mr_amount" value={formData.mr_amount} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                </>
+              )}
               <div>
                 <CustomSelect label="Load Type" name="load_type" value={formData.load_type} onChange={handleChange} options={loadTypeOptions} />
               </div>

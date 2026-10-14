@@ -228,10 +228,20 @@ export default function Consignments({ isNew }) {
         finalConsigneeCode = getNextPartyCode(existingCodes)
       }
 
-      const { mr_party_name, mr_amount, mr_payment_mode, mr_remarks, mr_date, ...biltyFields } = formData
+      const payload = { ...formData }
+      if (!mrActive) {
+        for (const field of [
+          'mr_party_name', 'mr_active', 'mr_amount', 'mr_payment_mode', 'mr_remarks',
+          'mr_date', 'mr_party_type', 'mr_is_advance', 'mr_bilty_id', 'mr_bilty_lr_no',
+          'mr_bill_id', 'mr_bill_no', 'mr_created_by', 'mr_no'
+        ]) {
+          delete payload[field]
+        }
+      } else {
+        payload.mr_active = true
+      }
       const biltyData = {
-        ...biltyFields,
-        ...(mrActive ? { mr_active: true, mr_party_name, mr_amount, mr_payment_mode, mr_remarks, mr_date } : {}),
+        ...payload,
         consignor_code: finalConsignorCode,
         consignee_code: finalConsigneeCode,
         payment_status: formData.basis_booking === 'PAID' ? 'Paid' : 'Unpaid'

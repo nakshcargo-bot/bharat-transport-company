@@ -630,6 +630,11 @@ app.get('/api/consignments/:id', authMiddleware, async (req, res) => {
 app.post('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const c = { ...req.body };
+    if (c.mr_active !== true) {
+      for (const key of Object.keys(c)) {
+        if (key.startsWith('mr_')) delete c[key];
+      }
+    }
     if (!c.branch_id) c.branch_id = req.user.branch_id;
     if (!c.branch_code && req.user.branch_code) c.branch_code = req.user.branch_code;
     if (!c.lr_no) c.lr_no = await generateBiltyNo(c.branch_code);
@@ -646,6 +651,13 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at; data.updated_at = new Date().toISOString();
+    if (data.mr_active !== true) {
+      const explicitlyDisabledMr = data.mr_active === false;
+      for (const key of Object.keys(data)) {
+        if (key.startsWith('mr_')) delete data[key];
+      }
+      if (explicitlyDisabledMr) data.mr_active = false;
+    }
     const keys = Object.keys(data); const values = Object.values(data);
     const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', '); values.push(id);
     const result = await pool.query(`UPDATE consignments SET ${setClause} WHERE id = $${values.length} RETURNING *`, values);

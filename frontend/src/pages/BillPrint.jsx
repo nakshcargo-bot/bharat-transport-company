@@ -343,25 +343,6 @@ const BillPrint = () => {
           </div>
         )}
 
-        <div style={{textAlign: 'right', marginTop: '20px'}}>
-          <div style={{position: 'relative', width: '200px', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto'}}>
-            <svg viewBox="0 0 100 100" style={{width: '110px', height: '110px', position: 'absolute', transform: 'rotate(-10deg)', opacity: 0.9}}>
-              <defs>
-                <path id="circlePath" d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0" />
-              </defs>
-              <circle cx="50" cy="50" r="46" fill="none" stroke="#1a237e" strokeWidth="2.5" />
-              <text fontFamily="Arial Black" fontSize="7" fontWeight="900" fill="#1a237e" textLength="232">
-                <textPath xlinkHref="#circlePath">BHARAT TRANSPORT COMPANY • BHARAT TRANSPORT COMPANY</textPath>
-              </text>
-            </svg>
-            <div style={{fontFamily: 'cursive', fontSize: '22px', color: '#1a237e', position: 'relative', zIndex: 1, transform: 'rotate(-8deg)'}}>Krishan</div>
-          </div>
-          <div style={{width: '220px', float: 'right', marginTop: '-10px'}}>
-            <p style={{borderTop: '2px solid #000', paddingTop: '5px', fontWeight: '900', fontSize: '11px', margin: 0}}>Authorized Signatory</p>
-            <strong style={{fontSize: '9px'}}>FOR BHARAT TRANSPORT COMPANY</strong>
-          </div>
-          <div style={{clear: 'both'}}></div>
-        </div>
       </div>
       ))}
 

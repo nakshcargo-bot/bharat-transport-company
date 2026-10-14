@@ -486,10 +486,6 @@ export default function BillEntry() {
         .remarks-section { margin-top: 15px; border-top: 1px solid #eee; padding-top: 8px; }
         .remarks-section label { font-size: 10px; font-weight: 900; color: var(--primary); text-transform: uppercase; }
         .remarks-input { width: 100%; border: none; border-bottom: 1px dashed #bbb; font-size: 12px; font-weight: 600; padding: 5px 0; outline: none; background: transparent; }
-        .stamp-sig-container { position: relative; width: 200px; height: 110px; display: flex; align-items: center; justify-content: center; }
-        .round-stamp-svg { width: 110px; height: 110px; position: absolute; transform: rotate(-10deg); opacity: 0.9; }
-        .sign-label { text-align: center; width: 220px; float: right; margin-top: -10px; }
-        .sign-label p { border-top: 2px solid #000; padding-top: 5px; font-weight: 900; font-size: 11px; margin: 0;}
         .no-print { text-align: center; padding: 12px; background: #111; position: sticky; top: 0; z-index: 1000; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
         .btn { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: 900; color: #fff; font-size: 11px; text-transform: uppercase; }
         #historyModal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); overflow: auto; }
@@ -710,21 +706,6 @@ export default function BillEntry() {
             <input type="text" value={billData.remarks} onChange={(e) => setBillData({...billData, remarks: e.target.value})} className="remarks-input" placeholder="Enter remarks here..." />
           </div>
 
-          <div className="sign-label">
-            <div className="stamp-sig-container">
-              <svg viewBox="0 0 100 100" className="round-stamp-svg">
-                <defs><path id="circlePath" d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0" /></defs>
-                <circle cx="50" cy="50" r="46" fill="none" stroke="#1a237e" strokeWidth="2.5" />
-                <text fontFamily="Arial Black" fontSize="7" fontWeight="900" fill="#1a237e" textLength="232">
-                  <textPath href="#circlePath">BHARAT TRANSPORT COMPANY • BHARAT TRANSPORT COMPANY</textPath>
-                </text>
-              </svg>
-              <span style={{position:'relative',zIndex:1,display:'inline-block',fontFamily:'cursive',fontSize:'22px',color:'#1a237e',transform:'rotate(-8deg)'}}>Krishan</span>
-            </div>
-            <p>Authorized Signatory</p>
-            <strong style={{fontSize:'9px'}}>FOR {COMPANY.name}</strong>
-          </div>
-          <div style={{clear:'both'}}></div>
         </div>
       </div>
     </div>

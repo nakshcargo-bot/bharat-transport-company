@@ -370,11 +370,6 @@ export default function BiltyPrint() {
                     <span>TOTAL:</span>
                     <span style={{ border: '2px solid #000', padding: '3px 6px', background: '#ffffcc', minWidth: '90px', textAlign: 'right' }}>₹{bilty.grand_total || '0'}/-</span>
                   </div>
-                  <div style={{ border: '1px solid #000', marginTop: '10px', textAlign: 'center', padding: '8px', background: 'rgba(255,255,255,0.95)' }}>
-                    <strong style={{ fontSize: '10px' }}>FOR BHARAT TRANSPORT COMPANY</strong>
-                    <br /><br />
-                    <p style={{ borderTop: '1px solid #000', margin: 0, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>Authorized Signatory</p>
-                  </div>
                 </div>
               </div>
 
