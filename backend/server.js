@@ -97,6 +97,7 @@ async function runMigrations() {
     `CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, action TEXT NOT NULL, module TEXT NOT NULL, record_id TEXT, details TEXT, performed_by TEXT, branch_id INTEGER, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS gate_passes (id SERIAL PRIMARY KEY, pass_no TEXT UNIQUE NOT NULL, branch_id INTEGER, lr_no TEXT, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT, material_desc TEXT, quantity TEXT, weight TEXT, valid_until DATE, issued_by TEXT, qr_code TEXT, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS gadi_challans (id SERIAL PRIMARY KEY, challan_no TEXT UNIQUE NOT NULL, branch_id INTEGER, lr_no TEXT, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT, driver_license TEXT, owner_name TEXT, owner_mobile TEXT, broker_name TEXT, broker_mobile TEXT, broker_commission TEXT, from_place TEXT, to_place TEXT, material_desc TEXT, weight TEXT, packages TEXT, bilty_date DATE, consignor_name TEXT, consignee_name TEXT, freight_amount NUMERIC, advance_paid NUMERIC, balance_due NUMERIC, toll_expense NUMERIC, diesel_expense NUMERIC, other_expense NUMERIC, tds_deduction NUMERIC, net_payable NUMERIC, issue_date DATE, created_at TIMESTAMP DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS document_stock (id SERIAL PRIMARY KEY, document_type TEXT UNIQUE NOT NULL, total_stock INTEGER DEFAULT 0, used_count INTEGER DEFAULT 0, last_updated TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS trips (id SERIAL PRIMARY KEY, trip_no TEXT UNIQUE NOT NULL, trip_date DATE, branch_id INTEGER, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT, from_branch TEXT, to_branch TEXT, via_hub TEXT, expected_departure DATE, expected_arrival DATE, distance_km NUMERIC, estimated_days INTEGER, status TEXT DEFAULT 'Planning', remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS rate_contracts (id SERIAL PRIMARY KEY, branch_id INTEGER, party_code TEXT, from_city TEXT NOT NULL, to_city TEXT NOT NULL, rate_type TEXT DEFAULT 'per_kg', rate_per_kg NUMERIC, rate_per_pkg NUMERIC, fixed_rate NUMERIC, min_charge NUMERIC, weight_from NUMERIC, weight_to NUMERIC, effective_from DATE NOT NULL, effective_to DATE, is_active BOOLEAN DEFAULT TRUE, remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`
   ];
@@ -107,6 +108,12 @@ async function runMigrations() {
 
   await pool.query(`CREATE TABLE IF NOT EXISTS manifests (id SERIAL PRIMARY KEY, manifest_no TEXT UNIQUE NOT NULL, manifest_date DATE NOT NULL, branch_id INTEGER, from_branch TEXT, to_branch TEXT, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT, status TEXT DEFAULT 'Created', remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS manifest_items (id SERIAL PRIMARY KEY, manifest_id INTEGER REFERENCES manifests(id) ON DELETE CASCADE, lr_no TEXT NOT NULL, branch_id INTEGER, created_at TIMESTAMP DEFAULT NOW())`);
+  await pool.query(`
+    INSERT INTO document_stock (document_type, total_stock) VALUES
+      ('bilty', 500), ('mr', 500), ('gadi_challan', 500),
+      ('billing', 1500), ('gate_pass', 300), ('pod', 300)
+    ON CONFLICT (document_type) DO NOTHING
+  `);
   
   console.log('🔧 Adding missing columns...');
   await addColumnIfNotExists('branches', 'address', 'TEXT');
@@ -617,9 +624,14 @@ app.get('/api/consignments/track', async (req, res) => {
 
 app.get('/api/consignments', authMiddleware, async (req, res) => {
   try {
-    const isAdmin = req.user.role === 'admin';
-    const branchCondition = isAdmin ? '' : `WHERE branch_id = ${parseInt(req.user.branch_id)}`;
-    const result = await pool.query(`SELECT * FROM consignments ${branchCondition} ORDER BY id DESC LIMIT 500`);
+    const isAdmin = String(req.user.role || '').toLowerCase() === 'admin';
+    const branchId = Number(req.user.branch_id);
+    if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0)) {
+      return res.status(403).json({ error: 'Your account is not assigned to a branch' });
+    }
+    const result = isAdmin
+      ? await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 500')
+      : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 ORDER BY id DESC LIMIT 500', [branchId]);
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -887,15 +899,11 @@ app.get('/api/bills', authMiddleware, async (req, res) => {
 app.get('/api/bills/last-serial', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT bill_no
+      SELECT COALESCE(MAX(SUBSTRING(bill_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
       FROM bill_book
-      WHERE bill_no LIKE 'BTC/26-27/%'
-        AND bill_no IS NOT NULL
-      ORDER BY created_at DESC, id DESC
-      LIMIT 1
+      WHERE bill_no ~ '^BTC/26-27/[0-9]+$'
     `);
-    const match = (result.rows[0]?.bill_no || '').match(/\/(\d+)$/);
-    res.json({ lastSerial: match ? parseInt(match[1], 10) : 0 });
+    res.json({ lastSerial: Number(result.rows[0]?.last_serial) || 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1129,6 +1137,86 @@ app.post('/api/gadi-challan', authMiddleware, async (req, res) => {
     const row = await pool.query(`INSERT INTO gadi_challans (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`, values);
     res.json(row.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+const documentStockTypes = ['bilty', 'mr', 'gadi_challan', 'billing', 'gate_pass', 'pod'];
+
+app.get('/api/stock', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      WITH usage_counts AS (
+        SELECT 'bilty' AS document_type, COUNT(*) AS used_count,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(status, '')) IN ('booked', 'in-transit', 'in transit')) AS running_count,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(payment_status, 'unpaid')) = 'unpaid') AS pending_count
+        FROM consignments
+        UNION ALL
+        SELECT 'mr', COUNT(*), 0, 0 FROM money_receipts
+        UNION ALL
+        SELECT 'gadi_challan', COUNT(*), 0,
+          COUNT(*) FILTER (WHERE COALESCE(balance_due, 0) > 0)
+        FROM gadi_challans
+        UNION ALL
+        SELECT 'billing', COUNT(*), 0,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(payment_status, 'unpaid')) = 'unpaid')
+        FROM bill_book
+        UNION ALL
+        SELECT 'gate_pass', COUNT(*),
+          COUNT(*) FILTER (WHERE valid_until IS NULL OR valid_until >= CURRENT_DATE), 0
+        FROM gate_passes
+        UNION ALL
+        SELECT 'pod', COUNT(*), 0, 0
+        FROM pod_records
+      ),
+      updated_stock AS (
+        UPDATE document_stock AS stock
+        SET used_count = usage_counts.used_count
+        FROM usage_counts
+        WHERE stock.document_type = usage_counts.document_type
+        RETURNING stock.document_type, stock.total_stock, stock.used_count
+      )
+      SELECT stock.document_type, stock.total_stock, usage_counts.used_count, usage_counts.running_count,
+        usage_counts.pending_count,
+        GREATEST(stock.total_stock - usage_counts.used_count, 0) AS remaining_count
+      FROM updated_stock AS stock
+      JOIN usage_counts USING (document_type)
+      ORDER BY CASE stock.document_type
+        WHEN 'bilty' THEN 1 WHEN 'mr' THEN 2 WHEN 'gadi_challan' THEN 3
+        WHEN 'billing' THEN 4 WHEN 'gate_pass' THEN 5 WHEN 'pod' THEN 6
+      END
+    `);
+    res.json({ data: result.rows });
+  } catch (err) {
+    console.error('Stock lookup error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/stock/add', authMiddleware, async (req, res) => {
+  try {
+    if (String(req.user.role || '').toLowerCase() !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can add stock' });
+    }
+    const { document_type: documentType } = req.body;
+    const quantity = Number(req.body.quantity);
+    if (!documentStockTypes.includes(documentType)) {
+      return res.status(404).json({ error: 'Unknown document type' });
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'Purchase quantity must be a positive whole number' });
+    }
+    const result = await pool.query(
+      `UPDATE document_stock SET total_stock = total_stock + $1, last_updated = NOW()
+       WHERE document_type = $2 RETURNING document_type, total_stock, used_count, last_updated`,
+      [quantity, documentType]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Stock record not found' });
+    }
+    res.json({ data: result.rows[0] });
+  } catch (err) {
+    console.error('Stock add error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ==========================================
@@ -1520,3 +1608,30 @@ app.post('/api/migrate/fix-branches', authMiddleware, async (req, res) => {
 });
 startServer();
 module.exports = app;
+
+// ==========================================
+// BILL NUMBER GENERATION ENDPOINT
+// ==========================================
+app.get('/api/bills/next-number', authMiddleware, async (req, res) => {
+  try {
+    const year = String(new Date().getFullYear()).slice(-2);
+    const result = await pool.query(
+      `SELECT bill_no FROM bill_book WHERE bill_no LIKE $1 ORDER BY id DESC LIMIT 1`,
+      [`BILL/${year}/%`]
+    );
+    
+    let nextSerial = 1;
+    if (result.rows.length > 0 && result.rows[0].bill_no) {
+      const parts = result.rows[0].bill_no.split('/');
+      if (parts.length === 3) {
+        nextSerial = parseInt(parts[2]) + 1;
+      }
+    }
+    
+    const nextBillNo = `BILL/${year}/${String(nextSerial).padStart(4, '0')}`;
+    res.json({ bill_no: nextBillNo });
+  } catch (err) {
+    console.error('Bill number generation error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});

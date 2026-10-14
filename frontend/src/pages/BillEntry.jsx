@@ -61,7 +61,7 @@ export default function BillEntry() {
       const nextSerial = await getNextSerialNumber()
       setBillData(prev => prev.invNo ? prev : ({ ...prev, invNo: nextSerial }))
     } catch (error) {
-      alert(`Unable to generate the next bill number: ${error.message}`)
+      alert(`Unable to generate the next bill number: ${error.response?.data?.error || error.message}`)
     }
   }
 

@@ -534,6 +534,25 @@ CREATE TABLE IF NOT EXISTS stock_items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Document book purchases are stored separately from usage, which is counted
+-- from the corresponding operational document tables by the API.
+CREATE TABLE IF NOT EXISTS document_stock (
+    id SERIAL PRIMARY KEY,
+    document_type TEXT UNIQUE NOT NULL,
+    total_stock INTEGER DEFAULT 0,
+    used_count INTEGER DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO document_stock (document_type, total_stock) VALUES
+    ('bilty', 500),
+    ('mr', 500),
+    ('gadi_challan', 500),
+    ('billing', 1500),
+    ('gate_pass', 300),
+    ('pod', 300)
+ON CONFLICT (document_type) DO NOTHING;
+
 -- 25. STOCK TRANSACTIONS (हर IN/OUT)
 CREATE TABLE IF NOT EXISTS stock_transactions (
     id SERIAL PRIMARY KEY,

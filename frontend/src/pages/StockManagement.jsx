@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { formatDate } from '../utils/dateFormatter'
+import api from '../api'
+
+const getAuthConfig = () => {
+  const token = localStorage.getItem('token')
+  if (!token) throw new Error('Your session has expired. Please sign in again.')
+  return { headers: { Authorization: `Bearer ${token}` } }
+}
 
 export default function StockManagement() {
   const navigate = useNavigate()
@@ -20,14 +27,16 @@ export default function StockManagement() {
   const [remarks, setRemarks] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
+  const [documentStockError, setDocumentStockError] = useState('')
+  const [documentStockLoading, setDocumentStockLoading] = useState(true)
 
   const defaultStock = [
-    { id: 1, name: 'Bilty / LR Books', category: 'document', currentStock: 500, threshold: 50, unit: 'Books', pricePerUnit: 150, used: 0 },
-    { id: 2, name: 'Money Receipt (MR) Books', category: 'document', currentStock: 500, threshold: 50, unit: 'Books', pricePerUnit: 120, used: 0 },
-    { id: 3, name: 'Gadi Challan Books', category: 'document', currentStock: 500, threshold: 50, unit: 'Books', pricePerUnit: 130, used: 0 },
-    { id: 4, name: 'Billing / Invoice Books', category: 'document', currentStock: 500, threshold: 50, unit: 'Books', pricePerUnit: 140, used: 0 },
-    { id: 5, name: 'Gate Pass Books', category: 'document', currentStock: 300, threshold: 30, unit: 'Books', pricePerUnit: 100, used: 0 },
-    { id: 6, name: 'POD Books', category: 'document', currentStock: 300, threshold: 30, unit: 'Books', pricePerUnit: 100, used: 0 },
+    { id: 'bilty', documentType: 'bilty', name: 'Bilty / LR Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
+    { id: 'mr', documentType: 'mr', name: 'Money Receipt (MR) Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
+    { id: 'gadi_challan', documentType: 'gadi_challan', name: 'Gadi Challan Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
+    { id: 'billing', documentType: 'billing', name: 'Billing / Invoice Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
+    { id: 'gate_pass', documentType: 'gate_pass', name: 'Gate Pass Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
+    { id: 'pod', documentType: 'pod', name: 'POD Books', category: 'document', currentStock: 0, totalStock: 0, threshold: 50, unit: 'Books', used: 0, running: 0, pending: 0 },
     { id: 7, name: 'A4 Paper Reams', category: 'stationery', currentStock: 100, threshold: 20, unit: 'Reams', pricePerUnit: 250, used: 0 },
     { id: 8, name: 'Printer Ink (Black)', category: 'stationery', currentStock: 50, threshold: 10, unit: 'Cartridges', pricePerUnit: 500, used: 0 },
     { id: 9, name: 'Dot Matrix Ribbon', category: 'stationery', currentStock: 40, threshold: 10, unit: 'Ribbons', pricePerUnit: 200, used: 0 },
@@ -39,22 +48,67 @@ export default function StockManagement() {
     { id: 15, name: 'Pen / Marker', category: 'stationery', currentStock: 80, threshold: 15, unit: 'Pieces', pricePerUnit: 25, used: 0 },
   ]
 
+  const applyDocumentStock = (rows) => {
+    if (!Array.isArray(rows)) throw new Error('The server returned an invalid document stock response.')
+    const documentItems = rows.map(item => {
+      const defaults = defaultStock.find(stockItem => stockItem.documentType === item.document_type)
+      if (!defaults) throw new Error(`The server returned unknown document type "${item.document_type}".`)
+      return {
+        ...defaults,
+        totalStock: Number(item.total_stock) || 0,
+        used: Number(item.used_count) || 0,
+        running: Number(item.running_count) || 0,
+        pending: Number(item.pending_count) || 0,
+        currentStock: Number(item.remaining_count) || 0
+      }
+    })
+    setStock(current => [...documentItems, ...current.filter(item => item.category !== 'document')])
+  }
+
   useEffect(() => {
-    const savedStock = localStorage.getItem('btc_stock_final')
-    if (savedStock) {
-      try { setStock(JSON.parse(savedStock)) } catch (e) { setStock(defaultStock) }
-    } else {
-      setStock(defaultStock)
+    const initializeStock = async () => {
+      let savedStationery = defaultStock.filter(item => item.category === 'stationery')
+      const savedStock = localStorage.getItem('btc_stock_final')
+      if (savedStock) {
+        try {
+          const parsed = JSON.parse(savedStock)
+          if (!Array.isArray(parsed)) throw new Error('Saved stock data is not a list.')
+          savedStationery = parsed.filter(item => item.category === 'stationery')
+        } catch (error) {
+          console.error('Unable to read saved stationery stock:', error)
+        }
+      }
+      setStock([...defaultStock.filter(item => item.category === 'document'), ...savedStationery])
+
+      const savedHistory = localStorage.getItem('btc_stock_history_final')
+      if (savedHistory) {
+        try {
+          const parsed = JSON.parse(savedHistory)
+          if (!Array.isArray(parsed)) throw new Error('Saved stock history is not a list.')
+          setHistory(parsed)
+        } catch (error) {
+          console.error('Unable to read saved stock history:', error)
+          setHistory([])
+        }
+      }
+
+      try {
+        const response = await api.get('/api/stock', getAuthConfig())
+        applyDocumentStock(response.data?.data)
+      } catch (error) {
+        console.error('Unable to load document stock:', error)
+        setDocumentStockError(error.response?.data?.error || error.message || 'Unable to load document stock.')
+      } finally {
+        setDocumentStockLoading(false)
+      }
     }
-    const savedHistory = localStorage.getItem('btc_stock_history_final')
-    if (savedHistory) {
-      try { setHistory(JSON.parse(savedHistory)) } catch (e) { setHistory([]) }
-    }
+
+    initializeStock()
   }, [])
 
   const saveStock = (newStock) => {
     setStock(newStock)
-    localStorage.setItem('btc_stock_final', JSON.stringify(newStock))
+    localStorage.setItem('btc_stock_final', JSON.stringify(newStock.filter(item => item.category === 'stationery')))
   }
 
   const saveHistory = (newHistory) => {
@@ -62,13 +116,11 @@ export default function StockManagement() {
     localStorage.setItem('btc_stock_history_final', JSON.stringify(newHistory))
   }
 
-  const getStockStatus = (current, threshold) => {
-    if (current <= threshold) return { color: 'bg-red-100 text-red-700 border-red-300', text: ' LOW', level: 'low' }
-    if (current <= threshold * 2) return { color: 'bg-yellow-100 text-yellow-700 border-yellow-300', text: '🟡 MODERATE', level: 'moderate' }
-    return { color: 'bg-green-100 text-green-700 border-green-300', text: '🟢 GOOD', level: 'good' }
+  const getStockStatus = (current) => {
+    if (current < 10) return { color: 'bg-red-100 text-red-700 border-red-300', text: 'CRITICAL', level: 'critical' }
+    if (current < 50) return { color: 'bg-yellow-100 text-yellow-700 border-yellow-300', text: 'LOW', level: 'low' }
+    return { color: 'bg-green-100 text-green-700 border-green-300', text: 'GOOD', level: 'good' }
   }
-
-  const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
   const openAddModal = (item) => {
     setSelectedItem(item)
@@ -84,14 +136,33 @@ export default function StockManagement() {
     setShowRemoveModal(true)
   }
 
-  const handleAddStock = (e) => {
+  const handleAddStock = async (e) => {
     e.preventDefault()
     const qty = parseInt(quantity)
     if (!qty || qty <= 0) { alert('⚠️ Valid quantity daalo!'); return }
-    const updatedStock = stock.map(item => 
-      item.id === selectedItem.id ? { ...item, currentStock: item.currentStock + qty } : item
-    )
-    saveStock(updatedStock)
+    if (selectedItem.documentType) {
+      try {
+        const response = await api.post('/api/stock/add', {
+          document_type: selectedItem.documentType,
+          quantity: qty
+        }, getAuthConfig())
+        const totalStock = Number(response.data?.data?.total_stock)
+        if (!Number.isSafeInteger(totalStock) || totalStock < 0) throw new Error('The server returned an invalid purchased stock total.')
+        setStock(current => current.map(item => item.documentType === selectedItem.documentType
+          ? { ...item, totalStock, currentStock: Math.max(0, totalStock - item.used) }
+          : item))
+        setDocumentStockError('')
+      } catch (error) {
+        console.error('Unable to record document stock purchase:', error)
+        alert(error.response?.data?.error || error.message || 'Unable to record the purchase.')
+        return
+      }
+    } else {
+      const updatedStock = stock.map(item =>
+        item.id === selectedItem.id ? { ...item, currentStock: item.currentStock + qty } : item
+      )
+      saveStock(updatedStock)
+    }
     const entry = {
       id: Date.now(),
       date: formatDate(new Date()),
@@ -140,16 +211,17 @@ export default function StockManagement() {
   })
 
   const totalItems = stock.length
-  const totalValue = stock.reduce((sum, s) => sum + (s.currentStock * (s.pricePerUnit || 0)), 0)
   const totalUsed = stock.reduce((sum, s) => sum + (s.used || 0), 0)
-  const lowStockItems = stock.filter(s => s.currentStock <= s.threshold)
+  const totalRemaining = stock.reduce((sum, s) => sum + (s.currentStock || 0), 0)
+  const lowStockItems = stock.filter(s => s.currentStock < 50)
   const documentItems = filteredStock.filter(s => s.category === 'document')
   const stationeryItems = filteredStock.filter(s => s.category === 'stationery')
 
   const renderStockCard = (item) => {
-    const status = getStockStatus(item.currentStock, item.threshold)
+    const status = getStockStatus(item.currentStock)
+    const isDocument = Boolean(item.documentType)
     return (
-      <div key={item.id} className={`bg-white rounded-2xl shadow-lg p-5 border-l-4 ${status.level === 'low' ? 'border-red-500' : status.level === 'moderate' ? 'border-yellow-500' : 'border-green-500'}`}>
+      <div key={item.id} className={`bg-white rounded-2xl shadow-lg p-5 border-l-4 ${status.level === 'critical' ? 'border-red-500' : status.level === 'low' ? 'border-yellow-500' : 'border-green-500'}`}>
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-800">{item.name}</h3>
@@ -157,23 +229,22 @@ export default function StockManagement() {
           </div>
           <span className={`px-2 py-1 rounded-full text-xs font-bold border ${status.color}`}>{status.text}</span>
         </div>
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
           <div className="text-center bg-gray-50 rounded-lg p-2">
             <div className="text-xs text-gray-500">Stock</div>
-            <div className={`text-xl font-bold ${item.currentStock <= item.threshold ? 'text-red-600' : 'text-gray-800'}`}>{item.currentStock}</div>
+            <div className="text-xl font-bold text-gray-800">{item.totalStock ?? item.currentStock + (item.used || 0)}</div>
           </div>
           <div className="text-center bg-gray-50 rounded-lg p-2">
             <div className="text-xs text-gray-500">Used</div>
             <div className="text-xl font-bold text-blue-600">{item.used || 0}</div>
           </div>
-          <div className="text-center bg-gray-50 rounded-lg p-2">
-            <div className="text-xs text-gray-500">Value</div>
-            <div className="text-sm font-bold text-green-600">{formatCurrency(item.currentStock * (item.pricePerUnit || 0))}</div>
-          </div>
+          <div className="text-center bg-gray-50 rounded-lg p-2"><div className="text-xs text-gray-500">Running</div><div className="text-xl font-bold text-blue-600">{item.running || 0}</div></div>
+          <div className="text-center bg-gray-50 rounded-lg p-2"><div className="text-xs text-gray-500">Pending</div><div className="text-xl font-bold text-amber-600">{item.pending || 0}</div></div>
+          <div className="text-center bg-gray-50 rounded-lg p-2"><div className="text-xs text-gray-500">Remaining</div><div className={`text-xl font-bold ${item.currentStock < 10 ? 'text-red-600' : 'text-gray-800'}`}>{item.currentStock}</div></div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => openAddModal(item)} className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm">➕ Add</button>
-          <button onClick={() => openRemoveModal(item)} className="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold text-sm">➖ Use</button>
+          <button onClick={() => openAddModal(item)} className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm">{isDocument ? '➕ Record Purchase' : '➕ Add'}</button>
+          {!isDocument && <button onClick={() => openRemoveModal(item)} className="flex-1 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-bold text-sm">➖ Use</button>}
         </div>
       </div>
     )
@@ -195,6 +266,13 @@ export default function StockManagement() {
           </div>
         </div>
 
+        {documentStockError && (
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
+            <p className="font-bold">Unable to load document stock</p>
+            <p className="text-sm">{documentStockError}</p>
+          </div>
+        )}
+
         {/* STATS CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-2xl p-5 shadow-lg">
@@ -203,9 +281,9 @@ export default function StockManagement() {
             <div className="text-blue-200 text-xs mt-1">Document + Stationery</div>
           </div>
           <div className="bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl p-5 shadow-lg">
-            <div className="text-green-100 text-xs font-medium uppercase">Stock Value</div>
-            <div className="text-2xl font-bold mt-2">{formatCurrency(totalValue)}</div>
-            <div className="text-green-200 text-xs mt-1">Total inventory worth</div>
+            <div className="text-green-100 text-xs font-medium uppercase">Remaining Stock</div>
+            <div className="text-2xl font-bold mt-2">{totalRemaining}</div>
+            <div className="text-green-200 text-xs mt-1">Document books + stationery</div>
           </div>
           <div className="bg-gradient-to-br from-orange-500 to-red-600 text-white rounded-2xl p-5 shadow-lg">
             <div className="text-orange-100 text-xs font-medium uppercase">Low Stock</div>
@@ -270,9 +348,11 @@ export default function StockManagement() {
           <div>
             <div className="mb-8">
               <h2 className="text-xl font-bold text-gray-800 mb-4"> Document Books ({documentItems.length})</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {documentItems.map(renderStockCard)}
-              </div>
+              {documentStockLoading ? <p className="py-8 text-center text-gray-500">Loading document stock...</p> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {documentItems.map(renderStockCard)}
+                </div>
+              )}
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-800 mb-4">📦 Stationery & Consumables ({stationeryItems.length})</h2>
@@ -285,9 +365,11 @@ export default function StockManagement() {
 
         {/* DOCUMENT TAB */}
         {activeTab === 'document' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {documentItems.map(renderStockCard)}
-          </div>
+          documentStockLoading ? <p className="py-8 text-center text-gray-500">Loading document stock...</p> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {documentItems.map(renderStockCard)}
+            </div>
+          )
         )}
 
         {/* STATIONERY TAB */}

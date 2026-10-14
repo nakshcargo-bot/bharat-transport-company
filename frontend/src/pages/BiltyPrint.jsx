@@ -1,398 +1,269 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import api from '../api'
-import { formatDate } from '../utils/dateFormatter'
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-export default function BiltyPrint() {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const [searchParams] = useSearchParams()
-  const [bilty, setBilty] = useState(null)
-  const [bilties, setBilties] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const lrNo = searchParams.get('lr_no')
+const BiltyPrint = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [includeMR, setIncludeMR] = useState(false);
+  const [mrData, setMrData] = useState({ party_name: '', amount: '', payment_mode: 'Cash', remarks: '' });
+  const [copies, setCopies] = useState({
+    CONSIGNOR_COPY: true,
+    CONSIGNEE_COPY: true,
+    LORRY_COPY: true,
+    HO_COPY: true
+  });
 
   useEffect(() => {
-    let active = true
-    setBilty(null)
-    setLoading(true)
-    setError('')
-    const loadBilty = async () => {
-      try {
-        if (id) {
-          const res = await api.get(`/api/consignments/${id}`)
-          if (active) setBilty(res.data)
-          return
-        }
+    if (id) fetchBiltyData();
+  }, [id]);
 
-        const res = await api.get('/api/consignments')
-        const rows = Array.isArray(res.data) ? res.data : res.data?.data || []
-        if (active) setBilties(rows)
-        if (lrNo) {
-          const foundBilty = rows.find((row) => row.lr_no === lrNo)
-          if (!foundBilty) throw new Error('Bilty not found')
-          if (active) setBilty(foundBilty)
-        }
-      } catch (err) {
-        if (active) setError(err.response?.data?.message || err.message || 'Unable to load bilties.')
-      } finally {
-        if (active) setLoading(false)
-      }
+  const fetchBiltyData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/api/consignments/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setData(res.data);
+    } catch (err) {
+      console.error('Error fetching bilty:', err);
     }
-    loadBilty()
-    return () => { active = false }
-  }, [id, lrNo])
+  };
 
-  const handlePrint = () => window.print()
+  const handlePrint = () => {
+    window.print();
+  };
 
-  const handleWhatsApp = () => {
-    if (!bilty) return
-    const msg = `🚛 *BILTY DETAILS*%0A%0A` +
-      `📋 LR No: ${bilty.lr_no}%0A` +
-      `📅 Date: ${formatDate(bilty.lr_date)}%0A` +
-      `👤 Consignor: ${bilty.consignor_name || 'N/A'}%0A` +
-      `📍 From: ${bilty.from_name || 'N/A'}%0A` +
-      `👤 Consignee: ${bilty.consignee_name || 'N/A'}%0A` +
-      `📍 To: ${bilty.to_name || 'N/A'}%0A` +
-      `💰 Freight: ₹${bilty.freight || '0'}%0A` +
-      `💵 Grand Total: ₹${bilty.grand_total || '0'}%0A%0A` +
-      `— Bharat Transport Company`
-    window.open(`https://wa.me/?text=${msg}`, '_blank')
-  }
+  const handleWhatsAppShare = () => {
+    if (!data) return;
+    const mrText = includeMR ? `\nMR Party: ${mrData.party_name}\nMR Amount: ₹${mrData.amount} (${mrData.payment_mode})` : '';
+    const text = `*🚚 BHARAT TRANSPORT COMPANY - Bilty Details*\n\n📜 LR No: ${data.lr_no}\n📅 Date: ${data.lr_date}\n Consignor: ${data.consignor_name}\n🏁 Consignee: ${data.consignee_name}\n📍 Route: ${data.from_name} → ${data.to_name}\n💰 Total Freight: ₹${data.grand_total || data.freight}\n📦 Status: ${data.status}${mrText}\n\nThank you for choosing us!`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
 
-  const handleEmail = () => {
-    if (!bilty) return
-    const subject = `Bilty Details - ${bilty.lr_no}`
-    const body = `Dear Sir/Madam,%0D%0A%0D%0APlease find the Bilty details below:%0D%0A%0D%0A` +
-      `LR No: ${bilty.lr_no}%0D%0A` +
-      `Date: ${formatDate(bilty.lr_date)}%0D%0A` +
-      `Consignor: ${bilty.consignor_name || 'N/A'}%0D%0A` +
-      `Consignee: ${bilty.consignee_name || 'N/A'}%0D%0A` +
-      `Grand Total: Rs.${bilty.grand_total || '0'}%0D%0A%0D%0A` +
-      `— Bharat Transport Company`
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`
-  }
+  if (!data) return <div className="text-center p-10 text-xl font-bold">Loading Bilty Data...</div>;
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div></div>
-  if (!id && !lrNo) return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Select a Bilty to Print</h1>
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
-        </div>
-        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-100">
-              <tr><th className="p-3">LR No.</th><th className="p-3">Date</th><th className="p-3">Consignor</th><th className="p-3">Consignee</th><th className="p-3">Action</th></tr>
-            </thead>
-            <tbody>
-              {bilties.length === 0 ? (
-                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No bilties found.</td></tr>
-              ) : bilties.map((item) => (
-                <tr key={item.id} onClick={() => navigate(`/bilty-print/${item.id}`)} className="border-t hover:bg-gray-50 cursor-pointer">
-                  <td className="p-3 font-semibold">{item.lr_no || 'N/A'}</td>
-                  <td className="p-3">{formatDate(item.lr_date)}</td>
-                  <td className="p-3">{item.consignor_name || 'N/A'}</td>
-                  <td className="p-3">{item.consignee_name || 'N/A'}</td>
-                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${item.id}`} onClick={(event) => event.stopPropagation()}>Print</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
-    </div>
-  )
-  if (error || !bilty) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg shadow text-center">
-        <p className="text-red-600 mb-4">{error || 'Bilty not found'}</p>
-        <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-blue-600 text-white rounded">← Back</button>
+  const total = (parseFloat(data.freight || 0) + parseFloat(data.aoc_percent || 0) + parseFloat(data.material_mgmt_ch || 0) + parseFloat(data.material_charges || 0) + parseFloat(data.collection_charges || 0) + parseFloat(data.door_dly_charges || 0) + parseFloat(data.misc_charges || 0)).toFixed(2);
+
+  const BiltySheet = ({ copyLabel, theme }) => (
+    <div className={`bilty-container ${theme} mb-8`} style={{ width: '190mm', minHeight: '250mm', background: '#fff', margin: '10px auto', border: '2px solid #000', padding: '4mm', position: 'relative', pageBreakAfter: 'always' }}>
+      <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center opacity-10">
+        <span className="text-8xl font-black tracking-widest -rotate-12 select-none">BTC</span>
       </div>
-    </div>
-  )
 
-  const copies = [
-    { label: 'CONSIGNOR COPY', theme: 'consignor' },
-    { label: 'CONSIGNEE COPY', theme: 'consignee' },
-    { label: 'LORRY COPY', theme: 'lorry' },
-    { label: 'HO COPY', theme: 'ho' },
-  ]
+      <div className="relative z-20">
+        <div className="text-center border-b-2 border-black p-2" style={{ backgroundColor: 'var(--bg-accent, #f8f9ff)' }}>
+          <h1 className="text-2xl font-bold m-0" style={{ color: 'var(--primary-color, #000)' }}>BHARAT TRANSPORT COMPANY</h1>
+          <p className="text-xs font-bold m-1">Head Office: Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan 331023</p>
+          <p className="text-xs font-bold m-1">GST NO: 08CMRPP0955N1Z5 | PAN NO: CMRPP0955N</p>
+        </div>
 
-  const themes = {
-    consignor: { primary: '#0d47a1', bgAccent: '#e3f2fd' },
-    consignee: { primary: '#b71c1c', bgAccent: '#ffebee' },
-    lorry: { primary: '#1b5e20', bgAccent: '#e8f5e9' },
-    ho: { primary: '#e65100', bgAccent: '#fff3e0' },
-  }
+        <div className="text-center my-2">
+          <div className="border border-black px-5 py-1 font-bold inline-block text-xs" style={{ backgroundColor: 'var(--bg-accent, #f8f9ff)' }}>Goods Carried At Owner's Risk</div>
+          <br />
+          <div className="border-2 px-6 py-1 font-bold inline-block text-sm min-w-[200px] mt-1" style={{ borderColor: 'var(--primary-color, #000)', color: 'var(--primary-color, #000)' }}>{copyLabel}</div>
+        </div>
 
-  return (
-    <div className="min-h-screen bg-gray-200">
-      {/* Action Bar */}
-      <div className="bg-white shadow-md sticky top-0 z-50 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap gap-2 justify-between items-center">
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium">← Back</button>
-          <div className="flex flex-wrap gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">🖨️ Print</button>
-            <button onClick={handleWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">📱 WhatsApp</button>
-            <button onClick={handleEmail} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium">📧 Email</button>
+        <div className="flex border-b-2 border-black">
+          <div className="w-[58%] border-r-2 border-black p-2">
+            <div className="border border-black p-2 mb-2 bg-white">
+              <span className="font-bold text-xs underline block mb-1" style={{ color: 'var(--primary-color, #000)' }}>CONSIGNOR:</span>
+              <div className="flex items-start"><span className="font-bold text-xs mt-1 mr-1">M/s.</span><div className="font-bold text-sm uppercase w-full border-b border-dotted border-gray-600">{data.consignor_name}</div></div>
+              <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">{data.consignor_address}</div>
+              <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">GST: {data.consignor_gst}</div>
+              <div className="flex gap-4 mt-1 text-xs"><div>Inv No: <span className="font-bold">{data.invoice_no}</span></div><div>Date: <span className="font-bold">{data.invoice_date}</span></div></div>
+            </div>
+            <div className="border border-black p-2 bg-white">
+              <span className="font-bold text-xs underline block mb-1" style={{ color: 'var(--primary-color, #000)' }}>CONSIGNEE:</span>
+              <div className="flex items-start"><span className="font-bold text-xs mt-1 mr-1">M/s.</span><div className="font-bold text-sm uppercase w-full border-b border-dotted border-gray-600">{data.consignee_name}</div></div>
+              <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">{data.consignee_address}</div>
+              <div className="text-xs mt-1 w-full border-b border-dotted border-gray-600">GST: {data.consignee_gst}</div>
+              <div className="mt-1 text-xs">P.O. NO: <span className="font-bold">{data.po_no}</span></div>
+            </div>
+          </div>
+
+          <div className="w-[42%] p-2 bg-gray-50">
+            <div className="border-2 p-2 text-center mb-2 bg-white" style={{ borderColor: 'var(--primary-color, #000)' }}>
+              <label className="font-bold text-xs block" style={{ color: 'var(--primary-color, #000)' }}>CONSIGNMENT NO:</label>
+              <div className="font-bold text-xl text-center">{data.lr_no}</div>
+            </div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">DATE:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold">{data.lr_date}</div></div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">FROM:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.from_name}</div></div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">TO:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.to_name}</div></div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">LORRY NO:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold uppercase">{data.lorry_no}</div></div>
+            <div className="flex items-center mb-2"><label className="font-bold text-xs w-24">DRIVER PH:</label><div className="border-b border-dotted border-gray-600 flex-1 text-xs font-bold">{data.driver_mobile}</div></div>
+            <div className="flex items-center mt-2 border-2 p-2 bg-white" style={{ borderColor: 'var(--primary-color, #000)' }}>
+              <label className="font-bold text-xs w-24" style={{ color: 'var(--primary-color, #000)' }}>DELIVERY TYPE:</label>
+              <div className="font-bold text-xs uppercase">{data.delivery_type || 'GODOWN / DOOR'}</div>
+            </div>
           </div>
         </div>
-        <div className="bg-blue-50 border-t border-blue-200 px-4 py-2 text-xs text-blue-800">
-          💡 "Print / Save PDF" dabao → "Save as PDF" select karo → A4 PDF ban jayega!
-        </div>
-      </div>
 
-      {/* A4 Content - 4 Copies */}
-      <div className="max-w-[210mm] mx-auto my-6 bg-white shadow-lg print:shadow-none print:my-0">
-        {copies.map((copy, idx) => {
-          const theme = themes[copy.theme]
-          return (
-            <div
-              key={idx}
-              className="bilty-container"
-              style={{
-                width: '190mm',
-                minHeight: '250mm',
-                background: '#fff',
-                margin: '10px auto',
-                border: '2px solid #000',
-                padding: '4mm',
-                pageBreakAfter: idx < copies.length - 1 ? 'always' : 'auto',
-                position: 'relative',
-                overflow: 'hidden',
-                fontFamily: "'Segoe UI', Arial, sans-serif",
-                boxSizing: 'border-box'
-              }}
-            >
-              {/* Watermark */}
-              <div style={{
-                position: 'absolute', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%) rotate(-35deg)',
-                fontSize: '80px', fontWeight: 900,
-                fontFamily: "'Arial Black', Arial, sans-serif",
-                color: 'rgba(100,100,100,0.16)',
-                letterSpacing: '12px', zIndex: 11,
-                pointerEvents: 'none', userSelect: 'none'
-              }}>BTC</div>
+        <table className="w-full border-collapse mt-1">
+          <thead><tr style={{ backgroundColor: 'var(--bg-accent, #f8f9ff)' }}>
+            <th className="border border-black p-1 text-xs text-center w-[10%]">Pkgs</th>
+            <th className="border border-black p-1 text-xs text-center w-[25%]">Method</th>
+            <th className="border border-black p-1 text-xs text-center w-[15%]">HSN</th>
+            <th className="border border-black p-1 text-xs text-center w-[25%]">Act Wt.</th>
+            <th className="border border-black p-1 text-xs text-center w-[25%]">Chg Wt.</th>
+          </tr></thead>
+          <tbody><tr>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.no_of_packages}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.method_of_packing}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.hsn_code}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.actual_weight}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.charged_weight}</td>
+          </tr></tbody>
+        </table>
 
-              {/* Header */}
-              <div style={{
-                textAlign: 'center', borderBottom: '1.5px solid #000',
-                padding: '5px 0', background: theme.bgAccent,
-                position: 'relative', zIndex: 2
-              }}>
-                <h1 style={{ margin: 0, fontSize: '24px', color: '#b91c1c', fontWeight: 900 }}>BHARAT TRANSPORT COMPANY</h1>
-                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>Ward No. 17, Purana Falsa, Pilani Road, Rajgarh, Churu, Rajasthan - 331023</p>
-                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>📞 +91 9680264231 | ✉️ bharattrsnportcompany@gmail.com</p>
-                <p style={{ margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>GSTIN: 08CMRPP0955N1Z5 | PAN: CMRPP0955N</p>
+        <div className="flex border-t-2 border-black mt-1">
+          <div className="w-[42%] border-r-2 border-black p-2">
+            <div className="border border-black p-2 mb-2 relative bg-white min-h-[50px]">
+              <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>DESCRIPTION</label>
+              <div className="text-xs font-bold mt-1">{data.description || data.material_desc}</div>
+            </div>
+            <div className="border border-black p-2 mb-2 relative bg-white">
+              <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>E-WAY BILL NO.</label>
+              <div className="text-xs font-bold mt-1">{data.eway_bill_no}</div>
+            </div>
+            <div className="border border-black mb-2 bg-white">
+              <div className="text-center text-[9px] font-bold p-1 flex justify-around" style={{ backgroundColor: 'var(--bg-accent, #f8f9ff)' }}><span>L</span><span>W</span><span>H</span><span>PACKGE</span></div>
+              <table className="w-full border-t border-black"><tbody><tr>
+                <td className="border-r border-black p-1 text-center text-xs font-bold">{data.length}</td>
+                <td className="border-r border-black p-1 text-center text-xs font-bold">{data.width}</td>
+                <td className="border-r border-black p-1 text-center text-xs font-bold">{data.height}</td>
+                <td className="p-1 text-center text-xs font-bold">{data.total_cft}</td>
+              </tr></tbody></table>
+            </div>
+            <div className="border border-black p-2 mb-2 relative bg-white">
+              <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>VALUATION</label>
+              <div className="text-xs font-bold flex items-center mt-1">Value Rs: <span className="text-sm font-black ml-1">{data.declared_value}</span></div>
+            </div>
+            <div className="border-2 p-2 bg-white" style={{ borderColor: 'var(--primary-color, #000)' }}>
+              <strong className="text-xs block mb-2 underline" style={{ color: 'var(--primary-color, #000)' }}>BASIS OF BOOKING:</strong>
+              <div className="flex items-start gap-2 mb-2">
+                <span className="text-[10px] font-bold mt-1 whitespace-nowrap">Bill M/s:</span>
+                <div className="flex-1 text-xs font-bold border-b border-dotted border-gray-600">{data.basis_party}</div>
               </div>
-
-              {/* Copy Label */}
-              <div style={{ textAlign: 'center', margin: '5px 0', position: 'relative', zIndex: 2 }}>
-                <div style={{
-                  border: '1px solid #000', padding: '2px 20px', fontWeight: 'bold',
-                  display: 'inline-block', background: theme.bgAccent, fontSize: '11px'
-                }}>Goods Carried At Owner's Risk</div>
-                <br />
-                <div style={{
-                  border: `2px solid ${theme.primary}`, padding: '2px 25px',
-                  fontWeight: 'bold', display: 'inline-block', fontSize: '14px',
-                  color: theme.primary, minWidth: '200px', background: 'rgba(255,255,255,0.9)'
-                }}>{copy.label}</div>
-              </div>
-
-              {/* Top Grid - Parties + Route */}
-              <div style={{ display: 'flex', borderBottom: '1.5px solid #000', position: 'relative', zIndex: 2 }}>
-                {/* Left - Parties */}
-                <div style={{ width: '58%', borderRight: '1.5px solid #000', padding: '5px' }}>
-                  {/* Consignor */}
-                  <div style={{ border: '1px solid #000', padding: '5px', marginBottom: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.9)' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '10px', textDecoration: 'underline', display: 'block', marginBottom: '2px', color: theme.primary }}>CONSIGNOR:</span>
-                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '3px' }}>M/s.</span>
-                      <div style={{ fontSize: '15px', fontWeight: 'bold', width: '85%', textTransform: 'uppercase', paddingLeft: '5px' }}>{bilty.consignor_name || 'N/A'}</div>
-                    </div>
-                    <div style={{ fontSize: '11px', marginTop: '2px', fontWeight: 600 }}>{bilty.consignor_address || ''}</div>
-                    <div style={{ borderBottom: '1px dotted #666', padding: '2px', fontSize: '12px', fontWeight: 600 }}>GST: {bilty.consignor_gst || 'N/A'}</div>
-                    <div style={{ display: 'flex', gap: '15px', marginTop: '4px' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Inv No: <span style={{ borderBottom: '1px dotted #666', padding: '0 20px' }}>{bilty.invoice_no || ''}</span></div>
-                      <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Date: <span style={{ borderBottom: '1px dotted #666', padding: '0 15px' }}>{bilty.invoice_date ? formatDate(bilty.invoice_date) : ''}</span></div>
-                    </div>
-                  </div>
-                  {/* Consignee */}
-                  <div style={{ border: '1px solid #000', padding: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.9)' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '10px', textDecoration: 'underline', display: 'block', marginBottom: '2px', color: theme.primary }}>CONSIGNEE:</span>
-                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '3px' }}>M/s.</span>
-                      <div style={{ fontSize: '15px', fontWeight: 'bold', width: '85%', textTransform: 'uppercase', paddingLeft: '5px' }}>{bilty.consignee_name || 'N/A'}</div>
-                    </div>
-                    <div style={{ fontSize: '11px', marginTop: '2px', fontWeight: 600 }}>{bilty.consignee_address || ''}</div>
-                    <div style={{ borderBottom: '1px dotted #666', padding: '2px', fontSize: '12px', fontWeight: 600 }}>GST: {bilty.consignee_gst || 'N/A'}</div>
-                    <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'bold' }}>P.O. NO: <span style={{ borderBottom: '1px dotted #666', padding: '0 30px' }}>{bilty.po_no || ''}</span></div>
-                  </div>
-                </div>
-
-                {/* Right - Route */}
-                <div style={{ width: '42%', padding: '5px', background: 'rgba(250,250,250,0.7)' }}>
-                  <div style={{ border: `1.5px solid ${theme.primary}`, padding: '4px', textAlign: 'center', marginBottom: '5px', background: 'rgba(255,255,255,0.95)' }}>
-                    <label style={{ color: theme.primary, fontWeight: 'bold', fontSize: '11px' }}>CONSIGNMENT NO:</label>
-                    <div style={{ fontWeight: 'bold', fontSize: '20px', textAlign: 'center' }}>{bilty.lr_no}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>DATE:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{formatDate(bilty.lr_date)}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>FROM:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.from_name || 'N/A'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>TO:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.to_name || 'N/A'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>LORRY NO:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase' }}>{bilty.lorry_no || 'N/A'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '3px' }}>
-                    <label style={{ fontWeight: 'bold', fontSize: '11px', width: '90px' }}>DRIVER PH:</label>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{bilty.driver_mobile || 'N/A'}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', marginTop: '5px', border: `1.5px solid ${theme.primary}`, padding: '4px', background: 'rgba(255,255,255,0.7)' }}>
-                    <label style={{ color: theme.primary, fontWeight: 'bold', fontSize: '10px', width: '100px' }}>DELIVERY TYPE:</label>
-                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{bilty.delivery_type || 'DOOR DELIVERY'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Item Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '3px', position: 'relative', zIndex: 2 }}>
-                <thead>
-                  <tr>
-                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Pkgs</th>
-                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Method</th>
-                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>HSN</th>
-                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Act Wt.</th>
-                    <th style={{ border: '1px solid #000', padding: '4px', background: theme.bgAccent, fontSize: '11px' }}>Chg Wt.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.no_of_packages || '0'}</td>
-                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.method_of_packing || 'N/A'}</td>
-                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.hsn_code || 'N/A'}</td>
-                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.actual_weight || '0'}</td>
-                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', background: 'rgba(255,255,255,0.9)' }}>{bilty.charged_weight || '0'}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Middle Container */}
-              <div style={{ display: 'flex', borderTop: '1.5px solid #000', marginTop: '5px', position: 'relative', zIndex: 2 }}>
-                {/* Left Column */}
-                <div style={{ width: '42%', borderRight: '1.5px solid #000', padding: '5px' }}>
-                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
-                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>DESCRIPTION</label>
-                    <div style={{ fontSize: '11px', fontWeight: 600, minHeight: '35px' }}>{bilty.description || 'N/A'}</div>
-                  </div>
-                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
-                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>E-WAY BILL NO.</label>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{bilty.eway_bill_no || 'N/A'}</div>
-                  </div>
-                  <div style={{ border: '1px solid #000', marginBottom: '8px', background: 'rgba(255,255,255,0.9)' }}>
-                    <div style={{ background: theme.bgAccent, textAlign: 'center', fontSize: '9px', fontWeight: 'bold', padding: '2px', display: 'flex', justifyContent: 'space-around' }}>
-                      <span>L</span><span>W</span><span>H</span><span>PACKGE</span>
-                    </div>
-                    <table style={{ width: '100%', borderTop: '1px solid #000' }}>
-                      <tbody>
-                        <tr>
-                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.length || '-'}</td>
-                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.width || '-'}</td>
-                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px' }}>{bilty.height || '-'}</td>
-                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontSize: '11px', fontWeight: 'bold' }}>{bilty.cft_cmt || '0'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', position: 'relative', marginBottom: '8px', background: 'rgba(255,255,255,0.9)' }}>
-                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>VALUATION</label>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold' }}>Value Rs: <span style={{ fontSize: '14px', fontWeight: 900 }}>{bilty.declared_value || '0'}</span></div>
-                  </div>
-                  <div style={{ border: `1.5px solid ${theme.primary}`, padding: '8px 5px', marginTop: '5px', background: 'rgba(255,255,255,0.95)' }}>
-                    <strong style={{ fontSize: '11px', display: 'block', marginBottom: '8px', textDecoration: 'underline', color: theme.primary }}>BASIS OF BOOKING:</strong>
-                    <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '5px' }}>Bill M/s: <span style={{ fontWeight: 'bold', fontSize: '11px' }}>{bilty.basis_party || 'N/A'}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 800, marginTop: '8px', borderTop: '1px dashed #666', paddingTop: '8px' }}>
-                      <span>{bilty.basis_booking === 'TO PAY' ? '☑' : '☐'} TO PAY</span>
-                      <span>{bilty.basis_booking === 'PAID' ? '☑' : '☐'} PAID</span>
-                      <span>{bilty.basis_booking === 'TO BB' ? '☑' : '☐'} TO BB</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Center Column */}
-                <div style={{ width: '28%', borderRight: '1.5px solid #000', padding: '5px' }}>
-                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', marginBottom: '8px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
-                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>RECEIPT VOUCHER</label>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>No: <span style={{ fontWeight: 'bold' }}>{bilty.rv_no || 'N/A'}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>Dt: <span style={{ fontWeight: 'bold' }}>{formatDate(bilty.rv_dt)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>Amt: <span style={{ fontWeight: 'bold' }}>{bilty.rv_am || '0'}</span></div>
-                  </div>
-                  <div style={{ border: '1px solid #000', padding: '10px 5px 5px 5px', position: 'relative', background: 'rgba(255,255,255,0.9)' }}>
-                    <label style={{ position: 'absolute', top: '-8px', left: '8px', background: '#fff', padding: '0 4px', fontWeight: 'bold', fontSize: '9px', color: theme.primary }}>INSURANCE</label>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>CO: <span style={{ fontWeight: 'bold' }}>{bilty.insurance_company || 'N/A'}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>POL: <span style={{ fontWeight: 'bold' }}>{bilty.policy_no || 'N/A'}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>AMT: <span style={{ fontWeight: 'bold' }}>{bilty.insurance_amount || '0'}</span></div>
-                  </div>
-                </div>
-
-                {/* Right Column - Charges */}
-                <div style={{ width: '30%', padding: '5px' }}>
-                  {[
-                    { label: 'Freight:', value: bilty.freight },
-                    { label: 'A.O.C:', value: bilty.aoc_percent },
-                    { label: 'Handling:', value: bilty.material_charges },
-                    { label: 'Collect:', value: bilty.collection_charges },
-                    { label: 'Door Del:', value: bilty.door_delivery },
-                    { label: 'Other:', value: bilty.misc_charges },
-                  ].map((item, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
-                      <label>{item.label}</label>
-                      <span style={{ border: '1px solid #999', padding: '3px 4px', minWidth: '90px', textAlign: 'right', background: '#fff' }}>₹{item.value || '0'}</span>
-                    </div>
-                  ))}
-                  <hr style={{ margin: '5px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '15px', color: theme.primary, fontWeight: 900 }}>
-                    <span>TOTAL:</span>
-                    <span style={{ border: '2px solid #000', padding: '3px 6px', background: '#ffffcc', minWidth: '90px', textAlign: 'right' }}>₹{bilty.grand_total || '0'}/-</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div style={{ marginTop: '5px', paddingTop: '5px', fontSize: '10px', borderTop: '1px solid #000', position: 'relative', zIndex: 2 }}>
-                <div style={{ marginTop: '3px' }}>• Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.</div>
+              <div className="flex justify-between flex-nowrap text-xs font-black mt-2 border-t border-dashed border-gray-600 pt-2 gap-2">
+                <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" name={`basis_${copyLabel}`} checked={data.basis_booking === 'TO PAY'} readOnly /> TO PAY</label>
+                <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" name={`basis_${copyLabel}`} checked={data.basis_booking === 'PAID'} readOnly /> PAID</label>
+                <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" name={`basis_${copyLabel}`} checked={data.basis_booking === 'TO BB'} readOnly /> TO BB</label>
               </div>
             </div>
-          )
-        })}
-      </div>
+          </div>
 
-      {/* Print Styles */}
+          <div className="w-[28%] border-r-2 border-black p-2">
+            <div className="border border-black p-2 mb-2 relative bg-white">
+              <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>RECEIPT VOUCHER</label>
+              <div className="flex justify-between text-[11px] mt-1"><span>No:</span> <span className="font-bold">{data.rv_no}</span></div>
+              <div className="flex justify-between text-[11px] mt-1"><span>Dt:</span> <span className="font-bold">{data.rv_dt}</span></div>
+              <div className="flex justify-between text-[11px] mt-1"><span>Amt:</span> <span className="font-bold">{data.rv_am}</span></div>
+            </div>
+            <div className="border border-black p-2 relative bg-white">
+              <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>INSURANCE</label>
+              <div className="flex justify-between text-[11px] mt-1"><span>CO:</span> <span className="font-bold">{data.insurance_company}</span></div>
+              <div className="flex justify-between text-[11px] mt-1"><span>POL:</span> <span className="font-bold">{data.policy_no}</span></div>
+              <div className="flex justify-between text-[11px] mt-1"><span>AMT:</span> <span className="font-bold">{data.insurance_amount}</span></div>
+            </div>
+            
+            {includeMR && (
+              <div className="border-2 border-green-600 p-2 mt-2 relative bg-green-50">
+                <label className="absolute -top-2 left-2 bg-green-50 px-1 font-bold text-[9px] text-green-800">MONEY RECEIPT (MR)</label>
+                <div className="flex justify-between text-[11px] mt-1"><span>Party:</span> <span className="font-bold">{mrData.party_name || 'N/A'}</span></div>
+                <div className="flex justify-between text-[11px] mt-1"><span>Amt:</span> <span className="font-bold">₹{mrData.amount || '0'}</span></div>
+                <div className="flex justify-between text-[11px] mt-1"><span>Mode:</span> <span className="font-bold">{mrData.payment_mode}</span></div>
+                <div className="text-[10px] mt-1 border-t border-green-300 pt-1"><span>Remarks:</span> <span className="font-bold">{mrData.remarks}</span></div>
+              </div>
+            )}
+          </div>
+
+          <div className="w-[30%] p-2 bg-gray-50">
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>Freight:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.freight}</span></div>
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>A.O.C:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.aoc_percent}</span></div>
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>Handling:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.material_mgmt_ch}</span></div>
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>Collect:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.collection_charges}</span></div>
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>Door Del:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.door_dly_charges}</span></div>
+            <div className="flex justify-between items-center mb-2 text-xs font-bold"><label>Other:</label> <span className="border border-gray-400 bg-white px-2 py-1 rounded w-24 text-right">₹{data.misc_charges}</span></div>
+            <hr className="border-black my-2" />
+            <div className="flex justify-between items-center text-sm font-black" style={{ color: 'var(--primary-color, #000)' }}>
+              <span>TOTAL:</span> <span className="text-lg font-black min-w-24 text-right border-2 border-black px-2 py-1 bg-yellow-100">₹{total}/-</span>
+            </div>
+            <div className="border border-black mt-4 text-center p-2 bg-white">
+              <strong className="text-[10px] block">For BHARAT TRANSPORT COMPANY</strong>
+              <br /><br />
+              <p className="border-t border-black m-0 pt-1 text-[10px] font-bold">Signature</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 pt-1 text-[10px] border-t border-black">
+          • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-gray-100 min-h-screen p-4">
       <style>{`
-        @page { size: A4; margin: 5mm; }
+        .consignor-theme { --primary-color: #0d47a1; --bg-accent: #e3f2fd; }
+        .consignee-theme { --primary-color: #b71c1c; --bg-accent: #ffebee; }
+        .lorry-theme { --primary-color: #1b5e20; --bg-accent: #e8f5e9; }
+        .ho-theme { --primary-color: #e65100; --bg-accent: #fff3e0; }
         @media print {
-          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .print\\:hidden { display: none !important; }
-          .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:my-0 { margin: 0 !important; }
-          * { box-shadow: none !important; }
+          .no-print { display: none !important; }
+          .bilty-container { margin: 0 !important; border: 2px solid #000 !important; width: 100% !important; page-break-after: always; }
+          body { background: #fff !important; }
         }
       `}</style>
+
+      <div className="no-print bg-white p-4 mb-4 rounded shadow flex flex-wrap gap-4 items-center justify-center sticky top-0 z-50">
+        <label className="flex items-center gap-2 cursor-pointer font-bold text-sm"><input type="checkbox" checked={copies.CONSIGNOR_COPY} onChange={(e) => setCopies({...copies, CONSIGNOR_COPY: e.target.checked})} /> CONSIGNOR</label>
+        <label className="flex items-center gap-2 cursor-pointer font-bold text-sm"><input type="checkbox" checked={copies.CONSIGNEE_COPY} onChange={(e) => setCopies({...copies, CONSIGNEE_COPY: e.target.checked})} /> CONSIGNEE</label>
+        <label className="flex items-center gap-2 cursor-pointer font-bold text-sm"><input type="checkbox" checked={copies.LORRY_COPY} onChange={(e) => setCopies({...copies, LORRY_COPY: e.target.checked})} /> LORRY COPY</label>
+        <label className="flex items-center gap-2 cursor-pointer font-bold text-sm"><input type="checkbox" checked={copies.HO_COPY} onChange={(e) => setCopies({...copies, HO_COPY: e.target.checked})} /> HO COPY</label>
+        
+        <div className="border-l pl-4 flex items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer font-bold text-blue-700 text-sm">
+            <input type="checkbox" checked={includeMR} onChange={(e) => setIncludeMR(e.target.checked)} /> ✅ Include MR (Money Receipt)
+          </label>
+        </div>
+
+        <button onClick={handlePrint} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 font-bold text-sm">🖨️ SAVE & PRINT</button>
+        <button onClick={handleWhatsAppShare} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-sm">📱 WhatsApp Send</button>
+        <button onClick={() => navigate('/consignments')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-bold text-sm">← Back to List</button>
+      </div>
+
+      {includeMR && (
+        <div className="no-print bg-yellow-50 border-2 border-yellow-400 p-4 mb-4 rounded max-w-4xl mx-auto">
+          <h3 className="font-bold text-lg mb-3 text-yellow-800 border-b border-yellow-300 pb-2">💰 Money Receipt (MR) Details - Fill before printing/sending</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input type="text" placeholder="Party Name" value={mrData.party_name} onChange={(e) => setMrData({...mrData, party_name: e.target.value})} className="border border-gray-300 p-2 rounded font-bold" />
+            <input type="number" placeholder="Amount (₹)" value={mrData.amount} onChange={(e) => setMrData({...mrData, amount: e.target.value})} className="border border-gray-300 p-2 rounded font-bold" />
+            <select value={mrData.payment_mode} onChange={(e) => setMrData({...mrData, payment_mode: e.target.value})} className="border border-gray-300 p-2 rounded font-bold">
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+            <input type="text" placeholder="Remarks (e.g., Advance)" value={mrData.remarks} onChange={(e) => setMrData({...mrData, remarks: e.target.value})} className="border border-gray-300 p-2 rounded font-bold" />
+          </div>
+        </div>
+      )}
+
+      <div id="print-area" className="max-w-4xl mx-auto">
+        {copies.CONSIGNOR_COPY && <BiltySheet copyLabel="CONSIGNOR COPY" theme="consignor-theme" />}
+        {copies.CONSIGNEE_COPY && <BiltySheet copyLabel="CONSIGNEE COPY" theme="consignee-theme" />}
+        {copies.LORRY_COPY && <BiltySheet copyLabel="LORRY COPY" theme="lorry-theme" />}
+        {copies.HO_COPY && <BiltySheet copyLabel="HO COPY" theme="ho-theme" />}
+      </div>
     </div>
-  )
-}
+  );
+};
+
+export default BiltyPrint;
