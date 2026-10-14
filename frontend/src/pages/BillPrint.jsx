@@ -184,9 +184,10 @@ const BillPrint = () => {
         <button onClick={() => window.print()} style={{padding: '8px 12px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold'}}>️ Print</button>
       </div>
 
-      <div className="invoice-wrapper" style={{width: '210mm', minHeight: '297mm', background: 'white', margin: '20px auto', padding: '8mm', position: 'relative', boxShadow: '0 0 30px rgba(0,0,0,0.5)'}}>
+      {(printOption === 'both' ? ['original', 'duplicate'] : [printOption]).map((copy, copyIndex, copies) => (
+      <div key={copy} className="invoice-wrapper" style={{width: '210mm', minHeight: '297mm', background: 'white', margin: '20px auto', padding: '8mm', position: 'relative', boxShadow: '0 0 30px rgba(0,0,0,0.5)', pageBreakAfter: copyIndex < copies.length - 1 ? 'always' : 'auto'}}>
         <div style={{textAlign: 'right', fontSize: '14px', fontWeight: '900', color: '#d32f2f', marginBottom: '2px', textTransform: 'uppercase', borderBottom: '1px solid #ddd'}}>
-          {printOption === 'duplicate' ? 'DUPLICATE COPY (OFFICE)' : 'ORIGINAL COPY (RECIPIENT)'}
+          {copy === 'duplicate' ? 'DUPLICATE COPY (OFFICE)' : 'ORIGINAL COPY (RECIPIENT)'}
         </div>
         <div style={{textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#000', marginBottom: '5px'}}>
           GSTIN: 08CMRPP0955N1Z5 | PAN: CMRPP0955N
@@ -352,7 +353,7 @@ const BillPrint = () => {
                 <textPath xlinkHref="#circlePath">BHARAT TRANSPORT COMPANY • BHARAT TRANSPORT COMPANY</textPath>
               </text>
             </svg>
-            <div style={{fontFamily: 'Mrs Saint Delafield, cursive', fontSize: '52px', color: '#1a237e', position: 'absolute', top: '15px', transform: 'rotate(-6deg)', zIndex: 5}}>Krishan</div>
+            <div style={{fontFamily: 'cursive', fontSize: '22px', color: '#1a237e', position: 'relative', zIndex: 1, transform: 'rotate(-8deg)'}}>Krishan</div>
           </div>
           <div style={{width: '220px', float: 'right', marginTop: '-10px'}}>
             <p style={{borderTop: '2px solid #000', paddingTop: '5px', fontWeight: '900', fontSize: '11px', margin: 0}}>Authorized Signatory</p>
@@ -361,15 +362,15 @@ const BillPrint = () => {
           <div style={{clear: 'both'}}></div>
         </div>
       </div>
+      ))}
 
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: white; margin: 0; }
+          body { background: white; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .invoice-wrapper { margin: 0; box-shadow: none; width: 100%; padding: 5mm; }
           @page { size: A4; margin: 5mm; }
         }
-        @import url('https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&display=swap');
       `}</style>
     </>
   )

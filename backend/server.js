@@ -857,13 +857,16 @@ app.get('/api/bills/last-serial', authMiddleware, async (req, res) => {
     const result = await pool.query(`
       SELECT bill_no
       FROM bill_book
-      WHERE bill_no IS NOT NULL
+      WHERE bill_no LIKE 'BTC/26-27/%'
+        AND bill_no IS NOT NULL
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     `);
     const match = (result.rows[0]?.bill_no || '').match(/\/(\d+)$/);
-    res.json({ lastSerial: match ? Number.parseInt(match[1], 10) : 0 });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    res.json({ lastSerial: match ? parseInt(match[1], 10) : 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
   try {
@@ -919,10 +922,13 @@ app.post('/api/bills', authMiddleware, validateBill, checkBillValidation, async 
     if (!bill.status) bill.status = 'Pending';
     if (!bill.payment_status) bill.payment_status = 'Unpaid';
     bill.created_by = req.user.username;
+    if (typeof bill.bill_no === 'string') bill.bill_no = bill.bill_no.trim();
     if (!bill.bill_no) {
       const serialResult = await client.query(`
         SELECT COALESCE(MAX(SUBSTRING(bill_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
-        FROM bill_book WHERE bill_no LIKE 'BTC/26-27/%'
+        FROM bill_book
+        WHERE bill_no LIKE 'BTC/26-27/%'
+          AND bill_no ~ '^BTC/26-27/[0-9]+$'
       `);
       bill.bill_no = `BTC/26-27/${String(Number(serialResult.rows[0].last_serial) + 1).padStart(3, '0')}`;
     }

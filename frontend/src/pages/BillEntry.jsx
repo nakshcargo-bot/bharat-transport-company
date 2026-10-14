@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
-import { getNextSerialNumber, updateLastSerial } from '../utils/billSerial'
+import { getNextSerialNumber } from '../utils/billSerial'
 
 export default function BillEntry() {
   const navigate = useNavigate()
@@ -58,7 +58,7 @@ export default function BillEntry() {
   const fetchNextBillNo = async () => {
     try {
       const nextSerial = await getNextSerialNumber()
-      setBillData(prev => ({ ...prev, invNo: nextSerial }))
+      setBillData(prev => prev.invNo ? prev : ({ ...prev, invNo: nextSerial }))
     } catch (error) {
       alert(`Unable to generate the next bill number: ${error.message}`)
     }
@@ -300,11 +300,6 @@ export default function BillEntry() {
         ? await api.put(`/api/bills/${id}`, payload)
         : await api.post('/api/bills', payload)
       const savedBill = response.data
-      const serial = Number.parseInt((savedBill.bill_no || billData.invNo).split('/').pop(), 10)
-      const cachedSerial = Number.parseInt(localStorage.getItem('btc_last_serial') || '0', 10)
-      if (Number.isFinite(serial) && serial >= (cachedSerial || 0)) {
-        updateLastSerial(savedBill.bill_no || billData.invNo)
-      }
       const localHistory = JSON.parse(localStorage.getItem('btc_history') || '[]')
       const nextHistory = [savedBill, ...localHistory.filter(bill => bill.id !== savedBill.id)]
       localStorage.setItem('btc_history', JSON.stringify(nextHistory))
