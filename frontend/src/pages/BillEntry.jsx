@@ -17,8 +17,9 @@ export default function BillEntry() {
   const [printOption, setPrintOption] = useState('original')
   const backupInputRef = useRef(null)
   
-  // Auto-fill LR search state
   const [lrSearch, setLrSearch] = useState('')
+  const [biltyLoading, setBiltyLoading] = useState(false)
+  const [addedBilts, setAddedBilts] = useState([])
 
   const [billData, setBillData] = useState({
     invNo: '',
@@ -87,11 +88,12 @@ export default function BillEntry() {
       inv: row.invoice_no || row.inv || '',
       from: row.from_name || row.from || '',
       to: row.to_name || row.to || '',
-      wt: row.weight_mt || row.wt || '',
+      packages: row.packages ?? '',
+      wt: row.weight_mt ?? row.wt ?? '',
       load: row.loading ?? row.load ?? '',
       unload: row.unloading ?? row.unload ?? '',
       oth: row.other_charges ?? row.oth ?? '',
-      freight: row.freight || '',
+      freight: row.freight ?? '',
       total: row.total || '0.00'
     }))
     return {
@@ -140,44 +142,75 @@ export default function BillEntry() {
     }
   }
 
-  // 🔍 AUTO-FILL FROM BILTY
-  const handleLrSearch = async (e) => {
-    const val = e.target.value
-    setLrSearch(val)
-    if (val.length >= 3) {
-      try {
-        setLoading(true)
-        const res = await api.get(`/api/consignments?lr_no=${val}`)
-        if (res.data && res.data.data && res.data.data.length > 0) {
-          const bilty = res.data.data[0]
-          setBillData(prev => ({
-            ...prev,
-            partyName: bilty.consignor_name || prev.partyName,
-            partyGst: bilty.consignor_gst || prev.partyGst,
-            fromAddr: bilty.from_address || prev.fromAddr,
-            toAddr: bilty.to_address || prev.toAddr,
-            vehNo: bilty.vehicle_no || prev.vehNo,
-            rows: prev.rows.map((row, idx) => idx === 0 ? {
-              ...row,
-              date: bilty.date ? formatDate(bilty.date) : '',
-              lr: bilty.lr_no,
-              inv: bilty.invoice_no,
-              from: bilty.from_name,
-              to: bilty.to_name,
-              wt: bilty.weight_mt,
-              load: '',       // Khali rakha
-              unload: '',     // Khali rakha
-              oth: '',        // Khali rakha
-              freight: '',    // Khali rakha (Tum manually daloge)
-              total: '0.00'
-            } : row)
-          }))
-        }
-      } catch (err) {
-        console.error('Bilty not found')
-      } finally {
-        setLoading(false)
+  const handleAddBilty = async (event) => {
+    event.preventDefault()
+    const lrNo = lrSearch.trim()
+    if (!lrNo) {
+      alert('Enter a Bilty / LR Number first.')
+      return
+    }
+
+    setBiltyLoading(true)
+    try {
+      const response = await api.get('/api/consignments', { params: { search: lrNo } })
+      const matches = response.data?.data || []
+      const bilty = matches.find(item => item.lr_no?.toLowerCase() === lrNo.toLowerCase())
+        || (matches.length === 1 ? matches[0] : null)
+      if (!bilty) {
+        alert(matches.length ? 'Multiple Bilty records match. Enter the complete LR Number.' : 'Bilty not found.')
+        return
       }
+      if (billData.rows.some(row => row.lr?.toLowerCase() === bilty.lr_no?.toLowerCase())) {
+        alert('This Bilty is already added to the bill.')
+        return
+      }
+
+      const actualWeight = Number(bilty.actual_weight)
+      const weight = actualWeight > 0 ? bilty.actual_weight : (bilty.charged_weight || bilty.actual_weight || '')
+      const vehicleNo = bilty.lorry_no || '-'
+      const row = {
+        date: bilty.lr_date || '',
+        lr: bilty.lr_no || '',
+        inv: bilty.invoice_no || '',
+        from: bilty.from_name || '',
+        to: bilty.to_name || '',
+        packages: bilty.packages || bilty.no_of_packages || '',
+        wt: weight,
+        load: '',
+        unload: '',
+        oth: '',
+        freight: bilty.freight || '',
+        total: '0.00'
+      }
+      const billVehicleNumbers = [...new Set([
+        ...addedBilts.map(item => item.lorry_no).filter(Boolean),
+        bilty.lorry_no
+      ].filter(Boolean))]
+      setBillData(prev => {
+        const rows = prev.rows.length === 1 && !prev.rows[0].lr && !prev.rows[0].from && !prev.rows[0].to
+          ? [row]
+          : [...prev.rows, row]
+        const next = {
+          ...prev,
+          partyName: prev.partyName || bilty.consignor_name || '',
+          partyGst: prev.partyGst || bilty.consignor_gst || '',
+          fromAddr: prev.fromAddr || [bilty.consignor_name, bilty.consignor_address].filter(Boolean).join('\n'),
+          toAddr: prev.toAddr || [
+            bilty.consignee_name,
+            bilty.consignee_gst ? `GST: ${bilty.consignee_gst}` : '',
+            bilty.consignee_address
+          ].filter(Boolean).join('\n'),
+          vehNo: addedBilts.length ? billVehicleNumbers.join(', ') || '-' : vehicleNo,
+          rows
+        }
+        return { ...next, ...calculate(next) }
+      })
+      setAddedBilts(prev => [...prev, bilty])
+      setLrSearch('')
+    } catch (error) {
+      alert(`Unable to find Bilty: ${error.response?.data?.error || error.message}`)
+    } finally {
+      setBiltyLoading(false)
     }
   }
 
@@ -192,16 +225,20 @@ export default function BillEntry() {
   const addRow = () => {
     setBillData(prev => ({
       ...prev,
-      rows: [...prev.rows, { date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
+      rows: [...prev.rows, { date: '', lr: '', inv: '', from: '', to: '', packages: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
     }))
   }
 
   const removeRow = (index) => {
     setBillData(prev => {
-      const rows = prev.rows.length > 1 ? prev.rows.filter((row, rowIndex) => rowIndex !== index) : prev.rows
+      const rows = prev.rows.length > 1
+        ? prev.rows.filter((row, rowIndex) => rowIndex !== index)
+        : [{ date: '', lr: '', inv: '', from: '', to: '', packages: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
       const next = { ...prev, rows }
       return { ...next, ...calculate(next) }
     })
+    const lrNo = billData.rows[index]?.lr
+    if (lrNo) setAddedBilts(prev => prev.filter(bilty => bilty.lr_no !== lrNo))
   }
 
   const calculate = (source = billData) => {
@@ -288,6 +325,7 @@ export default function BillEntry() {
           invoice_no: row.inv,
           from_name: row.from,
           to_name: row.to,
+          packages: row.packages,
           weight_mt: row.wt,
           freight: row.freight,
           loading: row.load,
@@ -306,17 +344,7 @@ export default function BillEntry() {
       localStorage.setItem('btc_history', JSON.stringify(nextHistory))
       await fetchHistory()
       alert(id ? 'Bill updated successfully.' : 'Bill saved successfully.')
-      if (id) {
-        navigate('/bills')
-      } else if (window.confirm('Create another bill?')) {
-        setBillData({
-          invNo: '', billDate: formatDateForInput(new Date()), partyName: '', partyGst: '',
-          fromAddr: '', toAddr: '', vehNo: '', advInput: 0, advCash: '', advChq: '', advUpi: '',
-          gstPer: 0, subtotal: 0, gstAmt: 0, grandtotal: 0, balance: 0, amountWords: '', remarks: '',
-          rows: [{ date: '', lr: '', inv: '', from: '', to: '', wt: '', load: '', unload: '', oth: '', freight: '', total: '0.00' }]
-        })
-        fetchNextBillNo()
-      }
+      navigate(`/bills/${savedBill.id}/print`)
     } catch (err) {
       alert("Save failed: " + (err.response?.data?.error || err.message))
     } finally {
@@ -340,6 +368,7 @@ export default function BillEntry() {
       })
       setLrSearch('')
       fetchNextBillNo()
+      setAddedBilts([])
     }
   }
 
@@ -464,7 +493,7 @@ export default function BillEntry() {
         table th { background: var(--primary)!important; color: #fff; padding: 6px 2px; font-size: 9px; text-transform: uppercase; border: 1px solid #fff; }
         table td { border: 1px solid #ccc; padding: 3px 1px; font-size: 10px; text-align: center; }
         table input { width: 100%; border: none; text-align: center; background: transparent; outline: none; font-weight: 600; font-size: 10px; }
-        .col-date { width: 7%; }.col-lr { width: 7%; }.col-inv { width: 12%; }.col-from { width: 9%; }.col-to { width: 9%; }.col-wt { width: 7%; }.col-load { width: 9%; }.col-unload { width: 9%; }.col-oth { width: 9%; }.col-freight { width: 9%; }.col-total { width: 13%; }
+        .col-date { width: 7%; }.col-lr { width: 7%; }.col-inv { width: 10%; }.col-from { width: 9%; }.col-to { width: 9%; }.col-packages { width: 6%; }.col-wt { width: 7%; }.col-load { width: 8%; }.col-unload { width: 8%; }.col-oth { width: 8%; }.col-freight { width: 8%; }.col-total { width: 11%; }
         .row-total { background: #fffde7!important; color: var(--primary); font-weight: 900!important; }
         .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
         .card { padding: 6px; background: var(--bg-light); border-radius: 6px; text-align: center; border-bottom: 3px solid var(--primary); }
@@ -487,6 +516,12 @@ export default function BillEntry() {
         .remarks-section label { font-size: 10px; font-weight: 900; color: var(--primary); text-transform: uppercase; }
         .remarks-input { width: 100%; border: none; border-bottom: 1px dashed #bbb; font-size: 12px; font-weight: 600; padding: 5px 0; outline: none; background: transparent; }
         .no-print { text-align: center; padding: 12px; background: #111; position: sticky; top: 0; z-index: 1000; display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .bilty-import-section { max-width: 1200px; margin: 18px auto; padding: 16px; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .bilty-table-wrap { width: 100%; overflow-x: auto; }
+        .bilty-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        .bilty-table th, .bilty-table td { height: auto; min-height: 36px; padding: 8px; border: 1px solid #d1d5db; text-align: left; white-space: normal; word-break: break-word; overflow-wrap: anywhere; vertical-align: top; }
+        #tripTable td { height: auto; min-height: 32px; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+        #tripTable textarea { width: 100%; min-height: 2em; height: auto; resize: vertical; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
         .btn { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: 900; color: #fff; font-size: 11px; text-transform: uppercase; }
         #historyModal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); overflow: auto; }
         .modal-content { background: #fefefe; margin: 3% auto; padding: 20px; border: 1px solid #888; width: 95%; max-width: 950px; border-radius: 10px; color: #333; }
@@ -497,7 +532,7 @@ export default function BillEntry() {
         .history-header { font-weight: 900; background: var(--primary); color: white; padding: 10px; border-radius: 5px; }
         .row-remove { border: none; background: #b91c1c; color: #fff; border-radius: 3px; font-size: 8px; margin-top: 2px; padding: 2px 4px; cursor: pointer; }
         @media print {
-          .no-print, #historyModal { display: none!important; } 
+          .no-print, #historyModal, .bilty-import-section { display: none!important; }
           .row-remove { display: none!important; }
           body { background: white; } 
           .invoice-wrapper { margin: 0; box-shadow: none; width: 100%; padding: 5mm; } 
@@ -505,16 +540,54 @@ export default function BillEntry() {
         }
       `}</style>
 
+      <section className="bilty-import-section">
+        <h2 style={{margin: '0 0 12px', color: '#0d1b3e'}}>Step 1: Bilty Se Data Lao</h2>
+        <form onSubmit={handleAddBilty} style={{display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center'}}>
+          <label htmlFor="bilty-search" style={{fontWeight: 'bold'}}>Add Bilty / LR Number</label>
+          <input
+            id="bilty-search"
+            type="text"
+            value={lrSearch}
+            onChange={event => setLrSearch(event.target.value)}
+            placeholder="Enter complete Bilty / LR Number"
+            style={{padding: '9px', minWidth: '240px', border: '1px solid #9ca3af', borderRadius: '4px'}}
+          />
+          <button className="btn" type="submit" disabled={biltyLoading} style={{background: '#1976d2'}}>
+            {biltyLoading ? 'Searching...' : 'Search / Add Bilty'}
+          </button>
+        </form>
+        {addedBilts.length > 0 && (
+          <div className="bilty-table-wrap" style={{marginTop: '14px'}}>
+            <table className="bilty-table">
+              <thead>
+                <tr style={{background: '#0d1b3e', color: 'white'}}>
+                  <th>Bilty / LR</th><th>Date</th><th>Consignor / GST</th><th>Consignee / GST</th>
+                  <th>From</th><th>To</th><th>Vehicle</th><th>Packages</th><th>Weight MT</th><th>Invoice</th><th>Freight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {addedBilts.map(bilty => (
+                  <tr key={bilty.lr_no}>
+                    <td>{bilty.lr_no}</td>
+                    <td>{bilty.lr_date ? formatDate(bilty.lr_date) : '-'}</td>
+                    <td>{bilty.consignor_name || '-'}{bilty.consignor_gst ? ` / ${bilty.consignor_gst}` : ''}</td>
+                    <td>{bilty.consignee_name || '-'}{bilty.consignee_gst ? ` / ${bilty.consignee_gst}` : ''}</td>
+                    <td>{bilty.from_name || '-'}</td><td>{bilty.to_name || '-'}</td>
+                    <td>{bilty.lorry_no || '-'}</td>
+                    <td>{bilty.packages || bilty.no_of_packages || '-'}</td>
+                    <td>{Number(bilty.actual_weight) > 0 ? bilty.actual_weight : bilty.charged_weight || bilty.actual_weight || '-'}</td>
+                    <td>{bilty.invoice_no || '-'}</td><td>{bilty.freight || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* NO PRINT CONTROLS */}
       <div className="no-print">
         <div style={{color:'white', fontSize:'12px', fontWeight:'bold', marginRight:'10px'}}>BTC MANAGER</div>
-        <input 
-          type="text" 
-          placeholder="🔍 Enter LR No. to Auto-Fill..." 
-          value={lrSearch} 
-          onChange={handleLrSearch}
-          style={{padding:'8px', fontWeight:'bold', borderRadius:'5px', width:'200px'}}
-        />
         {loading && <span style={{color:'yellow', fontWeight:'bold'}}>Loading...</span>}
         <button className="btn" style={{background:'#2e7d32'}} onClick={addRow}>+ Row</button>
         <button className="btn" style={{background:'#4caf50'}} onClick={newBill}>New Bill</button>
@@ -572,6 +645,7 @@ export default function BillEntry() {
       {/* MAIN INVOICE WRAPPER */}
       <div id="main-container">
         <div className="invoice-wrapper" id="original-page">
+          <h2 className="no-print" style={{margin: '0 0 10px', color: '#0d1b3e', background: 'transparent', position: 'static', padding: 0}}>Step 2: Bill Banao — Manual Bill Create</h2>
           <div className="copy-tag">ORIGINAL COPY (RECIPIENT)</div>
           <div className="top-id-header">GSTIN: {COMPANY.gst} | PAN: {COMPANY.pan}</div>
           
@@ -639,6 +713,7 @@ export default function BillEntry() {
                 <th className="col-inv">Inv no.</th>
                 <th className="col-from">From</th>
                 <th className="col-to">To</th>
+                <th className="col-packages">Packages</th>
                 <th className="col-wt">Wt(MT)</th>
                 <th className="col-load">Loading</th>
                 <th className="col-unload">Unloading</th>
@@ -653,8 +728,9 @@ export default function BillEntry() {
                   <td><input type="text" value={row.date} onChange={(e) => updateRow(idx, 'date', e.target.value)} placeholder="DD/MM" /></td>
                   <td><input type="text" value={row.lr} onChange={(e) => updateRow(idx, 'lr', e.target.value)} /></td>
                   <td><input type="text" value={row.inv} onChange={(e) => updateRow(idx, 'inv', e.target.value)} /></td>
-                  <td><input type="text" value={row.from} onChange={(e) => updateRow(idx, 'from', e.target.value)} /></td>
-                  <td><input type="text" value={row.to} onChange={(e) => updateRow(idx, 'to', e.target.value)} /></td>
+                  <td><textarea rows="2" value={row.from} onChange={(e) => updateRow(idx, 'from', e.target.value)} /></td>
+                  <td><textarea rows="2" value={row.to} onChange={(e) => updateRow(idx, 'to', e.target.value)} /></td>
+                  <td><input type="text" value={row.packages || ''} onChange={(e) => updateRow(idx, 'packages', e.target.value)} /></td>
                   <td><input type="text" value={row.wt} onChange={(e) => updateRow(idx, 'wt', e.target.value)} placeholder="0.00" /></td>
                   <td><input type="number" value={row.load} onChange={(e) => updateRow(idx, 'load', e.target.value)} /></td>
                   <td><input type="number" value={row.unload} onChange={(e) => updateRow(idx, 'unload', e.target.value)} /></td>
@@ -662,7 +738,7 @@ export default function BillEntry() {
                   <td><input type="number" value={row.freight} onChange={(e) => updateRow(idx, 'freight', e.target.value)} className="row-total" /></td>
                   <td>
                     <input type="number" value={row.total} readOnly className="row-total" />
-                    {billData.rows.length > 1 && <button type="button" className="row-remove" aria-label={`Remove trip row ${idx + 1}`} onClick={() => removeRow(idx)}>Remove</button>}
+                    {(billData.rows.length > 1 || addedBilts.some(bilty => bilty.lr_no === row.lr)) && <button type="button" className="row-remove" aria-label={`Remove trip row ${idx + 1}`} onClick={() => removeRow(idx)}>Remove</button>}
                   </td>
                 </tr>
               ))}

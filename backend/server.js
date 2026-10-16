@@ -626,12 +626,17 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const isAdmin = String(req.user.role || '').toLowerCase() === 'admin';
     const branchId = Number(req.user.branch_id);
+    const search = String(req.query.search || '').trim();
     if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0)) {
       return res.status(403).json({ error: 'Your account is not assigned to a branch' });
     }
     const result = isAdmin
-      ? await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 500')
-      : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 ORDER BY id DESC LIMIT 500', [branchId]);
+      ? search
+        ? await pool.query('SELECT * FROM consignments WHERE lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
+        : await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 500')
+      : search
+        ? await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND lr_no ILIKE $2 ORDER BY (lr_no = $3) DESC, id DESC LIMIT 100', [branchId, `%${search}%`, search])
+        : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 ORDER BY id DESC LIMIT 500', [branchId]);
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
