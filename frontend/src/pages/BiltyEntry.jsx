@@ -202,6 +202,18 @@ export default function BiltyEntry() {
       toast.error('Consignor और Consignee का नाम required है')
       return
     }
+    const requiredFields = [
+      ['eway_bill_no', 'E-Way Bill Number'],
+      ['declared_value', 'Declared Value'],
+      ['basis_of_booking', 'Basis of Booking'],
+      ['billed_at', 'Billed at'],
+      ['gst_through', 'GST Through']
+    ]
+    const missingField = requiredFields.find(([field]) => !String(formData[field] ?? '').trim())
+    if (missingField) {
+      toast.error(`${missingField[1]} is required`)
+      return
+    }
     setLoading(true)
     try {
       const payload = { ...formData }
@@ -240,7 +252,7 @@ export default function BiltyEntry() {
     { value: '', label: 'Select' },
     { value: 'CONSIGNOR', label: 'CONSIGNOR' },
     { value: 'CONSIGNEE', label: 'CONSIGNEE' },
-    { value: 'N.B.T.C.', label: 'N.B.T.C.' }
+    { value: 'B.T.C.', label: 'B.T.C.' }
   ]
   const loadTypeOptions = [
     { value: 'Full Load', label: 'Full Load' },

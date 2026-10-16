@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com';
 
 const BiltyPrint = () => {
   const { id } = useParams();
@@ -155,6 +155,11 @@ const BiltyPrint = () => {
             <div className="border border-black p-2 mb-2 relative bg-white">
               <label className="absolute -top-2 left-2 bg-white px-1 font-bold text-[9px]" style={{ color: 'var(--primary-color, #000)' }}>VALUATION</label>
               <div className="text-xs font-bold flex items-center mt-1">Value Rs: <span className="text-sm font-black ml-1">{data.declared_value}</span></div>
+              {data.gst_through && (
+                <div className="text-xs font-bold flex items-center mt-1">
+                  GST Through: <span className="text-sm font-black ml-1">{data.gst_through}</span>
+                </div>
+              )}
             </div>
             <div className="border-2 p-2 bg-white" style={{ borderColor: 'var(--primary-color, #000)' }}>
               <strong className="text-xs block mb-2 underline" style={{ color: 'var(--primary-color, #000)' }}>BASIS OF BOOKING:</strong>
