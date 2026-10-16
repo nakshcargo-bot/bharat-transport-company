@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Truck } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -108,14 +109,8 @@ const Consignments = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Consignments (Bilty)</h1>
-        <button
-          onClick={() => navigate('/consignments/new')}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          + Add Consignment
-        </button>
       </div>
 
       {error && (
@@ -143,6 +138,14 @@ const Consignments = () => {
           <option value="In-Transit">In-Transit</option>
           <option value="Delivered">Delivered</option>
         </select>
+        <button
+          type="button"
+          onClick={() => navigate('/consignments/new')}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition whitespace-nowrap flex items-center justify-center gap-2"
+        >
+          <Truck size={18} aria-hidden="true" />
+          Bilty Banao
+        </button>
       </div>
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">

@@ -215,7 +215,7 @@ export default function BiltyEntry() {
       }
       await biltyAPI.create(payload)
       toast.success('Bilty successfully created!')
-      navigate('/dashboard')
+      navigate('/consignments')
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create bilty'
       if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {

@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
+const BiltyEntry = lazy(() => import('./pages/BiltyEntry'))
 const Bills = lazy(() => import('./pages/Bills'))
 const BillEntry = lazy(() => import('./pages/BillEntry'))
 const BillList = lazy(() => import('./pages/BillList'))
@@ -110,7 +111,7 @@ function App() {
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
-          <Route path="/consignments/new" element={<PrivateRoute><Consignments isNew={true} /></PrivateRoute>} />
+          <Route path="/consignments/new" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
 
           <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bills/:id/print" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
