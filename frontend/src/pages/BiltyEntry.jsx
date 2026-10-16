@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
 import toast from 'react-hot-toast'
 import { formatDateForInput } from '../utils/dateFormatter'
+import CreatableBranchSelect from '../components/CreatableBranchSelect'
 
 // Custom Dropdown Component
 function CustomSelect({ label, value, onChange, options, name, required }) {
@@ -79,13 +80,6 @@ export default function BiltyEntry() {
   const [loading, setLoading] = useState(false)
   const [mrActive, setMrActive] = useState(false)
   const [customers, setCustomers] = useState([])
-  const [branches] = useState([
-    { code: 'RAJ', name: 'Rajgarh' },
-    { code: 'DEL', name: 'Delhi' },
-    { code: 'MUM', name: 'Mumbai' },
-    { code: 'JAI', name: 'Jaipur' },
-    { code: 'AHM', name: 'Ahmedabad' }
-  ])
 
   const [formData, setFormData] = useState({
     lr_no: '', lr_date: formatDateForInput(new Date()), branch_code: '', from_code: '', from_name: '', to_code: '', to_name: '',
@@ -189,11 +183,12 @@ export default function BiltyEntry() {
     }
   }
 
-  const handleBranchSelect = (type, code) => {
-    const branch = branches.find(b => b.code === code)
-    if (branch) {
-      setFormData(prev => ({ ...prev, [`${type}_code`]: code, [`${type}_name`]: branch.name }))
-    }
+  const handleBranchSelect = (type, branch) => {
+    setFormData(prev => {
+      const next = { ...prev, [`${type}_code`]: branch.code }
+      if (type === 'from' || type === 'to') next[`${type}_name`] = branch.name
+      return next
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -241,7 +236,6 @@ export default function BiltyEntry() {
     }
   }
 
-  const branchOptions = [{ value: '', label: 'Select Branch' }, ...branches.map(b => ({ value: b.code, label: `${b.code} - ${b.name}` }))]
   const deliveryOptions = [
     { value: 'Door Delivery', label: 'Door Delivery' },
     { value: 'Godown Delivery', label: 'Godown Delivery' },
@@ -289,17 +283,17 @@ export default function BiltyEntry() {
                 <input type="date" name="lr_date" value={formData.lr_date} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <CustomSelect label="Branch" name="branch_code" value={formData.branch_code} onChange={handleChange} options={branchOptions} required />
+                <CreatableBranchSelect label="Branch" value={formData.branch_code} onChange={(branch) => handleBranchSelect('branch', branch)} required />
               </div>
               <div>
-                <CustomSelect label="From Code" name="from_code" value={formData.from_code} onChange={(e) => handleBranchSelect('from', e.target.value)} options={branchOptions} required />
+                <CreatableBranchSelect label="From Code" value={formData.from_code} onChange={(branch) => handleBranchSelect('from', branch)} required />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">From Name *</label>
                 <input type="text" name="from_name" value={formData.from_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <CustomSelect label="To Code" name="to_code" value={formData.to_code} onChange={(e) => handleBranchSelect('to', e.target.value)} options={branchOptions} required />
+                <CreatableBranchSelect label="To Code" value={formData.to_code} onChange={(branch) => handleBranchSelect('to', branch)} required />
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">To Name *</label>
