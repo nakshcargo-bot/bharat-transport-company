@@ -668,10 +668,16 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
     const isAdmin = String(req.user.role || '').toLowerCase() === 'admin';
     const branchId = Number(req.user.branch_id);
     const search = String(req.query.search || '').trim();
+    const lrNumber = String(req.query.lrNumber || '').trim();
     if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0)) {
       return res.status(403).json({ error: 'Your account is not assigned to a branch' });
     }
-    const result = isAdmin
+    const result = lrNumber
+      ? await pool.query(
+        'SELECT lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) LIMIT 1',
+        [lrNumber]
+      )
+      : isAdmin
       ? search
         ? await pool.query('SELECT * FROM consignments WHERE lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
         : await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 500')
@@ -721,10 +727,23 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     if (!c.created_by) c.created_by = req.user.username;
     if (!c.lr_date) c.lr_date = new Date().toISOString().split('T')[0];
     if (!c.eway_valid_upto) c.eway_valid_upto = null;
+    c.lr_no = typeof c.lr_no === 'string' ? c.lr_no.trim() : '';
+    if (c.lr_no && !/^[A-Za-z0-9/-]+$/.test(c.lr_no)) {
+      return res.status(400).json({ error: 'LR number may only contain letters, numbers, hyphens, or slashes' });
+    }
     await client.query('BEGIN');
     transactionStarted = true;
     await client.query('SELECT pg_advisory_xact_lock($1)', [823741905]);
-    c.lr_no = await generateBiltyNo(client);
+    if (!c.lr_no) c.lr_no = await generateBiltyNo(client);
+    const existing = await client.query(
+      'SELECT 1 FROM consignments WHERE LOWER(lr_no) = LOWER($1) LIMIT 1',
+      [c.lr_no]
+    );
+    if (existing.rowCount > 0) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return res.status(409).json({ error: 'This Bilty No already exists' });
+    }
     const keys = Object.keys(c); const values = Object.values(c);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
     const result = await client.query(`INSERT INTO consignments (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
@@ -736,6 +755,7 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
       try { await client.query('ROLLBACK'); }
       catch (rollbackErr) { console.error('Consignment transaction rollback failed:', rollbackErr.message); }
     }
+    if (err.code === '23505') return res.status(409).json({ error: 'This Bilty No already exists' });
     res.status(500).json({ error: err.message });
   } finally {
     if (client) client.release();

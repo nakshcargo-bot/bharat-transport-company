@@ -80,6 +80,10 @@ export default function BiltyEntry() {
   const [loading, setLoading] = useState(false)
   const [numberLoading, setNumberLoading] = useState(true)
   const [numberError, setNumberError] = useState(false)
+  const [isLrEditable, setIsLrEditable] = useState(false)
+  const [lrError, setLrError] = useState('')
+  const [lrChecking, setLrChecking] = useState(false)
+  const lrCheckRequest = useRef(0)
   const [mrActive, setMrActive] = useState(false)
   const [customers, setCustomers] = useState([])
 
@@ -135,8 +139,52 @@ export default function BiltyEntry() {
     }
   }
 
+  const validateLRNo = async (lrNo) => {
+    const normalizedLrNo = lrNo.trim()
+    if (!normalizedLrNo || !/^[A-Za-z0-9/-]+$/.test(normalizedLrNo)) {
+      setLrError('Enter a valid LR number using letters, numbers, hyphens, or slashes')
+      return false
+    }
+
+    const requestId = ++lrCheckRequest.current
+    setLrChecking(true)
+    try {
+      const response = await biltyAPI.getAll({ lrNumber: normalizedLrNo })
+      const consignments = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data?.consignments)
+            ? response.data.consignments
+            : null
+      if (!consignments) throw new Error('The server returned an invalid LR number check response')
+      const duplicate = consignments.some(item =>
+        String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase()
+      )
+      if (requestId === lrCheckRequest.current) {
+        setLrError(duplicate ? 'This Bilty No already exists' : '')
+        setLrChecking(false)
+      }
+      return !duplicate
+    } catch (err) {
+      console.error('LR No validation error:', err)
+      if (requestId === lrCheckRequest.current) {
+        setLrError('Unable to validate LR number. Please try again.')
+        setLrChecking(false)
+      }
+      return false
+    }
+  }
+
+  useEffect(() => {
+    if (!isLrEditable || !formData.lr_no.trim()) return
+    const timeout = setTimeout(() => validateLRNo(formData.lr_no), 400)
+    return () => clearTimeout(timeout)
+  }, [formData.lr_no, isLrEditable])
+
   const handleChange = (e) => {
     const { name, value } = e.target
+    if (name === 'lr_no') setLrError('')
     setFormData(prev => {
       const newData = { ...prev, [name]: value }
       if (name === 'charged_weight' || name === 'rate') {
@@ -204,6 +252,10 @@ export default function BiltyEntry() {
       toast.error('LR number is still generating. Please retry before saving.')
       return
     }
+    if (!await validateLRNo(formData.lr_no)) {
+      toast.error(lrError === 'This Bilty No already exists' ? lrError : 'Please check the LR number before saving')
+      return
+    }
     if (formData.billed_at_type === 'THIRD PARTY' && !formData.third_party_name.trim()) {
       toast.error('Third Party Name is required')
       return
@@ -237,8 +289,9 @@ export default function BiltyEntry() {
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create bilty'
       if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
-        toast.error('LR Number already exists! Generating new number...')
-        await generateLRNo()
+        setLrError('This Bilty No already exists')
+        setIsLrEditable(true)
+        toast.error('This Bilty No already exists')
       } else {
         toast.error(errorMsg)
       }
@@ -302,9 +355,32 @@ export default function BiltyEntry() {
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
                 <div className="flex gap-2">
-                  <input type="text" name="lr_no" value={formData.lr_no} readOnly required placeholder={numberLoading ? 'Generating...' : 'LR number unavailable'} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
+                  <input
+                    type="text"
+                    name="lr_no"
+                    value={formData.lr_no}
+                    onChange={handleChange}
+                    readOnly={!isLrEditable}
+                    required
+                    pattern="[A-Za-z0-9/-]+"
+                    title="Use letters, numbers, hyphens, or slashes"
+                    placeholder="Auto-generated, click edit to change"
+                    aria-invalid={Boolean(lrError)}
+                    aria-describedby={lrError ? 'lr-number-error' : undefined}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsLrEditable(editable => !editable)}
+                    aria-label={isLrEditable ? 'Lock LR number' : 'Edit LR number'}
+                    className="shrink-0 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
+                  >
+                    {isLrEditable ? '🔒 Lock' : '✏️ Edit'}
+                  </button>
                   {numberError && <button type="button" onClick={generateLRNo} className="px-3 py-2 bg-white/10 text-white rounded-lg">Retry</button>}
                 </div>
+                {lrChecking && <p className="mt-1 text-sm text-gray-300">Checking LR number...</p>}
+                {lrError && <p id="lr-number-error" role="alert" className="mt-1 text-sm text-red-400">{lrError}</p>}
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
@@ -721,7 +797,7 @@ export default function BiltyEntry() {
           {/* Submit */}
           <div className="flex justify-end gap-4 pt-6">
             <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition">Cancel</button>
-            <button type="submit" disabled={loading || numberLoading || !formData.lr_no} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium disabled:opacity-50">
+            <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium disabled:opacity-50">
               {loading ? 'Saving...' : numberLoading ? 'Generating LR...' : 'Save Bilty'}
             </button>
           </div>
