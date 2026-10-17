@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Truck } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com';
 
@@ -76,17 +77,19 @@ const Consignments = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this consignment?')) return;
+  const handleDelete = async (id, lr_no) => {
+    if (!window.confirm(`Delete Bilty ${lr_no}?`)) return;
 
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/api/consignments/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchConsignments();
+      toast.success('Deleted');
+      await fetchConsignments();
     } catch (err) {
-      setError('Failed to delete consignment');
+      console.error('Delete consignment error:', err);
+      toast.error(err.response?.data?.error || 'Failed to delete consignment');
     }
   };
 
@@ -203,7 +206,7 @@ const Consignments = () => {
                           ✏️
                         </button>
                         <button
-                          onClick={() => handleDelete(c.id)}
+                          onClick={() => handleDelete(c.id, c.lr_no)}
                           className="text-red-600 hover:text-red-800 p-1 transition"
                           title="Delete"
                         >

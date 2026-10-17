@@ -113,6 +113,8 @@ function App() {
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
+          <Route path="/consignments/:id/edit" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
+          <Route path="/consignment/:id/edit" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
 
           <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bills/:id/print" element={<PrivateRoute><BillPrint /></PrivateRoute>} />

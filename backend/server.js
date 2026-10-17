@@ -224,6 +224,35 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'third_party_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'third_party_gst', 'TEXT');
   await addColumnIfNotExists('consignments', 'third_party_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'third_party_gstin', 'TEXT');
+  await addColumnIfNotExists('consignments', 'bill_to_party', 'TEXT');
+  await addColumnIfNotExists('consignments', 'basis_of_booking', 'TEXT');
+  await addColumnIfNotExists('consignments', 'is_deleted', 'BOOLEAN DEFAULT FALSE');
+  await addColumnIfNotExists('consignments', 'consignor_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'consignee_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'delivery_godown_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'pickup_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'from_name', 'TEXT');
+  await addColumnIfNotExists('consignments', 'to_name', 'TEXT');
+  await addColumnIfNotExists('consignments', 'description', 'TEXT');
+  await addColumnIfNotExists('consignments', 'private_marks', 'TEXT');
+  await addColumnIfNotExists('consignments', 'method_of_packing', 'TEXT');
+  await addColumnIfNotExists('consignments', 'basis_booking', 'TEXT');
+  await pool.query(`
+    ALTER TABLE consignments
+      ALTER COLUMN consignor_address TYPE TEXT,
+      ALTER COLUMN consignee_address TYPE TEXT,
+      ALTER COLUMN third_party_address TYPE TEXT,
+      ALTER COLUMN description TYPE TEXT,
+      ALTER COLUMN private_marks TYPE TEXT,
+      ALTER COLUMN delivery_godown_address TYPE TEXT,
+      ALTER COLUMN pickup_address TYPE TEXT,
+      ALTER COLUMN from_name TYPE TEXT,
+      ALTER COLUMN to_name TYPE TEXT,
+      ALTER COLUMN basis_of_booking TYPE TEXT USING basis_of_booking::text,
+      ALTER COLUMN basis_booking TYPE TEXT USING basis_booking::text,
+      ALTER COLUMN method_of_packing TYPE TEXT
+  `);
   await addColumnIfNotExists('consignments', 'mr_party_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN DEFAULT false');
   await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC DEFAULT 0');
@@ -651,7 +680,7 @@ app.get('/api/consignments/track', async (req, res) => {
   try {
     const lr_no = req.query.lr_no;
     if (!lr_no) return res.status(400).json({ error: 'LR number required' });
-    const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1', [lr_no]);
+    const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1 AND COALESCE(is_deleted, FALSE) = FALSE', [lr_no]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -674,22 +703,22 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
     }
     const result = lrNumber
       ? await pool.query(
-        'SELECT lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) LIMIT 1',
+        'SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
         [lrNumber]
       )
       : isAdmin
       ? search
-        ? await pool.query('SELECT * FROM consignments WHERE lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
-        : await pool.query('SELECT * FROM consignments ORDER BY id DESC LIMIT 500')
+        ? await pool.query('SELECT * FROM consignments WHERE COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
+        : await pool.query('SELECT * FROM consignments WHERE COALESCE(is_deleted, FALSE) = FALSE ORDER BY id DESC LIMIT 500')
       : search
-        ? await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND lr_no ILIKE $2 ORDER BY (lr_no = $3) DESC, id DESC LIMIT 100', [branchId, `%${search}%`, search])
-        : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 ORDER BY id DESC LIMIT 500', [branchId]);
+        ? await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $2 ORDER BY (lr_no = $3) DESC, id DESC LIMIT 100', [branchId, `%${search}%`, search])
+        : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND COALESCE(is_deleted, FALSE) = FALSE ORDER BY id DESC LIMIT 500', [branchId]);
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM consignments WHERE id = $1', [req.params.id]);
+    const result = await pool.query('SELECT * FROM consignments WHERE id = $1 AND COALESCE(is_deleted, FALSE) = FALSE', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -764,6 +793,20 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at; data.updated_at = new Date().toISOString();
+    const columnAliases = {
+      vehicle_no: 'lorry_no',
+      customer_code_consignor: 'consignor_code',
+      customer_code_consignee: 'consignee_code',
+      basis_of_booking: 'basis_booking',
+      total_cft_cmt: 'total_cft',
+      insurance_policy_no: 'policy_no'
+    };
+    for (const [field, column] of Object.entries(columnAliases)) {
+      if (field in data) {
+        data[column] = data[field];
+        delete data[field];
+      }
+    }
     if (data.mr_active !== true) {
       const explicitlyDisabledMr = data.mr_active === false;
       for (const key of Object.keys(data)) {
@@ -778,7 +821,14 @@ app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.delete('/api/consignments/:id', authMiddleware, async (req, res) => {
-  try { await pool.query("UPDATE consignments SET status = 'Cancelled' WHERE id = $1", [req.params.id]); res.json({ success: true }); }
+  try {
+    const result = await pool.query(
+      'UPDATE consignments SET is_deleted = TRUE WHERE id = $1 AND COALESCE(is_deleted, FALSE) = FALSE RETURNING id',
+      [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Bilty not found' });
+    res.json({ success: true });
+  }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
