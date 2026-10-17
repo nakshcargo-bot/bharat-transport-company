@@ -117,6 +117,7 @@ export default function BiltyEntry() {
           ...savedData,
           actual_weight: preferStoredMeasurement(savedData.actual_weight, savedData.act_wt),
           charged_weight: preferStoredMeasurement(savedData.charged_weight, savedData.chg_wt),
+          no_of_packages: preferStoredMeasurement(savedData.no_of_packages, savedData.package_count),
           length: preferStoredMeasurement(savedData.length, savedData.l),
           width: preferStoredMeasurement(savedData.width, savedData.w),
           height: preferStoredMeasurement(savedData.height, savedData.h),
@@ -270,6 +271,12 @@ export default function BiltyEntry() {
       const { from_code: _fromCode, aoc_percent: _aocPercent, ...payloadData } = formData
       const payload = {
         ...payloadData,
+        actual_weight: formData.actual_weight ?? formData.act_wt ?? 0,
+        charged_weight: formData.charged_weight ?? formData.chg_wt ?? 0,
+        length: formData.length ?? 0,
+        width: formData.width ?? 0,
+        height: formData.height ?? 0,
+        no_of_packages: formData.no_of_packages ?? formData.package_count ?? 0,
         package_type: formData.package_type || formData.method_of_packing,
         bill_to_party: formData.bill_to_party,
         billed_at_type: formData.bill_to_party,

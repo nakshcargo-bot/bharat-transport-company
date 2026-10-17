@@ -208,6 +208,7 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
   await addColumnIfNotExists('consignments', 'no_of_packages', 'TEXT');
+  await addColumnIfNotExists('consignments', 'package_count', 'INTEGER');
   await addColumnIfNotExists('consignments', 'actual_weight', 'TEXT');
   await addColumnIfNotExists('consignments', 'charged_weight', 'TEXT');
   await addColumnIfNotExists('consignments', 'length', 'TEXT');
@@ -800,10 +801,14 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
       ...requestData
     } = req.body;
     const c = { ...requestData };
-    if ((!c.actual_weight || Number(c.actual_weight) === 0) && c.act_wt != null) c.actual_weight = c.act_wt;
-    if ((!c.charged_weight || Number(c.charged_weight) === 0) && c.chg_wt != null) c.charged_weight = c.chg_wt;
+    if ((!c.actual_weight || Number(c.actual_weight) === 0) && (c.act_wt ?? c.actWt) != null) c.actual_weight = c.act_wt ?? c.actWt;
+    if ((!c.charged_weight || Number(c.charged_weight) === 0) && (c.chg_wt ?? c.chgWt) != null) c.charged_weight = c.chg_wt ?? c.chgWt;
+    if ((!c.no_of_packages || Number(c.no_of_packages) === 0) && c.package_count != null) c.no_of_packages = c.package_count;
+    if (c.package_count == null && c.no_of_packages != null) c.package_count = c.no_of_packages;
     delete c.act_wt;
     delete c.chg_wt;
+    delete c.actWt;
+    delete c.chgWt;
     if (!c.method_of_packing && c.package_type) c.method_of_packing = c.package_type;
     if (!c.package_type && c.method_of_packing) c.package_type = c.method_of_packing;
     if (!c.lorry_no && vehicle_no) c.lorry_no = vehicle_no;
@@ -861,10 +866,12 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at; data.updated_at = new Date().toISOString();
+    if ((!data.actual_weight || Number(data.actual_weight) === 0) && (data.act_wt ?? data.actWt) != null) data.actual_weight = data.act_wt ?? data.actWt;
+    if ((!data.charged_weight || Number(data.charged_weight) === 0) && (data.chg_wt ?? data.chgWt) != null) data.charged_weight = data.chg_wt ?? data.chgWt;
+    if ((!data.no_of_packages || Number(data.no_of_packages) === 0) && data.package_count != null) data.no_of_packages = data.package_count;
+    if (data.package_count == null && data.no_of_packages != null) data.package_count = data.no_of_packages;
     const columnAliases = {
       vehicle_no: 'lorry_no',
-      act_wt: 'actual_weight',
-      chg_wt: 'charged_weight',
       customer_code_consignor: 'consignor_code',
       customer_code_consignee: 'consignee_code',
       basis_of_booking: 'basis_booking',
@@ -877,6 +884,10 @@ app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
         delete data[field];
       }
     }
+    delete data.act_wt;
+    delete data.chg_wt;
+    delete data.actWt;
+    delete data.chgWt;
     if (data.package_type && !data.method_of_packing) data.method_of_packing = data.package_type;
     if (data.method_of_packing && !data.package_type) data.package_type = data.method_of_packing;
     if (data.mr_active !== true) {

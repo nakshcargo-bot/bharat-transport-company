@@ -182,7 +182,7 @@ const Consignments = () => {
                     <td className="px-4 py-3 text-sm text-gray-700">{c.consignor_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{c.consignee_name}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{c.from_name} → {c.to_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{c.actual_weight} kg</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{Number(c.actual_weight) > 0 ? c.actual_weight : Number(c.act_wt ?? c.actWt) > 0 ? c.act_wt ?? c.actWt : Number(c.charged_weight) > 0 ? c.charged_weight : Number(c.chg_wt ?? c.chgWt) > 0 ? c.chg_wt ?? c.chgWt : c.weight || '-'} kg</td>
                     <td className="px-4 py-3 text-sm text-gray-700">₹{c.freight}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(c.status)}`}>

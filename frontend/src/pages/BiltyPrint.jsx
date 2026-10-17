@@ -76,8 +76,9 @@ const BiltyPrint = () => {
       const bilty = res.data;
       setData({
         ...bilty,
-        actual_weight: preferredMeasurement(bilty.actual_weight, bilty.act_wt),
-        charged_weight: preferredMeasurement(bilty.charged_weight, bilty.chg_wt),
+        actual_weight: preferredMeasurement(bilty.actual_weight, bilty.act_wt ?? bilty.actWt),
+        charged_weight: preferredMeasurement(bilty.charged_weight, bilty.chg_wt ?? bilty.chgWt),
+        no_of_packages: preferredMeasurement(bilty.no_of_packages, bilty.package_count),
         length: preferredMeasurement(bilty.length, bilty.l),
         width: preferredMeasurement(bilty.width, bilty.w),
         height: preferredMeasurement(bilty.height, bilty.h),
@@ -96,6 +97,9 @@ const BiltyPrint = () => {
     window.print();
   };
 
+  const handleBackToList = () => navigate('/consignments');
+  const handleBack = () => navigate('/consignments');
+
   const handleWhatsAppShare = () => {
     if (!data) return;
     const mrText = includeMR ? `\nMR Party: ${mrData.party_name}\nMR Amount: ₹${mrData.amount} (${mrData.payment_mode})` : '';
@@ -110,7 +114,7 @@ const BiltyPrint = () => {
       <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Select a Bilty to Print</h1>
-          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+          <button onClick={handleBack} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
         </div>
         {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
         <div className="overflow-x-auto">
@@ -140,7 +144,7 @@ const BiltyPrint = () => {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="text-center bg-white p-6 rounded-lg shadow">
         <p role="alert" className="text-red-700 mb-4">{error || 'Bilty data is unavailable.'}</p>
-        <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        <button onClick={handleBackToList} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
       </div>
     </div>
   );
@@ -213,8 +217,8 @@ const BiltyPrint = () => {
             <td className="border border-black p-1 text-center text-xs font-bold">{data.no_of_packages}</td>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.method_of_packing || data.package_type}</td>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.hsn_code}</td>
-            <td className="border border-black p-1 text-center text-xs font-bold">{data.actual_weight}</td>
-            <td className="border border-black p-1 text-center text-xs font-bold">{data.charged_weight}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.actual_weight || data.act_wt || data.actWt || 0}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.charged_weight || data.chg_wt || data.chgWt || 0}</td>
           </tr></tbody>
         </table>
 
@@ -339,7 +343,7 @@ const BiltyPrint = () => {
 
         <button onClick={handlePrint} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 font-bold text-sm">🖨️ SAVE & PRINT</button>
         <button onClick={handleWhatsAppShare} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-bold text-sm">📱 WhatsApp Send</button>
-        <button onClick={() => navigate('/consignments')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-bold text-sm">← Back to List</button>
+        <button onClick={handleBackToList} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-bold text-sm">← Back to List</button>
       </div>
 
       {includeMR && (
