@@ -343,14 +343,10 @@ const BillPrint = () => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t-2 border-gray-800 grid grid-cols-3 gap-4 text-center text-sm">
+        <div className="mt-8 pt-6 border-t-2 border-gray-800 grid grid-cols-2 gap-4 text-center text-sm">
           <div>
             <div className="h-16"></div>
             <div className="border-t border-black pt-2 font-bold">Customer Signature / Stamp</div>
-          </div>
-          <div>
-            <div className="h-16"></div>
-            <div className="border-t border-black pt-2 font-bold">Driver Signature</div>
           </div>
           <div className="text-center">
             <div className="font-bold">For BHARAT TRANSPORT COMPANY</div>
