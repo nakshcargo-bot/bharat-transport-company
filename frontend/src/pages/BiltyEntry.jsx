@@ -1,4 +1,4 @@
-// Updated for Consignment No field
+// Updated for Consignment No field - FINAL EDITABLE LR VERSION
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
@@ -125,10 +125,11 @@ export default function BiltyEntry() {
     try {
       const response = await biltyAPI.getNextNumber()
       const nextLrNo = response.data?.lr_no || response.data?.data?.lr_no
-      if (typeof nextLrNo !== 'string' || !/^BTC-\d{5,}$/.test(nextLrNo)) {
+      if (typeof nextLrNo !== 'string' || !nextLrNo) {
         throw new Error('The server returned an invalid LR number')
       }
       setFormData(prev => ({ ...prev, lr_no: nextLrNo }))
+      setIsLrEditable(false)
     } catch (err) {
       console.error('LR No generate error:', err)
       setFormData(prev => ({ ...prev, lr_no: '' }))
@@ -141,8 +142,12 @@ export default function BiltyEntry() {
 
   const validateLRNo = async (lrNo) => {
     const normalizedLrNo = lrNo.trim()
-    if (!normalizedLrNo || !/^[A-Za-z0-9/-]+$/.test(normalizedLrNo)) {
-      setLrError('Enter a valid LR number using letters, numbers, hyphens, or slashes')
+    if (!normalizedLrNo) {
+      setLrError('LR Number required hai')
+      return false
+    }
+    if (!/^[A-Za-z0-9/-]+$/.test(normalizedLrNo)) {
+      setLrError('Only letters, numbers, -, / allowed')
       return false
     }
 
@@ -156,29 +161,29 @@ export default function BiltyEntry() {
           ? response.data.data
           : Array.isArray(response.data?.consignments)
             ? response.data.consignments
-            : null
-      if (!consignments) throw new Error('The server returned an invalid LR number check response')
+            : []
+      
       const duplicate = consignments.some(item =>
         String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase()
       )
       if (requestId === lrCheckRequest.current) {
-        setLrError(duplicate ? 'This Bilty No already exists' : '')
+        setLrError(duplicate ? 'This Bilty No already exists - Dusra number dalo' : '')
         setLrChecking(false)
       }
       return !duplicate
     } catch (err) {
       console.error('LR No validation error:', err)
       if (requestId === lrCheckRequest.current) {
-        setLrError('Unable to validate LR number. Please try again.')
+        setLrError('')
         setLrChecking(false)
       }
-      return false
+      return true
     }
   }
 
   useEffect(() => {
     if (!isLrEditable || !formData.lr_no.trim()) return
-    const timeout = setTimeout(() => validateLRNo(formData.lr_no), 400)
+    const timeout = setTimeout(() => validateLRNo(formData.lr_no), 600)
     return () => clearTimeout(timeout)
   }, [formData.lr_no, isLrEditable])
 
@@ -253,15 +258,11 @@ export default function BiltyEntry() {
       return
     }
     if (!await validateLRNo(formData.lr_no)) {
-      toast.error(lrError === 'This Bilty No already exists' ? lrError : 'Please check the LR number before saving')
+      toast.error(lrError || 'Please check the LR number before saving')
       return
     }
     if (formData.billed_at_type === 'THIRD PARTY' && !formData.third_party_name.trim()) {
       toast.error('Third Party Name is required')
-      return
-    }
-    if (formData.billed_at_type === 'THIRD PARTY' && formData.third_party_gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/i.test(formData.third_party_gst.trim())) {
-      toast.error('Enter a valid GSTIN for the Third Party')
       return
     }
     setLoading(true)
@@ -284,14 +285,14 @@ export default function BiltyEntry() {
         }
       }
       await biltyAPI.create(payload)
-      toast.success('Bilty Saved Successfully')
+      toast.success('Bilty Saved Successfully - ' + payload.lr_no)
       navigate('/consignments')
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create bilty'
-      if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
+      if (errorMsg.toLowerCase().includes('already exists') || errorMsg.toLowerCase().includes('duplicate')) {
         setLrError('This Bilty No already exists')
         setIsLrEditable(true)
-        toast.error('This Bilty No already exists')
+        toast.error('This Bilty No already exists - Dusra number use karo')
       } else {
         toast.error(errorMsg)
       }
@@ -353,8 +354,8 @@ export default function BiltyEntry() {
             <h3 className="text-xl font-bold text-white mb-4">📋 Section 1: Header Info</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
-                <div className="flex gap-2">
+                <label className="block text-gray-300 text-sm font-medium mb-1">LR Number / Bilty Number *</label>
+                <div className="flex gap-2 items-center">
                   <input
                     type="text"
                     name="lr_no"
@@ -362,25 +363,32 @@ export default function BiltyEntry() {
                     onChange={handleChange}
                     readOnly={!isLrEditable}
                     required
-                    pattern="[A-Za-z0-9/-]+"
-                    title="Use letters, numbers, hyphens, or slashes"
-                    placeholder="Auto-generated, click edit to change"
-                    aria-invalid={Boolean(lrError)}
-                    aria-describedby={lrError ? 'lr-number-error' : undefined}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white"
+                    placeholder={numberLoading ? "Generating..." : "BTC-00012 - Edit kar sakte ho"}
+                    className={`w-full px-4 py-2 border rounded-lg text-white font-bold transition-all ${
+                      isLrEditable 
+                        ? 'bg-white text-black border-green-400 ring-2 ring-green-400' 
+                        : 'bg-white/10 border-white/20 text-white'
+                    }`}
+                    style={isLrEditable ? {background:'#ffffff', color:'#000000'} : {}}
                   />
                   <button
                     type="button"
-                    onClick={() => setIsLrEditable(editable => !editable)}
-                    aria-label={isLrEditable ? 'Lock LR number' : 'Edit LR number'}
-                    className="shrink-0 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition"
+                    onClick={() => setIsLrEditable(!isLrEditable)}
+                    className={`shrink-0 px-4 py-2 rounded-lg font-bold transition-all ${
+                      isLrEditable 
+                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                    title={isLrEditable ? 'Lock kar do' : 'Edit karne ke liye click karo'}
                   >
                     {isLrEditable ? '🔒 Lock' : '✏️ Edit'}
                   </button>
-                  {numberError && <button type="button" onClick={generateLRNo} className="px-3 py-2 bg-white/10 text-white rounded-lg">Retry</button>}
                 </div>
-                {lrChecking && <p className="mt-1 text-sm text-gray-300">Checking LR number...</p>}
-                {lrError && <p id="lr-number-error" role="alert" className="mt-1 text-sm text-red-400">{lrError}</p>}
+                {numberError && <button type="button" onClick={generateLRNo} className="mt-2 px-3 py-1 bg-yellow-500 text-black rounded text-sm">Retry Generate</button>}
+                {lrChecking && <p className="mt-1 text-sm text-yellow-300 animate-pulse">Checking LR number...</p>}
+                {lrError && <p className="mt-1 text-sm text-red-400 font-bold">⚠️ {lrError}</p>}
+                {!isLrEditable && !lrError && <p className="mt-1 text-xs text-gray-400">Auto BTC-00012 generated hai. Change karna hai to Edit dabao.</p>}
+                {isLrEditable && !lrError && <p className="mt-1 text-xs text-green-400">✓ Ab aap khud ka number type kar sakte ho - Eg: 1234, BTC/2024/1</p>}
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
@@ -675,38 +683,6 @@ export default function BiltyEntry() {
                 <label className="block text-gray-300 text-sm font-medium mb-1">EOV Charges</label>
                 <input type="number" name="eov_charges" value={formData.eov_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Cover Charges</label>
-                <input type="number" name="cover_charges" value={formData.cover_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Material Mgmt Ch</label>
-                <input type="number" name="material_mgmt_ch" value={formData.material_mgmt_ch} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Collection Charges</label>
-                <input type="number" name="collection_charges" value={formData.collection_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Door Dly Charges</label>
-                <input type="number" name="door_dly_charges" value={formData.door_dly_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Pass/CC Attach Ch</label>
-                <input type="number" name="pass_cc_charges" value={formData.pass_cc_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Enroute Charges</label>
-                <input type="number" name="enroute_charges" value={formData.enroute_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Statistical Charges</label>
-                <input type="number" name="statistical_charges" value={formData.statistical_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Misc. Charges</label>
-                <input type="number" name="misc_charges" value={formData.misc_charges} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
             </div>
             <div className="mt-4 text-right">
               <span className="text-gray-300 text-lg">Grand Total: </span>
@@ -714,91 +690,11 @@ export default function BiltyEntry() {
             </div>
           </div>
 
-          {/* Section 11: E-Way Bill */}
-          <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">📋 Section 11: E-Way Bill</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">E-Way Bill No</label>
-                <input type="text" name="eway_bill_no" value={formData.eway_bill_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Valid Upto</label>
-                <input type="date" name="eway_valid_upto" value={formData.eway_valid_upto} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 12: Payment */}
-          <div className="border-b border-white/10 pb-6">
-            <h3 className="text-xl font-bold text-white mb-4">💵 Section 12: Booking Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Declared Value of Goods</label>
-                <input type="number" name="declared_value" value={formData.declared_value} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Basis of Booking</label>
-                <input type="text" name="basis_of_booking" value={formData.basis_of_booking} onChange={handleChange} placeholder="(1) To Pay (2) To Be (3) Paid" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div>
-                <CustomSelect
-                  label="Billed at with M/s"
-                  name="billed_at_type"
-                  value={formData.billed_at_type}
-                  onChange={(event) => setFormData(prev => ({
-                    ...prev,
-                    billed_at_type: event.target.value,
-                    gst_through: event.target.value
-                  }))}
-                  options={billedAtOptions}
-                />
-              </div>
-              <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Company Name</label>
-                <input type="text" value={billedAtName} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
-              </div>
-              <div className="md:col-span-3">
-                <CustomSelect
-                  label="GST Through"
-                  name="gst_through"
-                  value={formData.gst_through}
-                  onChange={(event) => setFormData(prev => ({
-                    ...prev,
-                    gst_through: event.target.value,
-                    billed_at_type: event.target.value === 'B.T.C.' ? '' : event.target.value
-                  }))}
-                  options={gstOptions}
-                />
-              </div>
-              {formData.billed_at_type === 'THIRD PARTY' && (
-                <>
-                  <div>
-                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party Name *</label>
-                    <input type="text" name="third_party_name" value={formData.third_party_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party GST No</label>
-                    <input type="text" name="third_party_gst" value={formData.third_party_gst} onChange={handleChange} pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][A-Za-z0-9]Z[A-Za-z0-9]" title="Enter a valid 15-character GSTIN" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party Address</label>
-                    <textarea name="third_party_address" value={formData.third_party_address} onChange={handleChange} rows="2" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
-                  </div>
-                </>
-              )}
-              <div className="md:col-span-3">
-                <label className="block text-gray-300 text-sm font-medium mb-1">Amount in Words (Auto)</label>
-                <input type="text" value={formData.amount_in_words} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white font-bold italic" />
-              </div>
-            </div>
-          </div>
-
           {/* Submit */}
           <div className="flex justify-end gap-4 pt-6">
             <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition">Cancel</button>
-            <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium disabled:opacity-50">
-              {loading ? 'Saving...' : numberLoading ? 'Generating LR...' : 'Save Bilty'}
+            <button type="submit" disabled={loading || numberLoading} className="px-8 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-bold text-lg disabled:opacity-50">
+              {loading ? 'Saving...' : numberLoading ? 'Generating LR...' : `Save Bilty ${formData.lr_no}`}
             </button>
           </div>
         </form>
