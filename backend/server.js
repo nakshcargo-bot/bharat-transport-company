@@ -72,6 +72,22 @@ async function addColumnIfNotExists(table, column, definition) {
   }
 }
 
+async function widenColumnToText(table, column) {
+  try {
+    const result = await pool.query(
+      `SELECT data_type
+       FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2`,
+      [table, column]
+    );
+    if (result.rows.length === 0 || result.rows[0].data_type === 'text') return;
+    await pool.query(`ALTER TABLE "${table}" ALTER COLUMN "${column}" TYPE TEXT`);
+    console.log(`  ✅ Widened ${table}.${column} to TEXT`);
+  } catch (err) {
+    console.error(`  ⚠️ Unable to widen ${table}.${column} to TEXT:`, err.message);
+  }
+}
+
 async function runMigrations() {
   console.log('🏃 Running database migrations...');
   const tables = [
@@ -300,6 +316,44 @@ async function runMigrations() {
   await addColumnIfNotExists('rate_contracts', 'is_active', 'BOOLEAN DEFAULT TRUE');
   await addColumnIfNotExists('trips', 'status', "TEXT DEFAULT 'Planning'");
   await addColumnIfNotExists('manifests', 'status', "TEXT DEFAULT 'Created'");
+
+  const varcharColumns = [
+    ['bills', 'bill_to_name'],
+    ['bills', 'bill_to_gstin'],
+    ['bills', 'consignor_name'],
+    ['bills', 'consignor_address'],
+    ['bills', 'consignee_name'],
+    ['bills', 'consignee_address'],
+    ['bills', 'vehicle_no'],
+    ['bills', 'remarks'],
+    ['bill_book', 'bill_to_name'],
+    ['bill_book', 'bill_to_gstin'],
+    ['bill_book', 'party_name'],
+    ['bill_book', 'party_gst'],
+    ['bill_book', 'party_address'],
+    ['bill_book', 'consignor_name'],
+    ['bill_book', 'consignee_name'],
+    ['bill_book', 'consignor_address'],
+    ['bill_book', 'consignee_address'],
+    ['bill_book', 'from_name'],
+    ['bill_book', 'to_name'],
+    ['bill_book', 'vehicle_no'],
+    ['bill_book', 'remarks'],
+    ['bill_items', 'from_name'],
+    ['bill_items', 'to_name'],
+    ['consignments', 'consignor_address'],
+    ['consignments', 'consignee_address'],
+    ['consignments', 'from_name'],
+    ['consignments', 'to_name'],
+    ['consignments', 'delivery_godown'],
+    ['consignments', 'delivery_godown_address'],
+    ['consignments', 'pickup_address'],
+    ['consignments', 'description'],
+    ['consignments', 'private_marks']
+  ];
+  for (const [table, column] of varcharColumns) {
+    await widenColumnToText(table, column);
+  }
 
   console.log('✅ All migrations completed');
 }

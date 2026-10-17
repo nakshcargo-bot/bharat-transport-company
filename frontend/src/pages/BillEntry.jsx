@@ -782,6 +782,24 @@ export default function BillEntry() {
             <input type="text" value={billData.remarks} onChange={(e) => setBillData({...billData, remarks: e.target.value})} className="remarks-input" placeholder="Enter remarks here..." />
           </div>
 
+          {/* SIGNATURE FOOTER - DO NOT REMOVE */}
+          <div className="mt-8 pt-6 border-t-2 border-gray-800 grid grid-cols-3 gap-4 text-center text-sm">
+            <div>
+              <div className="h-16"></div>
+              <div className="border-t border-black pt-2 font-bold">Customer Signature / Stamp</div>
+            </div>
+            <div>
+              <div className="h-16"></div>
+              <div className="border-t border-black pt-2 font-bold">Driver Signature</div>
+            </div>
+            <div className="text-center">
+              <div className="font-bold">For BHARAT TRANSPORT COMPANY</div>
+              <div className="h-12 flex items-center justify-center text-[10px] text-gray-500">[Stamp Image Here]</div>
+              <div className="border-t border-black pt-2 font-bold mt-2">Authorized Signatory</div>
+              <div className="text-xs mt-1">BHARAT TRANSPORT COMPANY</div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
