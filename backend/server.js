@@ -208,6 +208,14 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'transporter_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'eway_valid_upto', 'DATE');
   await addColumnIfNotExists('consignments', 'no_of_packages', 'TEXT');
+  await addColumnIfNotExists('consignments', 'actual_weight', 'TEXT');
+  await addColumnIfNotExists('consignments', 'charged_weight', 'TEXT');
+  await addColumnIfNotExists('consignments', 'length', 'TEXT');
+  await addColumnIfNotExists('consignments', 'width', 'TEXT');
+  await addColumnIfNotExists('consignments', 'height', 'TEXT');
+  await addColumnIfNotExists('consignments', 'package_type', 'TEXT');
+  await addColumnIfNotExists('consignments', 'no_of_pkgs_dimension', 'TEXT');
+  await addColumnIfNotExists('consignments', 'total_cft', 'TEXT');
   await addColumnIfNotExists('consignments', 'description', 'TEXT');
   await addColumnIfNotExists('consignments', 'cft_cmt', 'TEXT');
   await addColumnIfNotExists('consignments', 'material_charges', 'TEXT');
@@ -792,6 +800,12 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
       ...requestData
     } = req.body;
     const c = { ...requestData };
+    if ((!c.actual_weight || Number(c.actual_weight) === 0) && c.act_wt != null) c.actual_weight = c.act_wt;
+    if ((!c.charged_weight || Number(c.charged_weight) === 0) && c.chg_wt != null) c.charged_weight = c.chg_wt;
+    delete c.act_wt;
+    delete c.chg_wt;
+    if (!c.method_of_packing && c.package_type) c.method_of_packing = c.package_type;
+    if (!c.package_type && c.method_of_packing) c.package_type = c.method_of_packing;
     if (!c.lorry_no && vehicle_no) c.lorry_no = vehicle_no;
     if (!c.consignor_code && customer_code_consignor) c.consignor_code = customer_code_consignor;
     if (!c.consignee_code && customer_code_consignee) c.consignee_code = customer_code_consignee;
@@ -849,6 +863,8 @@ app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at; data.updated_at = new Date().toISOString();
     const columnAliases = {
       vehicle_no: 'lorry_no',
+      act_wt: 'actual_weight',
+      chg_wt: 'charged_weight',
       customer_code_consignor: 'consignor_code',
       customer_code_consignee: 'consignee_code',
       basis_of_booking: 'basis_booking',
@@ -861,6 +877,8 @@ app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
         delete data[field];
       }
     }
+    if (data.package_type && !data.method_of_packing) data.method_of_packing = data.package_type;
+    if (data.method_of_packing && !data.package_type) data.package_type = data.method_of_packing;
     if (data.mr_active !== true) {
       const explicitlyDisabledMr = data.mr_active === false;
       for (const key of Object.keys(data)) {

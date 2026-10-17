@@ -54,6 +54,14 @@ const numberToWords = (num) => {
   return result + ' Only'
 }
 
+const preferStoredMeasurement = (primary, legacy) => {
+  const primaryNumber = Number(primary);
+  const legacyNumber = Number(legacy);
+  if (primary !== null && primary !== undefined && primary !== '' && primaryNumber !== 0) return primary;
+  if (legacy !== null && legacy !== undefined && legacy !== '' && legacyNumber !== 0) return legacy;
+  return primary ?? legacy ?? 0;
+};
+
 export default function BiltyEntry() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -74,7 +82,7 @@ export default function BiltyEntry() {
     consignee_name: '', consignee_address: '', consignee_gst: '', consignee_mobile: '', customer_code_consignee: '',
     invoice_no: '', invoice_date: '', po_no: '', po_date: '',
     vehicle_no: '', driver_name: '', driver_mobile: '',
-    no_of_packages: 0, method_of_packing: '', hsn_code: '', description: '', actual_weight: 0, charged_weight: 0, rate: 0, distance: 0,
+    no_of_packages: 0, method_of_packing: '', package_type: '', hsn_code: '', description: '', actual_weight: 0, charged_weight: 0, rate: 0, distance: 0,
     length: 0, width: 0, height: 0, no_of_pkgs_dimension: 0, total_cft_cmt: 0,
     private_marks: '', mr_no: '', mr_date: '', mr_amount: 0, load_type: 'Part Load',
     freight: 0, aoc_amount: 0, eov_charges: 0, cover_charges: 0, material_mgmt_ch: 0,
@@ -107,6 +115,14 @@ export default function BiltyEntry() {
         setFormData(previous => ({
           ...previous,
           ...savedData,
+          actual_weight: preferStoredMeasurement(savedData.actual_weight, savedData.act_wt),
+          charged_weight: preferStoredMeasurement(savedData.charged_weight, savedData.chg_wt),
+          length: preferStoredMeasurement(savedData.length, savedData.l),
+          width: preferStoredMeasurement(savedData.width, savedData.w),
+          height: preferStoredMeasurement(savedData.height, savedData.h),
+          method_of_packing: savedData.method_of_packing || savedData.package_type || '',
+          package_type: savedData.package_type || savedData.method_of_packing || '',
+          total_cft_cmt: preferStoredMeasurement(savedData.total_cft_cmt, savedData.total_cft ?? savedData.cft_cmt),
           lr_date: savedData.lr_date ? formatDateForInput(savedData.lr_date) : previous.lr_date,
           invoice_date: savedData.invoice_date ? formatDateForInput(savedData.invoice_date) : '',
           po_date: savedData.po_date ? formatDateForInput(savedData.po_date) : '',
@@ -185,6 +201,10 @@ export default function BiltyEntry() {
     if (name === 'lr_no') setLrError('')
     setFormData(prev => {
       const newData = { ...prev, [name]: value }
+      if (name === 'method_of_packing' || name === 'package_type') {
+        newData.method_of_packing = value
+        newData.package_type = value
+      }
       if (name === 'charged_weight' || name === 'rate') {
         const w = parseFloat(name === 'charged_weight' ? value : prev.charged_weight) || 0
         const r = parseFloat(name === 'rate' ? value : prev.rate) || 0
@@ -250,6 +270,7 @@ export default function BiltyEntry() {
       const { from_code: _fromCode, aoc_percent: _aocPercent, ...payloadData } = formData
       const payload = {
         ...payloadData,
+        package_type: formData.package_type || formData.method_of_packing,
         bill_to_party: formData.bill_to_party,
         billed_at_type: formData.bill_to_party,
         third_party_gstin: formData.third_party_gstin,

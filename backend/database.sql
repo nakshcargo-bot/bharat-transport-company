@@ -213,6 +213,7 @@ CREATE TABLE IF NOT EXISTS consignments (
     -- Package
     no_of_packages INTEGER,
     method_of_packing VARCHAR(50),
+    package_type TEXT,
     hsn_code VARCHAR(20),
     description TEXT,
     actual_weight NUMERIC(10,2),

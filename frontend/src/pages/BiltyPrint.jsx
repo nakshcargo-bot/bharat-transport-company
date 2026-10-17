@@ -5,6 +5,14 @@ import api from '../api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com';
 
+const preferredMeasurement = (primary, legacy) => {
+  const primaryNumber = Number(primary);
+  const legacyNumber = Number(legacy);
+  if (primary !== null && primary !== undefined && primary !== '' && primaryNumber !== 0) return primary;
+  if (legacy !== null && legacy !== undefined && legacy !== '' && legacyNumber !== 0) return legacy;
+  return primary ?? legacy ?? 0;
+};
+
 const BiltyPrint = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -65,7 +73,17 @@ const BiltyPrint = () => {
       const res = await axios.get(`${API_URL}/api/consignments/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setData(res.data);
+      const bilty = res.data;
+      setData({
+        ...bilty,
+        actual_weight: preferredMeasurement(bilty.actual_weight, bilty.act_wt),
+        charged_weight: preferredMeasurement(bilty.charged_weight, bilty.chg_wt),
+        length: preferredMeasurement(bilty.length, bilty.l),
+        width: preferredMeasurement(bilty.width, bilty.w),
+        height: preferredMeasurement(bilty.height, bilty.h),
+        method_of_packing: bilty.method_of_packing || bilty.package_type || '',
+        total_cft: preferredMeasurement(bilty.total_cft, bilty.total_cft_cmt ?? bilty.cft_cmt)
+      });
       setLoading(false);
     } catch (err) {
       console.error('Error fetching bilty:', err);
@@ -193,7 +211,7 @@ const BiltyPrint = () => {
           </tr></thead>
           <tbody><tr>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.no_of_packages}</td>
-            <td className="border border-black p-1 text-center text-xs font-bold">{data.method_of_packing}</td>
+            <td className="border border-black p-1 text-center text-xs font-bold">{data.method_of_packing || data.package_type}</td>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.hsn_code}</td>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.actual_weight}</td>
             <td className="border border-black p-1 text-center text-xs font-bold">{data.charged_weight}</td>
@@ -216,7 +234,7 @@ const BiltyPrint = () => {
                 <td className="border-r border-black p-1 text-center text-xs font-bold">{data.length}</td>
                 <td className="border-r border-black p-1 text-center text-xs font-bold">{data.width}</td>
                 <td className="border-r border-black p-1 text-center text-xs font-bold">{data.height}</td>
-                <td className="p-1 text-center text-xs font-bold">{data.total_cft}</td>
+                <td className="p-1 text-center text-xs font-bold">{data.total_cft || data.total_cft_cmt || data.cft_cmt}</td>
               </tr></tbody></table>
             </div>
             <div className="border border-black p-2 mb-2 relative bg-white">
@@ -288,18 +306,6 @@ const BiltyPrint = () => {
 
         <div className="mt-2 pt-1 text-[10px] border-t border-black">
           • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
-        </div>
-        <div className="mt-8 pt-6 border-t-2 border-gray-800 grid grid-cols-2 gap-4 text-center text-sm">
-          <div>
-            <div className="h-16"></div>
-            <div className="border-t border-black pt-2 font-bold">Customer Signature / Stamp</div>
-          </div>
-          <div className="text-center">
-            <div className="font-bold">For BHARAT TRANSPORT COMPANY</div>
-            <div className="h-12 flex items-center justify-center text-[10px] text-gray-500">[Stamp Image Here]</div>
-            <div className="border-t border-black pt-2 font-bold mt-2">Authorized Signatory</div>
-            <div className="text-xs mt-1">BHARAT TRANSPORT COMPANY</div>
-          </div>
         </div>
       </div>
     </div>
