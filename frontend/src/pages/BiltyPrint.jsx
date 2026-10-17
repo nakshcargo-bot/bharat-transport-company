@@ -289,6 +289,11 @@ const BiltyPrint = () => {
         <div className="mt-2 pt-1 text-[10px] border-t border-black">
           • Rajgarh (Churu) Jurisdiction. • Owner's risk. • No claim after delivery.
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', borderTop: '1px solid #ccc', paddingTop: '20px' }}>
+          <span>Customer Signature</span>
+          <span>Driver Signature</span>
+          <span>For BHARAT TRANSPORT COMPANY<br /><br />Authorized Signatory</span>
+        </div>
       </div>
     </div>
   );

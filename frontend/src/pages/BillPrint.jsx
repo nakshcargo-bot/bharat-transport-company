@@ -343,6 +343,11 @@ const BillPrint = () => {
           </div>
         )}
 
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', borderTop: '1px solid #ccc', paddingTop: '20px' }}>
+          <span>Customer Signature</span>
+          <span>Driver Signature</span>
+          <span>For BHARAT TRANSPORT COMPANY<br /><br />Authorized Signatory</span>
+        </div>
       </div>
       ))}
 
