@@ -53,7 +53,7 @@ const BRANCH_RECORD_ROUTES = [
 const BRANCH_ROUTE_PATTERNS = [
   /^\/api\/dashboard\/recent$/,
   /^\/api\/dashboard\/top-parties$/,
-  /^\/api\/consignments(?:\/\d+)?$/,
+  /^\/api\/consignments(?:\/next-number|\/\d+)?$/,
   /^\/api\/pod$/,
   /^\/api\/ledger(?:\/[^/]+)?$/,
   /^\/api\/outstanding$/,

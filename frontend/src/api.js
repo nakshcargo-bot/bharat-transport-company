@@ -109,6 +109,7 @@ export const itemAPI = {
 // ============================================
 export const biltyAPI = {
   getAll: (params) => api.get('/api/consignments', { params }),
+  getNextNumber: () => api.get('/api/consignments/next-number'),
   getOne: (lr_no) => api.get(`/api/consignments/${lr_no}`),
   create: (data) => api.post('/api/consignments', data),
   update: (id, data) => api.put(`/api/consignments/${id}`, data),

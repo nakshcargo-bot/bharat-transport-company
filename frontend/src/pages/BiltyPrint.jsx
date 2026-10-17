@@ -232,7 +232,7 @@ const BiltyPrint = () => {
               <strong className="text-xs block mb-2 underline" style={{ color: 'var(--primary-color, #000)' }}>BASIS OF BOOKING:</strong>
               <div className="flex items-start gap-2 mb-2">
                 <span className="text-[10px] font-bold mt-1 whitespace-nowrap">Bill M/s:</span>
-                <div className="flex-1 text-xs font-bold border-b border-dotted border-gray-600">{data.basis_party}</div>
+                <div className="flex-1 text-xs font-bold border-b border-dotted border-gray-600">{data.billed_at || data.basis_party}</div>
               </div>
               <div className="flex justify-between flex-nowrap text-xs font-black mt-2 border-t border-dashed border-gray-600 pt-2 gap-2">
                 <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" name={`basis_${copyLabel}`} checked={data.basis_booking === 'TO PAY'} readOnly /> TO PAY</label>

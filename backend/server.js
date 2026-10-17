@@ -196,6 +196,34 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'cft_cmt', 'TEXT');
   await addColumnIfNotExists('consignments', 'material_charges', 'TEXT');
   await addColumnIfNotExists('consignments', 'door_delivery', 'TEXT');
+  await addColumnIfNotExists('consignments', 'from_code', 'TEXT');
+  await addColumnIfNotExists('consignments', 'to_code', 'TEXT');
+  await addColumnIfNotExists('consignments', 'unloading_party_mobile', 'TEXT');
+  await addColumnIfNotExists('consignments', 'delivery_godown_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'pickup_address', 'TEXT');
+  await addColumnIfNotExists('consignments', 'consignor_mobile', 'TEXT');
+  await addColumnIfNotExists('consignments', 'consignee_mobile', 'TEXT');
+  await addColumnIfNotExists('consignments', 'po_date', 'TEXT');
+  await addColumnIfNotExists('consignments', 'rate', 'TEXT');
+  await addColumnIfNotExists('consignments', 'distance', 'TEXT');
+  await addColumnIfNotExists('consignments', 'no_of_pkgs_dimension', 'TEXT');
+  await addColumnIfNotExists('consignments', 'private_marks', 'TEXT');
+  await addColumnIfNotExists('consignments', 'load_type', 'TEXT');
+  await addColumnIfNotExists('consignments', 'aoc_amount', 'TEXT');
+  await addColumnIfNotExists('consignments', 'eov_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'cover_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'pass_cc_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'enroute_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'statistical_charges', 'TEXT');
+  await addColumnIfNotExists('consignments', 'billed_at', 'TEXT');
+  await addColumnIfNotExists('consignments', 'billed_at_type', 'TEXT');
+  await addColumnIfNotExists('consignments', 'gst_through', 'TEXT');
+  await addColumnIfNotExists('consignments', 'amount_in_words', 'TEXT');
+  await addColumnIfNotExists('consignments', 'insurance_status', 'TEXT');
+  await addColumnIfNotExists('consignments', 'insurance_date', 'TEXT');
+  await addColumnIfNotExists('consignments', 'third_party_name', 'TEXT');
+  await addColumnIfNotExists('consignments', 'third_party_gst', 'TEXT');
+  await addColumnIfNotExists('consignments', 'third_party_address', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_party_name', 'TEXT');
   await addColumnIfNotExists('consignments', 'mr_active', 'BOOLEAN DEFAULT false');
   await addColumnIfNotExists('consignments', 'mr_amount', 'NUMERIC DEFAULT 0');
@@ -610,16 +638,13 @@ app.post('/api/branch/login', (req, res) => {
 // ==========================================
 // CONSIGNMENTS
 // ==========================================
-async function generateBiltyNo(branchCode) {
-  const year = String(new Date().getFullYear()).slice(-2);
-  const prefix = branchCode || 'BTC';
-  const result = await pool.query(`SELECT lr_no FROM consignments WHERE lr_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`${prefix}/${year}/%`]);
-  let nextSerial = 1;
-  if (result.rows.length > 0 && result.rows[0].lr_no) {
-    const parts = result.rows[0].lr_no.split('/');
-    if (parts.length === 3) nextSerial = parseInt(parts[2]) + 1;
-  }
-  return `${prefix}/${year}/${String(nextSerial).padStart(4, '0')}`;
+async function generateBiltyNo(db = pool) {
+  const result = await db.query(
+    `SELECT COALESCE(MAX(((regexp_match(lr_no, '([0-9]+)$'))[1])::BIGINT), 0) AS max_serial
+     FROM consignments WHERE lr_no ~ '[0-9]+$'`
+  );
+  const nextSerial = BigInt(result.rows[0].max_serial || 0) + 1n;
+  return `BTC-${String(nextSerial).padStart(5, '0')}`;
 }
 
 app.get('/api/consignments/track', async (req, res) => {
@@ -629,6 +654,12 @@ app.get('/api/consignments/track', async (req, res) => {
     const result = await pool.query('SELECT lr_no, lr_date, from_name, to_name, consignor_name, consignee_name, status, pod_status, branch_code FROM consignments WHERE lr_no = $1', [lr_no]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Bilty not found' });
     res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/consignments/next-number', authMiddleware, async (req, res) => {
+  try {
+    res.json({ lr_no: await generateBiltyNo() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -658,8 +689,26 @@ app.get('/api/consignments/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/consignments', authMiddleware, async (req, res) => {
+  let client;
+  let transactionStarted = false;
   try {
-    const c = { ...req.body };
+    client = await pool.connect();
+    const {
+      vehicle_no,
+      customer_code_consignor,
+      customer_code_consignee,
+      basis_of_booking,
+      total_cft_cmt,
+      insurance_policy_no,
+      ...requestData
+    } = req.body;
+    const c = { ...requestData };
+    if (!c.lorry_no && vehicle_no) c.lorry_no = vehicle_no;
+    if (!c.consignor_code && customer_code_consignor) c.consignor_code = customer_code_consignor;
+    if (!c.consignee_code && customer_code_consignee) c.consignee_code = customer_code_consignee;
+    if (!c.basis_booking && basis_of_booking) c.basis_booking = basis_of_booking;
+    if (!c.total_cft && total_cft_cmt) c.total_cft = total_cft_cmt;
+    if (!c.policy_no && insurance_policy_no) c.policy_no = insurance_policy_no;
     if (c.mr_active !== true) {
       for (const key of Object.keys(c)) {
         if (key.startsWith('mr_')) delete c[key];
@@ -667,16 +716,30 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     }
     if (!c.branch_id) c.branch_id = req.user.branch_id;
     if (!c.branch_code && req.user.branch_code) c.branch_code = req.user.branch_code;
-    if (!c.lr_no) c.lr_no = await generateBiltyNo(c.branch_code);
     if (!c.status) c.status = 'Booked';
     if (!c.payment_status) c.payment_status = c.basis_booking === 'PAID' ? 'Paid' : 'Unpaid';
     if (!c.created_by) c.created_by = req.user.username;
     if (!c.lr_date) c.lr_date = new Date().toISOString().split('T')[0];
+    if (!c.eway_valid_upto) c.eway_valid_upto = null;
+    await client.query('BEGIN');
+    transactionStarted = true;
+    await client.query('SELECT pg_advisory_xact_lock($1)', [823741905]);
+    c.lr_no = await generateBiltyNo(client);
     const keys = Object.keys(c); const values = Object.values(c);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await pool.query(`INSERT INTO consignments (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    const result = await client.query(`INSERT INTO consignments (${keys.join(', ')}) VALUES (${placeholders}) RETURNING *`, values);
+    await client.query('COMMIT');
+    transactionStarted = false;
     res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if (transactionStarted) {
+      try { await client.query('ROLLBACK'); }
+      catch (rollbackErr) { console.error('Consignment transaction rollback failed:', rollbackErr.message); }
+    }
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
+  }
 });
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {

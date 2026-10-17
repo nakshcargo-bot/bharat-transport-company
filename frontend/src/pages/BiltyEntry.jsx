@@ -78,6 +78,8 @@ const numberToWords = (num) => {
 export default function BiltyEntry() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [numberLoading, setNumberLoading] = useState(true)
+  const [numberError, setNumberError] = useState(false)
   const [mrActive, setMrActive] = useState(false)
   const [customers, setCustomers] = useState([])
 
@@ -95,7 +97,8 @@ export default function BiltyEntry() {
     collection_charges: 0, door_dly_charges: 0, pass_cc_charges: 0, enroute_charges: 0,
     statistical_charges: 0, misc_charges: 0, grand_total: 0,
     eway_bill_no: '', eway_valid_upto: '',
-    declared_value: 0, basis_of_booking: '', billed_at: '', gst_through: '', amount_in_words: '',
+    declared_value: 0, basis_of_booking: '', billed_at_type: '', billed_at: '', gst_through: '', amount_in_words: '',
+    third_party_name: '', third_party_gst: '', third_party_address: '',
     insurance_status: 'Not Insured', insurance_company: '', insurance_policy_no: '', insurance_date: '', insurance_amount: 0,
     created_by: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username || 'Admin' : 'Admin'
   })
@@ -112,22 +115,23 @@ export default function BiltyEntry() {
     } catch (err) { console.error('Failed to load customers') }
   }
 
-   const generateLRNo = async () => {
+  const generateLRNo = async () => {
+    setNumberLoading(true)
+    setNumberError(false)
     try {
-      const res = await biltyAPI.getAll()
-      const year = new Date().getFullYear().toString().slice(-2)
-      const thisYearLRs = res.data
-        .filter(item => item.lr_no && item.lr_no.startsWith(`BTC/${year}/`))
-        .map(item => {
-          const parts = item.lr_no.split('/')
-          return parseInt(parts[2]) || 0
-        })
-      const maxNum = thisYearLRs.length > 0 ? Math.max(...thisYearLRs) : 0
-      const nextNum = maxNum + 1
-      setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` }))
+      const response = await biltyAPI.getNextNumber()
+      const nextLrNo = response.data?.lr_no || response.data?.data?.lr_no
+      if (typeof nextLrNo !== 'string' || !/^BTC-\d{5,}$/.test(nextLrNo)) {
+        throw new Error('The server returned an invalid LR number')
+      }
+      setFormData(prev => ({ ...prev, lr_no: nextLrNo }))
     } catch (err) {
       console.error('LR No generate error:', err)
-      toast.error('Unable to generate the next LR number. Check the connection or enter one manually.')
+      setFormData(prev => ({ ...prev, lr_no: '' }))
+      setNumberError(true)
+      toast.error('Unable to generate the next LR number. Please retry before saving.')
+    } finally {
+      setNumberLoading(false)
     }
   }
 
@@ -196,21 +200,29 @@ export default function BiltyEntry() {
       toast.error('Consignor और Consignee का नाम required है')
       return
     }
-    const requiredFields = [
-      ['eway_bill_no', 'E-Way Bill Number'],
-      ['declared_value', 'Declared Value'],
-      ['basis_of_booking', 'Basis of Booking'],
-      ['billed_at', 'Billed at'],
-      ['gst_through', 'GST Through']
-    ]
-    const missingField = requiredFields.find(([field]) => !String(formData[field] ?? '').trim())
-    if (missingField) {
-      toast.error(`${missingField[1]} is required`)
+    if (!formData.lr_no) {
+      toast.error('LR number is still generating. Please retry before saving.')
+      return
+    }
+    if (formData.billed_at_type === 'THIRD PARTY' && !formData.third_party_name.trim()) {
+      toast.error('Third Party Name is required')
+      return
+    }
+    if (formData.billed_at_type === 'THIRD PARTY' && formData.third_party_gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/i.test(formData.third_party_gst.trim())) {
+      toast.error('Enter a valid GSTIN for the Third Party')
       return
     }
     setLoading(true)
     try {
-      const payload = { ...formData }
+      const billedAt = formData.billed_at_type === 'CONSIGNOR'
+        ? formData.consignor_name
+        : formData.billed_at_type === 'CONSIGNEE'
+          ? formData.consignee_name
+          : formData.billed_at_type === 'THIRD PARTY'
+            ? formData.third_party_name
+            : ''
+      const payload = { ...formData, billed_at: billedAt }
+      payload.eway_valid_upto = payload.eway_valid_upto || null
       if (mrActive) {
         payload.mr_active = true
         payload.mr_date = payload.mr_date || null
@@ -220,7 +232,7 @@ export default function BiltyEntry() {
         }
       }
       await biltyAPI.create(payload)
-      toast.success('Bilty successfully created!')
+      toast.success('Bilty Saved Successfully')
       navigate('/consignments')
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create bilty'
@@ -245,8 +257,22 @@ export default function BiltyEntry() {
     { value: '', label: 'Select' },
     { value: 'CONSIGNOR', label: 'CONSIGNOR' },
     { value: 'CONSIGNEE', label: 'CONSIGNEE' },
+    { value: 'THIRD PARTY', label: 'THIRD PARTY' },
     { value: 'B.T.C.', label: 'B.T.C.' }
   ]
+  const billedAtOptions = [
+    { value: '', label: 'Select' },
+    { value: 'CONSIGNOR', label: 'CONSIGNOR' },
+    { value: 'CONSIGNEE', label: 'CONSIGNEE' },
+    { value: 'THIRD PARTY', label: 'THIRD PARTY' }
+  ]
+  const billedAtName = formData.billed_at_type === 'CONSIGNOR'
+    ? formData.consignor_name
+    : formData.billed_at_type === 'CONSIGNEE'
+      ? formData.consignee_name
+      : formData.billed_at_type === 'THIRD PARTY'
+        ? formData.third_party_name
+        : ''
   const loadTypeOptions = [
     { value: 'Full Load', label: 'Full Load' },
     { value: 'Part Load', label: 'Part Load' }
@@ -275,7 +301,10 @@ export default function BiltyEntry() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Number *</label>
-                <input type="text" name="lr_no" value={formData.lr_no} onChange={handleChange} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
+                <div className="flex gap-2">
+                  <input type="text" name="lr_no" value={formData.lr_no} readOnly required placeholder={numberLoading ? 'Generating...' : 'LR number unavailable'} className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
+                  {numberError && <button type="button" onClick={generateLRNo} className="px-3 py-2 bg-white/10 text-white rounded-lg">Retry</button>}
+                </div>
               </div>
               <div>
                 <label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label>
@@ -637,12 +666,51 @@ export default function BiltyEntry() {
                 <input type="text" name="basis_of_booking" value={formData.basis_of_booking} onChange={handleChange} placeholder="(1) To Pay (2) To Be (3) Paid" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
               </div>
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-1">Billed at with M/s</label>
-                <input type="text" name="billed_at" value={formData.billed_at} onChange={handleChange} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                <CustomSelect
+                  label="Billed at with M/s"
+                  name="billed_at_type"
+                  value={formData.billed_at_type}
+                  onChange={(event) => setFormData(prev => ({
+                    ...prev,
+                    billed_at_type: event.target.value,
+                    gst_through: event.target.value
+                  }))}
+                  options={billedAtOptions}
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm font-medium mb-1">Company Name</label>
+                <input type="text" value={billedAtName} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white" />
               </div>
               <div className="md:col-span-3">
-                <CustomSelect label="GST Through" name="gst_through" value={formData.gst_through} onChange={handleChange} options={gstOptions} />
+                <CustomSelect
+                  label="GST Through"
+                  name="gst_through"
+                  value={formData.gst_through}
+                  onChange={(event) => setFormData(prev => ({
+                    ...prev,
+                    gst_through: event.target.value,
+                    billed_at_type: event.target.value === 'B.T.C.' ? '' : event.target.value
+                  }))}
+                  options={gstOptions}
+                />
               </div>
+              {formData.billed_at_type === 'THIRD PARTY' && (
+                <>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party Name *</label>
+                    <input type="text" name="third_party_name" value={formData.third_party_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party GST No</label>
+                    <input type="text" name="third_party_gst" value={formData.third_party_gst} onChange={handleChange} pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][A-Za-z0-9]Z[A-Za-z0-9]" title="Enter a valid 15-character GSTIN" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="block text-gray-300 text-sm font-medium mb-1">Third Party Address</label>
+                    <textarea name="third_party_address" value={formData.third_party_address} onChange={handleChange} rows="2" className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" />
+                  </div>
+                </>
+              )}
               <div className="md:col-span-3">
                 <label className="block text-gray-300 text-sm font-medium mb-1">Amount in Words (Auto)</label>
                 <input type="text" value={formData.amount_in_words} readOnly className="w-full px-4 py-2 bg-white/10 border border-white/10 rounded-lg text-white font-bold italic" />
@@ -653,8 +721,8 @@ export default function BiltyEntry() {
           {/* Submit */}
           <div className="flex justify-end gap-4 pt-6">
             <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition">Cancel</button>
-            <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium disabled:opacity-50">
-              {loading ? 'Saving...' : 'Save Bilty'}
+            <button type="submit" disabled={loading || numberLoading || !formData.lr_no} className="px-6 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium disabled:opacity-50">
+              {loading ? 'Saving...' : numberLoading ? 'Generating LR...' : 'Save Bilty'}
             </button>
           </div>
         </form>
