@@ -33,14 +33,18 @@ export default function MR() {
     try {
       const token = localStorage.getItem('token')
       const apiUrl = 'https://bharat-transport-api.onrender.com'
-      await fetch(`${apiUrl}/api/mr/${id}`, {
+      const response = await fetch(`${apiUrl}/api/mr/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.error || 'Unable to delete MR.')
+      }
       fetchMRs()
       alert('MR deleted successfully')
     } catch (err) {
-      alert('Error deleting MR')
+      alert('Error deleting MR: ' + err.message)
     }
   }
 

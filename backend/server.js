@@ -149,6 +149,16 @@ async function runMigrations() {
   await addColumnIfNotExists('parties', 'credit_days', 'INTEGER DEFAULT 0');
   await addColumnIfNotExists('parties', 'opening_balance', 'NUMERIC DEFAULT 0');
   await addColumnIfNotExists('customers', 'is_active', 'BOOLEAN DEFAULT TRUE');
+  await addColumnIfNotExists('customers', 'mobile', 'TEXT');
+  await addColumnIfNotExists('customers', 'whatsapp', 'TEXT');
+  await addColumnIfNotExists('customers', 'city', 'TEXT');
+  await addColumnIfNotExists('customers', 'state', 'TEXT');
+  await addColumnIfNotExists('customers', 'pincode', 'TEXT');
+  await addColumnIfNotExists('customers', 'pan_no', 'TEXT');
+  await addColumnIfNotExists('customers', 'customer_type', "TEXT DEFAULT 'Cash'");
+  await addColumnIfNotExists('customers', 'credit_limit', 'NUMERIC DEFAULT 0');
+  await addColumnIfNotExists('customers', 'credit_days', 'INTEGER DEFAULT 0');
+  await addColumnIfNotExists('customers', 'opening_balance', 'NUMERIC DEFAULT 0');
   await addColumnIfNotExists('drivers', 'status', "TEXT DEFAULT 'Active'");
   await addColumnIfNotExists('drivers', 'phone', 'TEXT');
   await addColumnIfNotExists('vehicles', 'status', "TEXT DEFAULT 'Active'");
@@ -1049,28 +1059,186 @@ app.get('/api/mr/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/mr', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  let transactionStarted = false;
   try {
     const { mr_no, mr_date, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks } = req.body;
+    const paymentAmount = Number(amount);
+    if (!party_type || !party_name || !Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+      return res.status(400).json({ error: 'Party type, party name, and a positive payment amount are required.' });
+    }
+    if (bilty_id && bill_id) {
+      return res.status(400).json({ error: 'Link a receipt to either a Bilty or a Bill, not both.' });
+    }
+
+    await client.query('BEGIN');
+    transactionStarted = true;
+    await client.query('SELECT pg_advisory_xact_lock(260627002)');
+
+    let outstanding;
+    let linkedDocument;
+    if (bilty_id) {
+      const result = await client.query(
+        `SELECT id, lr_no, COALESCE(NULLIF(grand_total, ''), '0')::NUMERIC AS grand_total, payment_status
+         FROM consignments WHERE id = $1 FOR UPDATE`,
+        [bilty_id]
+      );
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+        return res.status(404).json({ error: 'Linked Bilty not found.' });
+      }
+      linkedDocument = result.rows[0];
+      const payments = await client.query(
+        'SELECT COALESCE(SUM(amount), 0) AS total FROM money_receipts WHERE bilty_id = $1',
+        [bilty_id]
+      );
+      const totalReceived = Number(payments.rows[0].total);
+      outstanding = linkedDocument.payment_status === 'Paid'
+        ? 0
+        : Math.max(Number(linkedDocument.grand_total) - totalReceived, 0);
+    } else if (bill_id) {
+      const result = await client.query(
+        `SELECT id, bill_no, grand_total, advance_received, balance_due, payment_status
+         FROM bill_book WHERE id = $1 FOR UPDATE`,
+        [bill_id]
+      );
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+        return res.status(404).json({ error: 'Linked Bill not found.' });
+      }
+      linkedDocument = result.rows[0];
+      const total = Number(linkedDocument.grand_total) || 0;
+      const received = Number(linkedDocument.advance_received) || 0;
+      outstanding = linkedDocument.payment_status === 'Paid'
+        ? 0
+        : Math.max(Number(linkedDocument.balance_due ?? (total - received)), 0);
+    }
+
+    if (outstanding !== undefined && paymentAmount > outstanding + 0.005) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
+      return res.status(400).json({ error: `Payment exceeds the outstanding balance of ${outstanding.toFixed(2)}.` });
+    }
+
     let finalMRNo = mr_no;
     if (!finalMRNo || finalMRNo === 'Auto-generated') {
       const year = new Date().getFullYear().toString().slice(-2);
-      const lastMR = await pool.query(`SELECT mr_no FROM money_receipts WHERE mr_no LIKE $1 ORDER BY id DESC LIMIT 1`, [`MR/${year}/%`]);
-      let nextNum = 1;
-      if (lastMR.rows.length > 0 && lastMR.rows[0].mr_no) {
-        const parts = lastMR.rows[0].mr_no.split('/'); nextNum = parseInt(parts[2] || '0') + 1;
-      }
-      finalMRNo = `MR/${year}/${String(nextNum).padStart(4, '0')}`;
+      const lastMR = await client.query(
+        `SELECT COALESCE(MAX(SUBSTRING(mr_no FROM '/([0-9]+)$')::INTEGER), 0) AS last_serial
+         FROM money_receipts WHERE mr_no LIKE $1`,
+        [`MR/${year}/%`]
+      );
+      finalMRNo = `MR/${year}/${String(Number(lastMR.rows[0].last_serial) + 1).padStart(4, '0')}`;
     }
     const branchId = req.body.branch_id || req.user.branch_id;
-    const result = await pool.query(`INSERT INTO money_receipts (mr_no, mr_date, branch_id, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`, [finalMRNo, mr_date || new Date().toISOString().split('T')[0], branchId, party_type, party_name, bilty_id || null, bilty_lr_no || null, bill_id || null, bill_no || null, parseFloat(amount || 0), payment_mode || 'Cash', is_advance || false, remarks || '', req.user.username]);
-    if (bilty_id) await pool.query(`UPDATE consignments SET payment_status = 'Paid', mr_no = $1 WHERE id = $2`, [finalMRNo, bilty_id]);
-    if (bill_id) await pool.query(`UPDATE bill_book SET payment_status = 'Paid', mr_no = $1 WHERE id = $2`, [finalMRNo, bill_id]);
+    const result = await client.query(
+      `INSERT INTO money_receipts
+       (mr_no, mr_date, branch_id, party_type, party_name, bilty_id, bilty_lr_no, bill_id, bill_no, amount, payment_mode, is_advance, remarks, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      [finalMRNo, mr_date || new Date().toISOString().split('T')[0], branchId, party_type, party_name, bilty_id || null, bilty_lr_no || null, bill_id || null, bill_no || null, paymentAmount, payment_mode || 'Cash', is_advance || false, remarks || '', req.user.username]
+    );
+
+    if (bilty_id) {
+      const payments = await client.query(
+        'SELECT COALESCE(SUM(amount), 0) AS total FROM money_receipts WHERE bilty_id = $1',
+        [bilty_id]
+      );
+      const paid = Number(payments.rows[0].total) >= Number(linkedDocument.grand_total);
+      await client.query(
+        `UPDATE consignments SET payment_status = $1, mr_no = $2, updated_at = NOW() WHERE id = $3`,
+        [paid ? 'Paid' : 'Unpaid', finalMRNo, bilty_id]
+      );
+    }
+    if (bill_id) {
+      const newBalance = Math.max(outstanding - paymentAmount, 0);
+      const newAdvance = Math.max(Number(linkedDocument.grand_total) - outstanding, Number(linkedDocument.advance_received) || 0) + paymentAmount;
+      await client.query(
+        `UPDATE bill_book
+         SET advance_received = $1, balance_due = $2, net_balance = $2,
+             payment_status = $3, mr_no = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [newAdvance, newBalance, newBalance <= 0.005 ? 'Paid' : 'Unpaid', finalMRNo, bill_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    transactionStarted = false;
     res.json({ success: true, mr_no: finalMRNo, data: result.rows[0] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if (transactionStarted) await client.query('ROLLBACK');
+    res.status(err.code === '23505' ? 409 : 500).json({ error: err.code === '23505' ? 'MR number already exists.' : err.message });
+  } finally {
+    client.release();
+  }
 });
 app.delete('/api/mr/:id', authMiddleware, async (req, res) => {
-  try { await pool.query('DELETE FROM money_receipts WHERE id = $1', [req.params.id]); res.json({ success: true }); }
-  catch (err) { res.status(500).json({ error: err.message }); }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const receiptResult = await client.query('SELECT * FROM money_receipts WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (receiptResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'MR not found.' });
+    }
+    const receipt = receiptResult.rows[0];
+    await client.query('DELETE FROM money_receipts WHERE id = $1', [req.params.id]);
+
+    if (receipt.bill_id) {
+      const billResult = await client.query(
+        'SELECT id, grand_total, advance_received FROM bill_book WHERE id = $1 FOR UPDATE',
+        [receipt.bill_id]
+      );
+      if (billResult.rows.length > 0) {
+        const bill = billResult.rows[0];
+        const advance = Math.max((Number(bill.advance_received) || 0) - Number(receipt.amount), 0);
+        const balance = Math.max((Number(bill.grand_total) || 0) - advance, 0);
+        const lastReceipt = await client.query(
+          'SELECT mr_no FROM money_receipts WHERE bill_id = $1 ORDER BY id DESC LIMIT 1',
+          [receipt.bill_id]
+        );
+        await client.query(
+          `UPDATE bill_book
+           SET advance_received = $1, balance_due = $2, net_balance = $2,
+               payment_status = $3, mr_no = $4, updated_at = NOW()
+           WHERE id = $5`,
+          [advance, balance, balance <= 0.005 ? 'Paid' : 'Unpaid', lastReceipt.rows[0]?.mr_no || null, receipt.bill_id]
+        );
+      }
+    }
+    if (receipt.bilty_id) {
+      const biltyResult = await client.query(
+        `SELECT id, COALESCE(NULLIF(grand_total, ''), '0')::NUMERIC AS grand_total, basis_booking
+         FROM consignments WHERE id = $1 FOR UPDATE`,
+        [receipt.bilty_id]
+      );
+      if (biltyResult.rows.length > 0) {
+        const bilty = biltyResult.rows[0];
+        const payments = await client.query(
+          'SELECT COALESCE(SUM(amount), 0) AS total FROM money_receipts WHERE bilty_id = $1',
+          [receipt.bilty_id]
+        );
+        const lastReceipt = await client.query(
+          'SELECT mr_no FROM money_receipts WHERE bilty_id = $1 ORDER BY id DESC LIMIT 1',
+          [receipt.bilty_id]
+        );
+        const paidByReceipt = Number(payments.rows[0].total) >= Number(bilty.grand_total);
+        const paidAtBooking = String(bilty.basis_booking || '').trim().toLowerCase() === 'paid';
+        await client.query(
+          `UPDATE consignments SET payment_status = $1, mr_no = $2, updated_at = NOW() WHERE id = $3`,
+          [paidByReceipt || paidAtBooking ? 'Paid' : 'Unpaid', lastReceipt.rows[0]?.mr_no || null, receipt.bilty_id]
+        );
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 // ==========================================
@@ -1087,6 +1255,116 @@ app.get('/api/audit', authMiddleware, async (req, res) => {
 app.get('/api/customers', authMiddleware, async (req, res) => {
   try { const result = await pool.query('SELECT * FROM customers WHERE COALESCE(is_active, TRUE) = TRUE ORDER BY customer_name'); res.json(result.rows); }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.get('/api/customers/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM customers WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found.' });
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post('/api/customers', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const customerName = String(req.body.customer_name || req.body.name || '').trim();
+    const mobile = String(req.body.mobile || req.body.phone || '').trim();
+    if (!customerName || !mobile) {
+      return res.status(400).json({ error: 'Customer name and mobile are required.' });
+    }
+
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(260627003)');
+    let customerCode = String(req.body.customer_code || '').trim();
+    if (!customerCode) {
+      const codeResult = await client.query(
+        `SELECT COALESCE(MAX(SUBSTRING(customer_code FROM '[0-9]+$')::INTEGER), 0) AS last_serial
+         FROM customers WHERE customer_code ~ '^CUST[0-9]+$'`
+      );
+      customerCode = `CUST${String(Number(codeResult.rows[0].last_serial) + 1).padStart(4, '0')}`;
+    }
+    const result = await client.query(
+      `INSERT INTO customers
+       (customer_code, customer_name, mobile, phone, whatsapp, email, address, city, state, pincode, gst_no, pan_no, customer_type, credit_limit, credit_days, opening_balance)
+       VALUES ($1,$2,$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      [
+        customerCode,
+        customerName,
+        mobile,
+        req.body.whatsapp || mobile,
+        req.body.email || null,
+        req.body.address || null,
+        req.body.city || null,
+        req.body.state || null,
+        req.body.pincode || null,
+        req.body.gst_no || null,
+        req.body.pan_no || null,
+        req.body.customer_type || 'Cash',
+        Number(req.body.credit_limit) || 0,
+        Number(req.body.credit_days) || 0,
+        Number(req.body.opening_balance) || 0
+      ]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(err.code === '23505' ? 409 : 500).json({
+      error: err.code === '23505' ? 'Customer code already exists.' : err.message
+    });
+  } finally {
+    client.release();
+  }
+});
+app.put('/api/customers/:id', authMiddleware, async (req, res) => {
+  const fields = {
+    customer_code: req.body.customer_code,
+    customer_name: req.body.customer_name || req.body.name,
+    mobile: req.body.mobile || req.body.phone,
+    phone: req.body.mobile || req.body.phone,
+    whatsapp: req.body.whatsapp,
+    email: req.body.email,
+    address: req.body.address,
+    city: req.body.city,
+    state: req.body.state,
+    pincode: req.body.pincode,
+    gst_no: req.body.gst_no,
+    pan_no: req.body.pan_no,
+    customer_type: req.body.customer_type,
+    credit_limit: req.body.credit_limit,
+    credit_days: req.body.credit_days,
+    opening_balance: req.body.opening_balance,
+    is_active: req.body.is_active
+  };
+  const updates = Object.entries(fields).filter(([, value]) => value !== undefined);
+  if (!String(req.body.customer_name || req.body.name || '').trim() || !String(req.body.mobile || req.body.phone || '').trim()) {
+    return res.status(400).json({ error: 'Customer name and mobile are required.' });
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'No customer fields provided.' });
+
+  try {
+    const values = updates.map(([, value]) => value);
+    const assignments = updates.map(([field], index) => `${field} = $${index + 1}`);
+    const result = await pool.query(
+      `UPDATE customers SET ${assignments.join(', ')} WHERE id = $${values.length + 1} RETURNING *`,
+      [...values, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found.' });
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    res.status(err.code === '23505' ? 409 : 500).json({
+      error: err.code === '23505' ? 'Customer code already exists.' : err.message
+    });
+  }
+});
+app.delete('/api/customers/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'UPDATE customers SET is_active = FALSE WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found.' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.get('/api/gate-pass', authMiddleware, async (req, res) => {
   try {

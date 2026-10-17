@@ -83,42 +83,35 @@ export default function GadiChallan() {
     }
   }
 
-  const handleBiltyChange = async (e) => {
-    const lrNo = e.target.value
-    if (!lrNo) {
-      setFormData({
-        ...formData,
-        lr_no: '',
-        consignor_name: '',
-        consignee_name: '',
-        from_place: '',
-        to_place: '',
-        material_desc: '',
-        weight: '',
-        packages: '',
-        freight_amount: '',
-        bilty_date: ''
-      })
-      return
-    }
+  const handleBiltyChange = (e) => {
+    const lrNumbers = Array.from(e.target.selectedOptions, option => option.value)
+    const selectedBilties = biltyList.filter(bilty => lrNumbers.includes(bilty.lr_no))
+    const uniqueValues = values => [...new Set(values.filter(Boolean))].join(', ')
+    const sum = values => values.reduce((total, value) => total + (Number(value) || 0), 0)
+    const packageValues = selectedBilties.map(bilty =>
+      bilty.packages || bilty.no_of_packages || bilty.qty || ''
+    )
+    const numericPackages = packageValues.every(value => value === '' || Number.isFinite(Number(value)))
 
-    const selectedBilty = biltyList.find(b => b.lr_no === lrNo)
-    if (selectedBilty) {
-      setFormData({
-        ...formData,
-        lr_no: selectedBilty.lr_no,
-        consignor_name: selectedBilty.consignor_name || '',
-        consignee_name: selectedBilty.consignee_name || '',
-        from_place: selectedBilty.branch_code || selectedBilty.from_name || '',
-        to_place: selectedBilty.to_name || '',
-        // ✅ FIX: Check multiple field names for Material and Packages
-        material_desc: selectedBilty.material_desc || selectedBilty.description || selectedBilty.goods || '',
-        packages: selectedBilty.packages || selectedBilty.no_of_packages || selectedBilty.qty || '',
-        weight: selectedBilty.actual_weight || selectedBilty.charged_weight || '',
-        freight_amount: selectedBilty.grand_total || '',
-        bilty_date: formatDateForInput(selectedBilty.lr_date)
-      })
-    }
+    setFormData(prev => ({
+      ...prev,
+      lr_no: lrNumbers.join(', '),
+      consignor_name: uniqueValues(selectedBilties.map(bilty => bilty.consignor_name)),
+      consignee_name: uniqueValues(selectedBilties.map(bilty => bilty.consignee_name)),
+      from_place: uniqueValues(selectedBilties.map(bilty => bilty.branch_code || bilty.from_name)),
+      to_place: uniqueValues(selectedBilties.map(bilty => bilty.to_name)),
+      material_desc: uniqueValues(selectedBilties.map(bilty =>
+        bilty.material_desc || bilty.description || bilty.goods
+      )),
+      packages: numericPackages ? sum(packageValues) || '' : uniqueValues(packageValues),
+      weight: sum(selectedBilties.map(bilty =>
+        Number(bilty.actual_weight) > 0 ? bilty.actual_weight : bilty.charged_weight
+      )) || '',
+      freight_amount: sum(selectedBilties.map(bilty =>
+        Number(bilty.grand_total) > 0 ? bilty.grand_total : bilty.freight
+      )) || '',
+      bilty_date: selectedBilties[0] ? formatDateForInput(selectedBilties[0].lr_date) : ''
+    }))
   }
 
   const handleChange = (e) => {
@@ -240,21 +233,23 @@ export default function GadiChallan() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">LR Number *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">LR Number(s) *</label>
                     <select
                       name="lr_no"
-                      value={formData.lr_no}
+                      value={formData.lr_no ? formData.lr_no.split(', ') : []}
                       onChange={handleBiltyChange}
                       className="w-full border-2 border-lime-300 rounded-lg p-2.5 focus:ring-2 focus:ring-lime-500 bg-white"
+                      multiple
+                      size="5"
                       required
                     >
-                      <option value="">-- Select Bilty --</option>
                       {biltyList.map(b => (
                         <option key={b.id} value={b.lr_no}>
                           {b.lr_no} - {b.consignor_name} → {b.consignee_name} ({formatCurrency(b.grand_total)})
                         </option>
                       ))}
                     </select>
+                    <p className="text-xs text-gray-500 mt-1">Select one or more bilties (Ctrl/Cmd-click to select multiple).</p>
                   </div>
                 </div>
 
@@ -415,7 +410,7 @@ export default function GadiChallan() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="p-4 text-left font-bold text-gray-600">Challan No</th>
-                      <th className="p-4 text-left font-bold text-gray-600">LR No</th>
+                      <th className="p-4 text-left font-bold text-gray-600">LR No(s)</th>
                       <th className="p-4 text-left font-bold text-gray-600">Vehicle</th>
                       <th className="p-4 text-left font-bold text-gray-600">Driver</th>
                       <th className="p-4 text-right font-bold text-gray-600">Freight</th>

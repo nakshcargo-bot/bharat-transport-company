@@ -5,11 +5,12 @@ import { useAuth } from './AuthContext'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Consignments = lazy(() => import('./pages/Consignments'))
 const BiltyEntry = lazy(() => import('./pages/BiltyEntry'))
-const Bills = lazy(() => import('./pages/Bills'))
 const BillEntry = lazy(() => import('./pages/BillEntry'))
 const BillList = lazy(() => import('./pages/BillList'))
 const BillPrint = lazy(() => import('./pages/BillPrint'))
 const Customers = lazy(() => import('./pages/Customers'))
+const PartyList = lazy(() => import('./pages/PartyList'))
+const PartyEntry = lazy(() => import('./pages/PartyEntry'))
 const GatePass = lazy(() => import('./pages/GatePass'))
 const GadiChallan = lazy(() => import('./pages/GadiChallan'))
 const GadiChallanPrint = lazy(() => import('./pages/GadiChallanPrint'))
@@ -124,6 +125,9 @@ function App() {
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
 
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/party" element={<PrivateRoute><PartyList /></PrivateRoute>} />
+          <Route path="/party/new" element={<PrivateRoute><PartyEntry /></PrivateRoute>} />
+          <Route path="/party/edit/:id" element={<PrivateRoute><PartyEntry /></PrivateRoute>} />
           <Route path="/gate-pass" element={<PrivateRoute><GatePass /></PrivateRoute>} />
           <Route path="/gadi-challan" element={<PrivateRoute><GadiChallan /></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />

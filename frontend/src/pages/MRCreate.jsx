@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../api'
 import { formatDateForInput } from '../utils/dateFormatter'
 
 export default function MRCreate() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [biltyList, setBiltyList] = useState([])
+  const [billList, setBillList] = useState([])
   const [selectedBilty, setSelectedBilty] = useState(null)
+  const [selectedBill, setSelectedBill] = useState(null)
   
   const [formData, setFormData] = useState({
     mr_no: 'Auto-generated',
@@ -23,7 +26,17 @@ export default function MRCreate() {
 
   useEffect(() => {
     fetchBilties()
+    fetchBills()
   }, [])
+
+  const fetchBills = async () => {
+    try {
+      const response = await api.get('/api/bills')
+      setBillList((response.data?.data || []).filter(bill => bill.payment_status !== 'Paid'))
+    } catch (err) {
+      console.error('Error fetching bills:', err)
+    }
+  }
 
   const fetchBilties = async () => {
     try {
@@ -34,8 +47,20 @@ export default function MRCreate() {
       })
       if (res.ok) {
         const data = await res.json()
+        const receiptResponse = await api.get('/api/mr')
+        const receipts = receiptResponse.data?.data || []
         // Sirf Unpaid bilties dikhayenge MR ke liye
-        const unpaidBilties = (data.data || []).filter(b => b.payment_status !== 'Paid')
+        const unpaidBilties = (data.data || [])
+          .filter(bilty => bilty.payment_status !== 'Paid')
+          .map(bilty => {
+            const received = receipts
+              .filter(receipt => Number(receipt.bilty_id) === Number(bilty.id))
+              .reduce((total, receipt) => total + (Number(receipt.amount) || 0), 0)
+            return {
+              ...bilty,
+              outstanding_amount: Math.max((Number(bilty.grand_total) || 0) - received, 0)
+            }
+          })
         setBiltyList(unpaidBilties)
       }
     } catch (err) {
@@ -47,21 +72,53 @@ export default function MRCreate() {
     const biltyId = e.target.value
     if (!biltyId) {
       setSelectedBilty(null)
-      setFormData({ ...formData, bilty_id: '', bilty_lr_no: '', party_name: '', amount: '' })
+      setFormData(prev => ({
+        ...prev,
+        bilty_id: '',
+        bilty_lr_no: '',
+        ...(prev.bill_id ? {} : { party_name: '', amount: '' })
+      }))
       return
     }
     
     const bilty = biltyList.find(b => b.id === parseInt(biltyId))
     if (bilty) {
       setSelectedBilty(bilty)
-      setFormData({
-        ...formData,
+      setSelectedBill(null)
+      setFormData(prev => ({
+        ...prev,
+        bill_id: '',
+        bill_no: '',
         bilty_id: bilty.id,
         bilty_lr_no: bilty.lr_no,
         party_name: bilty.consignor_name || bilty.party_name || '',
-        amount: bilty.grand_total || '0'
-      })
+        amount: bilty.outstanding_amount.toString()
+      }))
     }
+  }
+
+  const handleBillChange = (e) => {
+    const billId = e.target.value
+    const bill = billList.find(item => String(item.id) === billId)
+    setSelectedBill(bill || null)
+    if (bill) setSelectedBilty(null)
+    setFormData(prev => ({
+      ...prev,
+      ...(bill
+        ? {
+            bilty_id: '',
+            bilty_lr_no: '',
+            bill_id: bill.id,
+            bill_no: bill.bill_no || '',
+            party_name: bill.party_name || '',
+            amount: Number(bill.balance_due ?? bill.net_balance ?? bill.grand_total ?? 0).toString()
+          }
+        : {
+            bill_id: '',
+            bill_no: '',
+            ...(prev.bilty_id ? {} : { party_name: '', amount: '' })
+          })
+    }))
   }
 
   const handleChange = (e) => {
@@ -170,11 +227,23 @@ export default function MRCreate() {
                   <option value="">-- Select Bilty --</option>
                   {biltyList.map(b => (
                     <option key={b.id} value={b.id}>
-                      {b.lr_no} - {b.consignor_name} ({formatCurrency(b.grand_total)})
+                      {b.lr_no} - {b.consignor_name} ({formatCurrency(b.outstanding_amount)} due)
                     </option>
                   ))}
                 </select>
                 {selectedBilty && <p className="text-xs text-green-600 mt-1">✔️ Linked: {selectedBilty.lr_no}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Select Bill</label>
+                <select name="bill_id" value={formData.bill_id || ''} onChange={handleBillChange} className="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="">-- Select Bill --</option>
+                  {billList.map(bill => (
+                    <option key={bill.id} value={bill.id}>
+                      {bill.bill_no} - {bill.party_name} ({formatCurrency(bill.balance_due ?? bill.net_balance ?? bill.grand_total)})
+                    </option>
+                  ))}
+                </select>
+                {selectedBill && <p className="text-xs text-green-600 mt-1">✔️ Linked: {selectedBill.bill_no}</p>}
               </div>
             </div>
 

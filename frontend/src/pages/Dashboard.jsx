@@ -107,7 +107,7 @@ export default function Dashboard() {
   const formatCurrency = (amount) => '₹' + parseFloat(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
   const s = stats || getDefaultStats()
 
-  // ✅ COMPLETE NAV MENUS - ALL 45 PAGES INCLUDED
+  // Dashboard navigation for all routable business functions.
   const navMenus = [
     { label: 'Operations', items: [
         { name: 'Bilty/LR List', path: '/consignments', icon: '📋' },
@@ -143,7 +143,8 @@ export default function Dashboard() {
       ]
     },
     { label: 'Management', items: [
-        { name: 'Parties/Customers', path: '/customers', icon: '👥' },
+        { name: 'Party Master', path: '/party', icon: '👥' },
+        { name: 'Customers', path: '/customers', icon: '🏷️' },
         { name: 'Branches', path: '/branches', icon: '🏢', adminOnly: true },
         { name: 'Users', path: '/users', icon: '👤', adminOnly: true },
         { name: 'Stock Management', path: '/stock', icon: '📦', adminOnly: true },
@@ -160,6 +161,7 @@ export default function Dashboard() {
     { label: 'Public', items: [
         { name: 'Track Bilty', path: '/track', icon: '🔍' },
         { name: 'POD Upload', path: '/pod-upload', icon: '📤' },
+        { name: 'POD View', path: '/pod-view', icon: '📦' },
       ]
     }
   ]

@@ -101,7 +101,8 @@ export default function PartyEntry() {
         setFormData(prev => ({ ...prev, customer_code: 'CUST0001' }))
       }
     } catch (err) {
-      setFormData(prev => ({ ...prev, customer_code: 'CUST0001' }))
+      console.error('Customer code generation failed:', err)
+      toast.error('Unable to load customer codes. The server will generate a code when saved.')
     }
   }
 

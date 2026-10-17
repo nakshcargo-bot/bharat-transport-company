@@ -37,7 +37,7 @@ export default function PartyList() {
 
   const filteredParties = parties.filter(p => {
     const matchesSearch = 
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
+      (p.customer_name || p.name || '').toLowerCase().includes(search.toLowerCase()) ||
       p.customer_code?.toLowerCase().includes(search.toLowerCase()) ||
       p.mobile?.includes(search) ||
       p.gst_no?.toLowerCase().includes(search.toLowerCase())
@@ -114,7 +114,7 @@ export default function PartyList() {
                     <tr key={party.id} className="hover:bg-white/5 transition">
                       <td className="px-6 py-4 text-sm font-medium text-white">{party.customer_code}</td>
                       <td className="px-6 py-4 text-sm text-gray-300">
-                        <div className="font-medium">{party.name}</div>
+                        <div className="font-medium">{party.customer_name || party.name}</div>
                         {!party.is_active && <span className="text-xs text-red-400 font-semibold">Inactive</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">{party.mobile || '-'}</td>
@@ -150,7 +150,7 @@ export default function PartyList() {
                             </svg>
                           </button>
                           <button 
-                            onClick={() => handleDelete(party.id, party.name)} 
+                            onClick={() => handleDelete(party.id, party.customer_name || party.name)}
                             className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition" 
                             title="Delete"
                           >

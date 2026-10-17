@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 
 const STORAGE_KEY = 'btc_custom_branches'
 const BRANCHES_UPDATED_EVENT = 'btc-custom-branches-updated'
@@ -23,6 +24,7 @@ function readCustomBranches() {
     )
   } catch (error) {
     console.error('Unable to load saved custom branches:', error)
+    toast.error('Unable to load saved branches from this browser.')
     return []
   }
 }
@@ -123,6 +125,7 @@ export default function CreatableBranchSelect({
       selectBranch(newBranch)
     } catch (error) {
       console.error('Unable to save custom branch:', error)
+      toast.error('Unable to save this branch in your browser storage.')
     }
   }
 

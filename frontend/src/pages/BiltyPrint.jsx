@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import api from '../api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com';
 
@@ -8,6 +9,9 @@ const BiltyPrint = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [bilties, setBilties] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [includeMR, setIncludeMR] = useState(false);
   const [mrData, setMrData] = useState({ party_name: '', amount: '', payment_mode: 'Cash', remarks: '' });
   const [copies, setCopies] = useState({
@@ -34,15 +38,39 @@ const BiltyPrint = () => {
     if (id) fetchBiltyData();
   }, [id]);
 
+  useEffect(() => {
+    if (id) return;
+    let active = true;
+    setLoading(true);
+    api.get('/api/consignments')
+      .then(response => {
+        if (active) setBilties(response.data?.data || []);
+      })
+      .catch(err => {
+        console.error('Error fetching bilties:', err);
+        if (active) setError(err.response?.data?.error || 'Unable to load Bilty records.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [id]);
+
   const fetchBiltyData = async () => {
+    setLoading(true);
+    setError('');
+    setData(null);
     try {
       const token = localStorage.getItem('token');
       const res = await axios.get(`${API_URL}/api/consignments/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(res.data);
+      setLoading(false);
     } catch (err) {
       console.error('Error fetching bilty:', err);
+      setError(err.response?.data?.error || 'Unable to load this Bilty.');
+      setLoading(false);
     }
   };
 
@@ -58,7 +86,46 @@ const BiltyPrint = () => {
     window.open(url, '_blank');
   };
 
-  if (!data) return <div className="text-center p-10 text-xl font-bold">Loading Bilty Data...</div>;
+  if (loading) return <div role="status" className="text-center p-10 text-xl font-bold">Loading Bilty Data...</div>;
+  if (!id) return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <main className="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Select a Bilty to Print</h1>
+          <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+        </div>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-100">
+              <tr><th className="p-3">LR No.</th><th className="p-3">Date</th><th className="p-3">Consignor</th><th className="p-3">Consignee</th><th className="p-3">Action</th></tr>
+            </thead>
+            <tbody>
+              {bilties.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-gray-500">No bilties found.</td></tr>
+              ) : bilties.map(bilty => (
+                <tr key={bilty.id} className="border-t hover:bg-gray-50">
+                  <td className="p-3 font-semibold">{bilty.lr_no}</td>
+                  <td className="p-3">{formatDate(bilty.lr_date)}</td>
+                  <td className="p-3">{bilty.consignor_name || '-'}</td>
+                  <td className="p-3">{bilty.consignee_name || '-'}</td>
+                  <td className="p-3"><Link className="text-blue-700 underline" to={`/bilty-print/${bilty.id}`}>Print</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  );
+  if (error || !data) return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="text-center bg-white p-6 rounded-lg shadow">
+        <p role="alert" className="text-red-700 mb-4">{error || 'Bilty data is unavailable.'}</p>
+        <button onClick={() => navigate('/consignments')} className="px-4 py-2 bg-gray-600 text-white rounded-lg">← Back</button>
+      </div>
+    </div>
+  );
 
   const total = (parseFloat(data.freight || 0) + parseFloat(data.aoc_percent || 0) + parseFloat(data.material_mgmt_ch || 0) + parseFloat(data.material_charges || 0) + parseFloat(data.collection_charges || 0) + parseFloat(data.door_dly_charges || 0) + parseFloat(data.misc_charges || 0)).toFixed(2);
 

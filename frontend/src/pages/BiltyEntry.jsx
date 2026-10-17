@@ -127,8 +127,7 @@ export default function BiltyEntry() {
       setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/${String(nextNum).padStart(4, '0')}` }))
     } catch (err) {
       console.error('LR No generate error:', err)
-      const year = new Date().getFullYear().toString().slice(-2)
-      setFormData(prev => ({ ...prev, lr_no: `BTC/${year}/0001` }))
+      toast.error('Unable to generate the next LR number. Check the connection or enter one manually.')
     }
   }
 
