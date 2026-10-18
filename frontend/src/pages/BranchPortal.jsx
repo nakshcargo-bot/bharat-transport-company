@@ -1,67 +1,37 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import axios from 'axios'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import api from '../api'
+import { BRANCH_MODULES } from '../components/branchModules'
 import { formatDate } from '../utils/dateFormatter'
-
-const API_URL = 'https://bharat-transport-api.onrender.com'
-
-function DataTable({ title, rows, columns, emptyMessage }) {
-  return (
-    <section className="rounded-xl bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-5 py-4">
-        <h2 className="font-bold text-gray-900">{title}</h2>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              {columns.map((column) => (
-                <th key={column.key} className="px-5 py-3 font-semibold">{column.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.length ? rows.map((row) => (
-              <tr key={row.id} className="text-gray-700">
-                {columns.map((column) => (
-                  <td key={column.key} className="px-5 py-3">{column.render ? column.render(row) : row[column.key] || '—'}</td>
-                ))}
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={columns.length} className="px-5 py-8 text-center text-gray-500">
-                  {emptyMessage}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  )
-}
 
 export default function BranchPortal() {
   const { branchSlug } = useParams()
   const navigate = useNavigate()
   const [branch, setBranch] = useState(null)
+  const [stats, setStats] = useState(null)
   const [consignments, setConsignments] = useState([])
   const [bills, setBills] = useState([])
-  const [receipts, setReceipts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  function logout() {
+    localStorage.removeItem('branch_session')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    navigate(`/branch-login/${branchSlug}`, { replace: true })
+  }
 
   useEffect(() => {
     const controller = new AbortController()
     let session
-
     try {
       session = JSON.parse(localStorage.getItem('branch_session') || 'null')
-    } catch {
+    } catch (readError) {
+      console.error('Unable to read the saved branch session:', readError)
       localStorage.removeItem('branch_session')
     }
 
-    if (!session?.token || !session.branch || session.branch.url_slug !== branchSlug) {
+    if (!session?.token || session.branch?.url_slug !== branchSlug) {
       localStorage.removeItem('branch_session')
       navigate(`/branch-login/${branchSlug}`, { replace: true })
       return () => controller.abort()
@@ -70,132 +40,135 @@ export default function BranchPortal() {
     setBranch(session.branch)
     setLoading(true)
     setError('')
-    setConsignments([])
-    setBills([])
-    setReceipts([])
-    const headers = {
-      Authorization: `Bearer ${session.token}`,
-      'X-Branch-Slug': branchSlug
-    }
+    Promise.all([
+      api.get('/api/dashboard/stats', { signal: controller.signal }),
+      api.get('/api/consignments', { signal: controller.signal }),
+      api.get('/api/bills', { signal: controller.signal })
+    ]).then(([statsResponse, consignmentResponse, billResponse]) => {
+      setStats(statsResponse.data)
+      setConsignments(consignmentResponse.data?.data || [])
+      setBills(billResponse.data?.data || [])
+    }).catch((requestError) => {
+      if (controller.signal.aborted) return
+      setError(requestError.response?.data?.error || requestError.message || 'Unable to load branch records.')
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false)
+    })
 
-    async function loadBranchData() {
-      try {
-        const [consignmentResponse, billResponse, receiptResponse] = await Promise.all([
-          axios.get(`${API_URL}/api/consignments`, { headers, signal: controller.signal }),
-          axios.get(`${API_URL}/api/bills`, { headers, signal: controller.signal }),
-          axios.get(`${API_URL}/api/mr`, { headers, signal: controller.signal })
-        ])
-        setConsignments(consignmentResponse.data.data || [])
-        setBills(billResponse.data.data || [])
-        setReceipts(receiptResponse.data.data || [])
-      } catch (err) {
-        if (controller.signal.aborted) return
-        if (err.response?.status === 401) {
-          localStorage.removeItem('branch_session')
-          navigate(`/branch-login/${branchSlug}`, { replace: true })
-          return
-        }
-        setError(err.response?.data?.error || 'Unable to load branch records.')
-      } finally {
-        if (!controller.signal.aborted) setLoading(false)
-      }
-    }
-
-    loadBranchData()
     return () => controller.abort()
   }, [branchSlug, navigate])
 
-  function handleLogout() {
-    localStorage.removeItem('branch_session')
-    navigate('/login', { replace: true })
+  if (loading) {
+    return <main className="min-h-screen flex items-center justify-center bg-slate-100 text-slate-600">Loading branch workspace...</main>
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600">Loading branch portal...</p>
-      </main>
-    )
-  }
+  const cards = [
+    { label: 'Bilties', value: stats?.total_lr ?? consignments.length, path: 'consignments' },
+    { label: 'Bills', value: stats?.total_bills ?? bills.length, path: 'bill-list' },
+    { label: 'Pending POD', value: stats?.pending_pod ?? '—', path: 'pod-list' },
+    { label: 'Outstanding', value: `₹${Number(stats?.pending_amount || 0).toLocaleString('en-IN')}`, path: 'outstanding' }
+  ]
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <header className="bg-blue-900 text-white shadow">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="rounded-2xl bg-gradient-to-r from-blue-950 to-blue-800 p-6 text-white shadow-lg sm:p-8">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-blue-200">Branch Portal</p>
-            <h1 className="text-2xl font-bold">{branch?.branch_name}</h1>
-            <p className="text-sm text-blue-100">
-              {[branch?.city, branch?.state].filter(Boolean).join(', ')}
-            </p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-200">Branch Dashboard</p>
+            <h1 className="mt-2 text-3xl font-extrabold">{branch?.branch_name}</h1>
+            <p className="mt-1 text-sm text-blue-100">{[branch?.city, branch?.state].filter(Boolean).join(', ') || branch?.branch_code}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10"
-          >
-            Logout
+          <button type="button" onClick={logout} className="rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10">
+            Log out
           </button>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
-        {error && (
-          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+      )}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            { label: 'Bilties', value: consignments.length },
-            { label: 'Bills', value: bills.length },
-            { label: 'Money Receipts', value: receipts.length }
-          ].map((item) => (
-            <section key={item.label} className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">{item.label}</p>
-              <p className="mt-2 text-3xl font-bold text-blue-900">{item.value}</p>
-            </section>
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4" aria-label="Branch summary">
+        {cards.map((card) => (
+          <Link key={card.label} to={`/branch/${branchSlug}/${card.path}`} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md">
+            <p className="text-sm font-medium text-slate-500">{card.label}</p>
+            <p className="mt-2 text-2xl font-extrabold text-blue-950">{card.value}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Branch Software</h2>
+            <p className="mt-1 text-sm text-slate-500">Choose a module to open its workspace.</p>
+          </div>
+          <span className="text-sm font-semibold text-blue-800">{BRANCH_MODULES.length} modules</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+          {BRANCH_MODULES.map((module) => (
+            <Link
+              key={module.path || 'dashboard'}
+              to={module.path ? `/branch/${branchSlug}/${module.path}` : `/branch/${branchSlug}`}
+              className="group flex min-h-28 flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-blue-300 hover:shadow-md"
+            >
+              <span className="text-2xl" aria-hidden="true">{module.icon}</span>
+              <span className="mt-3 text-sm font-semibold text-slate-800 group-hover:text-blue-800">{module.label}</span>
+            </Link>
           ))}
         </div>
+      </section>
 
-        <DataTable
-          title="Recent Bilties"
-          rows={consignments.slice(0, 25)}
-          columns={[
-            { key: 'lr_no', label: 'LR No.' },
-            { key: 'lr_date', label: 'Date', render: (row) => formatDate(row.lr_date) },
-            { key: 'from_name', label: 'From' },
-            { key: 'to_name', label: 'To' },
-            { key: 'status', label: 'Status' }
-          ]}
-          emptyMessage="No bilties found for this branch."
-        />
-        <DataTable
-          title="Recent Bills"
-          rows={bills.slice(0, 25)}
-          columns={[
-            { key: 'bill_no', label: 'Bill No.' },
-            { key: 'bill_date', label: 'Date', render: (row) => formatDate(row.bill_date) },
-            { key: 'party_name', label: 'Party' },
-            { key: 'total_amount', label: 'Amount' },
-            { key: 'status', label: 'Status' }
-          ]}
-          emptyMessage="No bills found for this branch."
-        />
-        <DataTable
-          title="Recent Money Receipts"
-          rows={receipts.slice(0, 25)}
-          columns={[
-            { key: 'mr_no', label: 'MR No.' },
-            { key: 'mr_date', label: 'Date', render: (row) => formatDate(row.mr_date) },
-            { key: 'party_name', label: 'Party' },
-            { key: 'amount', label: 'Amount' },
-            { key: 'payment_mode', label: 'Payment Mode' }
-          ]}
-          emptyMessage="No money receipts found for this branch."
-        />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="font-bold text-slate-900">Recent Bilties</h2>
+            <Link to={`/branch/${branchSlug}/consignments`} className="text-sm font-semibold text-blue-700 hover:underline">View all</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr><th className="px-5 py-3">LR No.</th><th className="px-5 py-3">Date</th><th className="px-5 py-3">Consignor</th><th className="px-5 py-3">Status</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {consignments.slice(0, 8).map((row) => (
+                  <tr key={row.id} className="text-slate-700">
+                    <td className="px-5 py-3 font-semibold">{row.lr_no}</td>
+                    <td className="px-5 py-3">{formatDate(row.lr_date)}</td>
+                    <td className="px-5 py-3">{row.consignor_name || row.from_name || '—'}</td>
+                    <td className="px-5 py-3">{row.status || '—'}</td>
+                  </tr>
+                ))}
+                {!consignments.length && <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">No bilties found for this branch.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="font-bold text-slate-900">Recent Bills</h2>
+            <Link to={`/branch/${branchSlug}/bill-list`} className="text-sm font-semibold text-blue-700 hover:underline">View all</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr><th className="px-5 py-3">Bill No.</th><th className="px-5 py-3">Date</th><th className="px-5 py-3">Party</th><th className="px-5 py-3">Amount</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {bills.slice(0, 8).map((row) => (
+                  <tr key={row.id} className="text-slate-700">
+                    <td className="px-5 py-3 font-semibold">{row.bill_no}</td>
+                    <td className="px-5 py-3">{formatDate(row.bill_date)}</td>
+                    <td className="px-5 py-3">{row.party_name || '—'}</td>
+                    <td className="px-5 py-3">₹{Number(row.grand_total || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                ))}
+                {!bills.length && <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-500">No bills found for this branch.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-    </main>
+    </div>
   )
 }

@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [recent, setRecent] = useState(null)
   const [topParties, setTopParties] = useState([])
   const [branches, setBranches] = useState([])
+  const [branchStats, setBranchStats] = useState([])
   const [selectedBranch, setSelectedBranch] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -34,7 +35,11 @@ export default function Dashboard() {
     fetchData()
     checkStockAlerts()
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
+    const refreshTimer = setInterval(fetchData, 30000)
+    return () => {
+      clearInterval(timer)
+      clearInterval(refreshTimer)
+    }
   }, [selectedBranch])
 
   const checkStockAlerts = () => {
@@ -72,11 +77,12 @@ export default function Dashboard() {
 
       const branchParam = (isAdmin && selectedBranch !== 'all') ? `?branch_id=${selectedBranch}` : ''
       
-      const [resStats, resRecent, resParties, resBranches] = await Promise.all([
-        fetch(`${apiUrl}/api/dashboard/stats${branchParam}`, { headers }),
-        fetch(`${apiUrl}/api/dashboard/recent${branchParam}`, { headers }),
-        fetch(`${apiUrl}/api/dashboard/top-parties${branchParam}`, { headers }),
-        fetch(`${apiUrl}/api/branches`, { headers })
+      const [resStats, resRecent, resParties, resBranches, resBranchStats] = await Promise.all([
+        fetch(`${apiUrl}/api/dashboard/stats${branchParam}`, { headers, cache: 'no-store' }),
+        fetch(`${apiUrl}/api/dashboard/recent${branchParam}`, { headers, cache: 'no-store' }),
+        fetch(`${apiUrl}/api/dashboard/top-parties${branchParam}`, { headers, cache: 'no-store' }),
+        fetch(`${apiUrl}/api/branches`, { headers, cache: 'no-store' }),
+        isAdmin ? fetch(`${apiUrl}/api/dashboard/stats?group_by=branch_code`, { headers, cache: 'no-store' }) : Promise.resolve(null)
       ])
 
       if (resStats.ok) setStats(await resStats.json())
@@ -85,6 +91,11 @@ export default function Dashboard() {
       if (resRecent.ok) setRecent(await resRecent.json())
       if (resParties.ok) setTopParties((await resParties.json()).data || [])
       if (resBranches.ok) setBranches((await resBranches.json()).data || [])
+      if (resBranchStats?.ok) setBranchStats((await resBranchStats.json()).data || [])
+      else if (isAdmin) {
+        setBranchStats([])
+        setError('Branch summary load failed')
+      }
     } catch (err) {
       setError('Network error'); setStats(getDefaultStats())
     } finally { setLoading(false) }
@@ -348,26 +359,38 @@ export default function Dashboard() {
 
           <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-6 dashboard-panel">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Branch Overview</h3>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Live Branch Overview</h3>
+                <p className="mt-1 text-xs text-slate-500">Refreshes every 30 seconds</p>
+              </div>
               <button onClick={() => navigate('/branches')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">View All →</button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {branches.length === 0 ? (
-                <div className="col-span-2 text-center py-8 text-slate-500">No branches added yet.</div>
-              ) : (
-                branches.slice(0, 6).map((branch) => (
-                  <div key={branch.id} className="p-4 rounded-lg border border-slate-100 bg-slate-50 hover:bg-slate-100 transition cursor-pointer dashboard-branch-card" onClick={() => navigate('/branches')}>
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-slate-800">{branch.branch_name}</h4>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${branch.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                        {branch.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500 mb-2">{branch.city}{branch.state ? ', ' + branch.state : ''}</div>
-                    <div className="text-xs text-slate-600">Incharge: <span className="font-medium">{branch.incharge_name || 'N/A'}</span></div>
-                  </div>
-                ))
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-3 py-3">Branch Name</th>
+                    <th className="px-3 py-3">Bilties Today</th>
+                    <th className="px-3 py-3">Bills Today</th>
+                    <th className="px-3 py-3">Stock</th>
+                    <th className="px-3 py-3">Commission</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {branchStats.map((branch) => (
+                    <tr key={branch.id}>
+                      <td className="px-3 py-3 font-semibold text-slate-800">{branch.branch_name}</td>
+                      <td className="px-3 py-3">{branch.bilties_today}</td>
+                      <td className="px-3 py-3">{branch.bills_today}</td>
+                      <td className="px-3 py-3 text-slate-400">—</td>
+                      <td className="px-3 py-3">{formatCurrency(branch.commission)}</td>
+                    </tr>
+                  ))}
+                  {!branchStats.length && (
+                    <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-500">No branch activity data is available.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

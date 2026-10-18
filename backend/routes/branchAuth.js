@@ -86,8 +86,9 @@ function createBranchAuthRouter(pool) {
         {
           id: branch.id,
           username: credentials.username,
-          role: 'branch_user',
+          role: 'branch',
           branch_id: branch.id,
+          branch_code: branch.branch_code,
           branch_slug: branch.url_slug
         },
         process.env.JWT_SECRET,

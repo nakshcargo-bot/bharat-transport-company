@@ -51,6 +51,7 @@ const BRANCH_RECORD_ROUTES = [
 ]
 
 const BRANCH_ROUTE_PATTERNS = [
+  /^\/api\/dashboard\/stats$/,
   /^\/api\/dashboard\/recent$/,
   /^\/api\/dashboard\/top-parties$/,
   /^\/api\/consignments(?:\/next-number|\/\d+)?$/,
@@ -95,11 +96,11 @@ function createBranchAccessMiddleware(pool) {
       return res.status(403).json({ error: 'Branch access is not valid for this session.' })
     }
 
-    if (req.headers['x-branch-slug'] !== branchSlug) {
+    if (req.headers['x-branch-slug'] && req.headers['x-branch-slug'] !== branchSlug) {
       return res.status(403).json({ error: 'This session is not authorized for the requested branch.' })
     }
 
-    if (!BRANCH_ROUTE_PATTERNS.some((pattern) => pattern.test(req.path)) || req.path === '/api/bills/last-serial') {
+    if (!BRANCH_ROUTE_PATTERNS.some((pattern) => pattern.test(req.path))) {
       return res.status(403).json({ error: 'This endpoint is not available to branch staff.' })
     }
 
@@ -118,6 +119,12 @@ function createBranchAccessMiddleware(pool) {
       );
       const branch = branchResult.rows[0]
       if (!branch) return res.status(401).json({ error: 'Branch access has been disabled.' })
+      if (
+        (req.query?.branch_code && String(req.query.branch_code).toUpperCase() !== String(branch.branch_code).toUpperCase()) ||
+        (req.body?.branch_code && String(req.body.branch_code).toUpperCase() !== String(branch.branch_code).toUpperCase())
+      ) {
+        return res.status(403).json({ error: 'You can only access data assigned to your branch.' })
+      }
 
       req.user.branch_id = branchId
       req.user.branch_code = branch.branch_code
@@ -128,7 +135,7 @@ function createBranchAccessMiddleware(pool) {
         }
       }
 
-      const recordRoute = getRecordRoute(req.path)
+      const recordRoute = req.path === '/api/bills/last-serial' ? null : getRecordRoute(req.path)
       if (recordRoute) {
         const column = recordRoute.byBillNumber && !/^\d+$/.test(recordRoute.value) ? 'bill_no' : recordRoute.column
         const result = await pool.query(

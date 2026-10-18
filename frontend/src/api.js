@@ -4,6 +4,29 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.on
 
 console.info('API base URL:', API_URL)
 
+function getActiveBranchSession() {
+  const match = window.location.hash.match(/^#\/branch\/([^/?#]+)/)
+  if (!match) return null
+  try {
+    const session = JSON.parse(localStorage.getItem('branch_session') || 'null')
+    const slug = decodeURIComponent(match[1])
+    if (!session?.token || session.branch?.url_slug !== slug) return null
+    return { ...session, slug }
+  } catch (error) {
+    console.error('Unable to read the saved branch session:', error)
+    return null
+  }
+}
+
+axios.interceptors.request.use((config) => {
+  const session = getActiveBranchSession()
+  if (session) {
+    config.headers.Authorization = `Bearer ${session.token}`
+    config.headers['X-Branch-Slug'] = session.slug
+  }
+  return config
+})
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -15,7 +38,9 @@ const api = axios.create({
 // AUTO ATTACH TOKEN
 // ============================================
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const branchSession = getActiveBranchSession()
+  if (branchSession) config.headers['X-Branch-Slug'] = branchSession.slug
+  const token = branchSession?.token || localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -30,6 +55,14 @@ api.interceptors.response.use(
   (error) => {
     const isLoginRequest = error.config?.url?.split('?')[0] === '/api/auth/login'
     if (error.response?.status === 401 && !isLoginRequest) {
+      const branchSession = getActiveBranchSession()
+      if (branchSession) {
+        localStorage.removeItem('branch_session')
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.hash = `#/branch-login/${encodeURIComponent(branchSession.slug)}`
+        return Promise.reject(error)
+      }
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.hash = '#/login'

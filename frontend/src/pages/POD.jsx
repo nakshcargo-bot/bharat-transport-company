@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
-export default function POD() {
+export default function POD({ branchMode = false }) {
   const navigate = useNavigate()
   const [pendingBilties, setPendingBilties] = useState([])
   const [deliveredBilties, setDeliveredBilties] = useState([])
@@ -27,8 +27,8 @@ export default function POD() {
 
   useEffect(() => {
     fetchPODData()
-    fetchBranches()
-  }, [branchFilter])
+    if (!branchMode) fetchBranches()
+  }, [branchFilter, branchMode])
 
   const fetchBranches = async () => {
     try {
@@ -160,12 +160,14 @@ export default function POD() {
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 min-w-[250px] border p-2 rounded"
             />
-            <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="border p-2 rounded">
-              <option value="">All Branches</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.branch_code} - {b.branch_name}</option>
-              ))}
-            </select>
+            {!branchMode && (
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="border p-2 rounded">
+                <option value="">All Branches</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.branch_code} - {b.branch_name}</option>
+                ))}
+              </select>
+            )}
             <button onClick={fetchPODData} className="bg-green-600 text-white px-4 py-2 rounded font-bold">🔄 Refresh</button>
           </div>
         </div>

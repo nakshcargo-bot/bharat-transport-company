@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { useAuth } from './AuthContext'
 
@@ -45,9 +45,89 @@ const Ledger = lazy(() => import('./pages/Ledger'))
 const Outstanding = lazy(() => import('./pages/Outstanding'))
 const Commissions = lazy(() => import('./pages/Commissions'))
 const Expenses = lazy(() => import('./pages/Expenses'))
+const BranchLayout = lazy(() => import('./components/BranchLayout'))
+const BranchFeatureNotice = lazy(() => import('./pages/BranchFeatureNotice'))
+
+const branchPages = {
+  'bilty-entry': BiltyEntry,
+  consignments: Consignments,
+  'bilty-print': BiltyPrint,
+  'bill-entry': BillEntry,
+  'bill-list': BillList,
+  'bill-print': BillPrint,
+  'gadi-challan': GadiChallan,
+  'gate-pass': GatePass,
+  pod: POD,
+  'pod-list': POD,
+  commission: Commissions,
+  'commission-report': Commissions,
+  'money-receipt': MR,
+  expense: Expenses,
+  ledger: Ledger,
+  'topay-report': Outstanding,
+  outstanding: Outstanding,
+  tracking: TrackBilty,
+  'rate-master': Rates,
+  income: Accounts,
+  'cash-book': Accounts,
+  gst: Accounts,
+  tds: Accounts
+}
+
+function BranchModuleRoute() {
+  const { module, id } = useParams()
+  const Page = module === 'money-receipt' && id === 'create' ? MRCreate : branchPages[module]
+  return Page ? <Page branchMode /> : <BranchFeatureNotice title={module.replaceAll('-', ' ')} />
+}
+
+function getBranchRedirectPath(pathname, slug) {
+  if (pathname === '/consignments/new') return `/branch/${slug}/bilty-entry`
+  const consignmentEdit = pathname.match(/^\/(?:consignments|consignment)\/(\d+)\/edit$/)
+  if (consignmentEdit) return `/branch/${slug}/bilty-entry/${consignmentEdit[1]}`
+  if (pathname === '/consignments') return `/branch/${slug}/consignments`
+  if (pathname === '/bills' || pathname === '/bill/list') return `/branch/${slug}/bill-list`
+  if (pathname === '/bill-entry' || pathname === '/bill/new') return `/branch/${slug}/bill-entry`
+  const billEdit = pathname.match(/^\/(?:bill-edit|bill\/edit)\/(\d+)$/)
+  if (billEdit) return `/branch/${slug}/bill-entry/${billEdit[1]}`
+  const billPrint = pathname.match(/^\/bill-print(?:\/(\d+))?$|^\/bills\/(\d+)\/print$/)
+  if (billPrint) return `/branch/${slug}/bill-print/${billPrint[1] || billPrint[2] || ''}`
+  if (pathname === '/bilty-print') return `/branch/${slug}/bilty-print`
+  const biltyPrint = pathname.match(/^\/bilty-print\/(\d+)$/)
+  if (biltyPrint) return `/branch/${slug}/bilty-print/${biltyPrint[1]}`
+  if (pathname === '/gadi-challan') return `/branch/${slug}/gadi-challan`
+  if (pathname === '/gate-pass') return `/branch/${slug}/gate-pass`
+  if (pathname === '/pod') return `/branch/${slug}/pod`
+  if (pathname === '/mr') return `/branch/${slug}/money-receipt`
+  if (pathname === '/mr/create') return `/branch/${slug}/money-receipt/create`
+  if (pathname === '/expenses') return `/branch/${slug}/expense`
+  if (pathname === '/ledger') return `/branch/${slug}/ledger`
+  if (pathname === '/outstanding') return `/branch/${slug}/outstanding`
+  if (pathname === '/commissions') return `/branch/${slug}/commission`
+  if (pathname === '/rates') return `/branch/${slug}/rate-master`
+  if (pathname === '/accounts') return `/branch/${slug}/cash-book`
+  if (pathname === '/eway') return `/branch/${slug}/gst`
+  if (pathname === '/trips' || pathname === '/transit') return `/branch/${slug}/branch-transfer`
+  if (pathname === '/drivers') return `/branch/${slug}/drivers`
+  if (pathname === '/vehicles') return `/branch/${slug}/vehicles`
+  if (pathname === '/customers') return `/branch/${slug}/customers`
+  if (pathname === '/party') return `/branch/${slug}/suppliers`
+  if (pathname === '/stock') return `/branch/${slug}/stock-report`
+  return `/branch/${slug}`
+}
 
 function PrivateRoute({ children }) {
   const { currentUser, loading } = useAuth()
+  const location = useLocation()
+
+  try {
+    const branchSession = JSON.parse(localStorage.getItem('branch_session') || 'null')
+    if (branchSession?.token && branchSession.branch?.url_slug) {
+      return <Navigate to={getBranchRedirectPath(location.pathname, branchSession.branch.url_slug)} replace />
+    }
+  } catch (error) {
+    console.error('Unable to read the saved branch session:', error)
+    localStorage.removeItem('branch_session')
+  }
 
   if (loading) {
     return (
@@ -106,6 +186,9 @@ function App() {
           
           {/* Branch Portal Routes - Public Access */}
           <Route path="/branch/:branchSlug" element={<BranchPortal />} />
+          <Route path="/branch/:branchSlug/:module/:id?" element={
+            <BranchLayout><BranchModuleRoute /></BranchLayout>
+          } />
           <Route path="/branch-login/:slug" element={<BranchLoginPage />} />
 
           {/* Protected Routes - Login Required */}

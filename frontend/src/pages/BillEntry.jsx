@@ -6,7 +6,7 @@ import 'jspdf-autotable'
 import { getNextSerialNumber } from '../utils/billSerial'
 import { formatDate, formatDateForInput } from '../utils/dateFormatter'
 
-export default function BillEntry() {
+export default function BillEntry({ branchMode = false }) {
   const navigate = useNavigate()
   const { id } = useParams()
   const [loading, setLoading] = useState(false)
@@ -302,6 +302,9 @@ export default function BillEntry() {
     try {
       const calculated = calculate(billData)
       const payload = {
+        ...(branchMode ? {
+          branch_code: JSON.parse(localStorage.getItem('branch_session') || 'null')?.branch?.branch_code
+        } : {}),
         bill_no: billData.invNo,
         bill_date: billData.billDate,
         party_name: billData.partyName,

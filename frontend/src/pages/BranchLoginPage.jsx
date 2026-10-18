@@ -60,6 +60,13 @@ export default function BranchLoginPage() {
         token: response.data.token,
         branch: response.data.branch
       }))
+      localStorage.setItem('token', response.data.token)
+      localStorage.setItem('user', JSON.stringify({
+        ...response.data.branch,
+        branch_id: response.data.branch.id,
+        username,
+        role: 'branch'
+      }))
       navigate(`/branch/${slug}`, { replace: true })
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to sign in. Please try again.')

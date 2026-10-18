@@ -183,6 +183,8 @@ async function runMigrations() {
   await addColumnIfNotExists('money_receipts', 'created_by', 'TEXT');
   await addColumnIfNotExists('consignments', 'branch_id', 'INTEGER');
   await addColumnIfNotExists('consignments', 'branch_code', 'TEXT');
+  await addColumnIfNotExists('bill_book', 'branch_id', 'INTEGER');
+  await addColumnIfNotExists('bill_book', 'branch_code', 'TEXT');
   await addColumnIfNotExists('consignments', 'pod_status', "TEXT DEFAULT 'Pending'");
   await addColumnIfNotExists('consignments', 'pod_date', 'DATE');
   await addColumnIfNotExists('consignments', 'pod_remarks', 'TEXT');
@@ -251,6 +253,23 @@ async function runMigrations() {
   await addColumnIfNotExists('consignments', 'third_party_address', 'TEXT');
   await addColumnIfNotExists('consignments', 'third_party_gstin', 'TEXT');
   await addColumnIfNotExists('consignments', 'bill_to_party', 'TEXT');
+
+  await pool.query(`
+    UPDATE consignments c
+    SET branch_id = b.id
+    FROM branches b
+    WHERE c.branch_id IS NULL
+      AND c.branch_code IS NOT NULL
+      AND UPPER(TRIM(c.branch_code)) = UPPER(TRIM(b.branch_code))
+  `);
+  await pool.query(`
+    UPDATE bill_book bill
+    SET branch_id = b.id
+    FROM branches b
+    WHERE bill.branch_id IS NULL
+      AND bill.branch_code IS NOT NULL
+      AND UPPER(TRIM(bill.branch_code)) = UPPER(TRIM(b.branch_code))
+  `);
   await addColumnIfNotExists('consignments', 'basis_of_booking', 'TEXT');
   await addColumnIfNotExists('consignments', 'is_deleted', 'BOOLEAN DEFAULT FALSE');
   await addColumnIfNotExists('consignments', 'consignor_address', 'TEXT');
@@ -375,7 +394,7 @@ function authMiddleware(req, res, next) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
   try {
     req.user = jwt.verify(authHeader.substring(7), process.env.JWT_SECRET);
-    if (req.user.role === 'branch_user') return branchAccessMiddleware(req, res, next);
+    if (req.user.role === 'branch' || req.user.role === 'branch_user') return branchAccessMiddleware(req, res, next);
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
@@ -435,14 +454,48 @@ app.post('/api/auth/login', async (req, res) => {
 // ==========================================
 app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
   try {
+    if (req.query.group_by === 'branch_code') {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admin can view branch comparisons.' });
+      }
+      const result = await pool.query(`
+        SELECT b.id, b.branch_code, b.branch_name, b.city,
+          (
+            SELECT COUNT(*) FROM consignments c
+            WHERE (c.branch_id = b.id OR (c.branch_id IS NULL AND UPPER(TRIM(c.branch_code)) = UPPER(TRIM(b.branch_code))))
+              AND c.lr_date = CURRENT_DATE
+              AND COALESCE(c.is_deleted, FALSE) = FALSE
+          ) AS bilties_today,
+          (
+            SELECT COUNT(*) FROM bill_book bill
+            WHERE (bill.branch_id = b.id OR (bill.branch_id IS NULL AND UPPER(TRIM(bill.branch_code)) = UPPER(TRIM(b.branch_code))))
+              AND bill.bill_date = CURRENT_DATE
+          ) AS bills_today,
+          (
+            SELECT COALESCE(SUM(c.commission_amount), 0) FROM commissions c
+            WHERE c.branch_id = b.id
+          ) AS commission
+        FROM branches b
+        WHERE COALESCE(b.is_active, TRUE) = TRUE
+        ORDER BY b.branch_name
+      `);
+      return res.json({ success: true, data: result.rows });
+    }
+
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
     const userRole = req.user?.role || 'admin';
     const branchId = req.user?.branch_id ? parseInt(req.user.branch_id) : null;
     const branchCode = req.user?.branch_code || 'All';
-    const isAdmin = userRole === 'admin' || !branchId;
+    const isAdmin = userRole === 'admin';
+    if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0)) {
+      return res.status(403).json({ error: 'Your account is not assigned to a branch.' });
+    }
     const whereBranch = isAdmin ? '' : `WHERE branch_id = ${branchId}`;
     const andBranch = isAdmin ? '' : `AND branch_id = ${branchId}`;
+    const globalMasterCount = (table, condition) => isAdmin
+      ? pool.query(`SELECT COUNT(*) as count FROM ${table} ${condition}`)
+      : Promise.resolve({ rows: [{ count: 0 }] });
 
     const queries = [
       pool.query(`SELECT COUNT(*) as count FROM consignments WHERE lr_date = $1 ${andBranch}`, [today]),
@@ -453,16 +506,16 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
       pool.query(`SELECT COUNT(*) as count FROM bill_book ${whereBranch}`),
       pool.query(`SELECT COUNT(*) as count FROM bill_book ${whereBranch} ${whereBranch ? 'AND' : 'WHERE'} COALESCE(payment_status, 'Unpaid') = 'Unpaid'`),
       pool.query(`SELECT COUNT(*) as count FROM money_receipts ${whereBranch}`),
-      pool.query(`SELECT COUNT(*) as count FROM parties WHERE COALESCE(is_active, TRUE) = TRUE`),
-      pool.query(`SELECT COUNT(*) as count FROM customers WHERE COALESCE(is_active, TRUE) = TRUE`),
+      globalMasterCount('parties', 'WHERE COALESCE(is_active, TRUE) = TRUE'),
+      globalMasterCount('customers', 'WHERE COALESCE(is_active, TRUE) = TRUE'),
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`),
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE COALESCE(payment_status, 'Unpaid') = 'Unpaid' ${andBranch}`),
       pool.query(`SELECT COUNT(*) as count FROM pod_records WHERE COALESCE(status, 'Pending') = 'Pending' ${andBranch}`),
-      pool.query(`SELECT COUNT(*) as count FROM drivers WHERE COALESCE(status, 'Active') = 'Active'`),
-      pool.query(`SELECT COUNT(*) as count FROM vehicles WHERE COALESCE(status, 'Active') = 'Active'`),
+      globalMasterCount('drivers', "WHERE COALESCE(status, 'Active') = 'Active'"),
+      globalMasterCount('vehicles', "WHERE COALESCE(status, 'Active') = 'Active'"),
       pool.query(`SELECT COUNT(*) as count FROM claims WHERE COALESCE(status, 'Open') = 'Open' ${andBranch}`),
       pool.query(`SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE expense_date >= $1 ${andBranch}`, [today]),
-      pool.query(`SELECT COUNT(*) as count FROM branches WHERE COALESCE(is_active, TRUE) = TRUE`),
+      globalMasterCount('branches', 'WHERE COALESCE(is_active, TRUE) = TRUE'),
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE lr_date = $1 AND COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`, [today]),
       pool.query(`SELECT COALESCE(SUM(CAST(grand_total AS NUMERIC)), 0) as total FROM consignments WHERE to_char(lr_date, 'YYYY-MM') = $1 AND COALESCE(payment_status, 'Unpaid') = 'Paid' ${andBranch}`, [thisMonth])
     ];
@@ -765,10 +818,15 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Your account is not assigned to a branch' });
     }
     const result = lrNumber
-      ? await pool.query(
-        'SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
-        [lrNumber]
-      )
+      ? isAdmin
+        ? await pool.query(
+          'SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
+          [lrNumber]
+        )
+        : await pool.query(
+          'SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND branch_id = $2 AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
+          [lrNumber, branchId]
+        )
       : isAdmin
       ? search
         ? await pool.query('SELECT * FROM consignments WHERE COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
@@ -1152,7 +1210,7 @@ app.get('/api/bills/:identifier', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 const billFields = [
-  'bill_no', 'bill_date', 'branch_id', 'party_name', 'party_code', 'party_gst', 'party_address',
+  'bill_no', 'bill_date', 'branch_id', 'branch_code', 'party_name', 'party_code', 'party_gst', 'party_address',
   'from_name', 'to_name', 'consignor_name', 'consignee_name', 'vehicle_no', 'lr_nos', 'amount',
   'gst_amount', 'total_amount', 'grand_total', 'advance_received', 'balance_due', 'net_balance',
   'trip_subtotal', 'gst_percent', 'invoice_no', 'invoice_date', 'amount_in_words', 'payment_mode',

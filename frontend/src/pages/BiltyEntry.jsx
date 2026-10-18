@@ -62,9 +62,10 @@ const preferStoredMeasurement = (primary, legacy) => {
   return primary ?? legacy ?? 0;
 };
 
-export default function BiltyEntry() {
+export default function BiltyEntry({ branchMode = false }) {
   const navigate = useNavigate()
   const { id } = useParams()
+  const [branchCode, setBranchCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [numberLoading, setNumberLoading] = useState(true)
   const [numberError, setNumberError] = useState(false)
@@ -94,6 +95,19 @@ export default function BiltyEntry() {
     insurance_status: 'Not Insured', insurance_company: '', insurance_policy_no: '', insurance_date: '', insurance_amount: 0,
     created_by: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).username || 'Admin' : 'Admin'
   })
+
+  useEffect(() => {
+    if (!branchMode) return
+    try {
+      const code = JSON.parse(localStorage.getItem('branch_session') || 'null')?.branch?.branch_code
+      if (!code) throw new Error('The branch code is missing from this session.')
+      setBranchCode(code)
+      setFormData(previous => ({ ...previous, branch_code: code }))
+    } catch (error) {
+      console.error('Unable to load the branch code for Bilty entry:', error)
+      toast.error('Unable to load the branch assigned to this session.')
+    }
+  }, [branchMode])
 
   useEffect(() => {
     fetchCustomers()
@@ -271,6 +285,7 @@ export default function BiltyEntry() {
       const { from_code: _fromCode, aoc_percent: _aocPercent, ...payloadData } = formData
       const payload = {
         ...payloadData,
+        ...(branchMode ? { branch_code: branchCode } : {}),
         actual_weight: formData.actual_weight ?? formData.act_wt ?? 0,
         charged_weight: formData.charged_weight ?? formData.chg_wt ?? 0,
         length: formData.length ?? 0,
@@ -344,7 +359,14 @@ export default function BiltyEntry() {
                 {isLrEditable && !lrError && <p className="mt-1 text-xs text-green-400">✓ Ab khud ka number type kar sakte ho</p>}
               </div>
               <div><label className="block text-gray-300 text-sm font-medium mb-1">LR Date *</label><input type="date" name="lr_date" value={formData.lr_date} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" /></div>
-              <div><CreatableBranchSelect label="Branch" value={formData.branch_code} onChange={(branch) => handleBranchSelect('branch', branch)} required /></div>
+              {branchMode ? (
+                <div>
+                  <label className="block text-gray-300 text-sm font-medium mb-1">Branch *</label>
+                  <input value={branchCode} readOnly required aria-readonly="true" className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 font-semibold text-white" />
+                </div>
+              ) : (
+                <div><CreatableBranchSelect label="Branch" value={formData.branch_code} onChange={(branch) => handleBranchSelect('branch', branch)} required /></div>
+              )}
               <div><label className="block text-gray-300 text-sm font-medium mb-1">From Name / Origin *</label><input type="text" name="from_name" value={formData.from_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" /></div>
               <div><CreatableBranchSelect label="To Code" value={formData.to_code} onChange={(branch) => handleBranchSelect('to', branch)} required /></div>
               <div><label className="block text-gray-300 text-sm font-medium mb-1">To Name *</label><input type="text" name="to_name" value={formData.to_name} onChange={handleChange} required className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white" /></div>
