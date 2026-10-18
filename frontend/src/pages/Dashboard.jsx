@@ -47,7 +47,10 @@ export default function Dashboard() {
       setLoading(false)
     }, (err) => { console.error(err); setLoading(false) })
 
-    return () => { unsub(); unsubBranches && unsubBranches() }
+    return () => { 
+      unsub()
+      if (unsubBranches) unsubBranches() 
+    }
   }, [selectedBranch, currentTime])
 
   const timeString = currentTime.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })
