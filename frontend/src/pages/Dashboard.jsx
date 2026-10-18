@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
-import { db } from '../firebaseConfig'
+import { db } from '../firebase'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -12,19 +12,16 @@ export default function Dashboard() {
   const [branches, setBranches] = useState([])
   const [currentTime, setCurrentTime] = useState(new Date())
 
-  // Time update har minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000)
     return () => clearInterval(timer)
   }, [])
 
   useEffect(() => {
-    // Branch list
     const unsubBranches = onSnapshot(collection(db, 'branches'), (snap) => {
       setBranches(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     }, () => setBranches([]))
 
-    // Stats + Recent
     const todayStr = currentTime.toISOString().split('T')[0]
     const firstDayMonth = new Date(currentTime.getFullYear(), currentTime.getMonth(), 1)
     const baseCol = collection(db, 'consignments')
@@ -51,7 +48,7 @@ export default function Dashboard() {
     }, (err) => { console.error(err); setLoading(false) })
 
     return () => { unsub(); unsubBranches && unsubBranches() }
-  }, [selectedBranch])
+  }, [selectedBranch, currentTime])
 
   const timeString = currentTime.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })
   const dateString = currentTime.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
@@ -63,15 +60,14 @@ export default function Dashboard() {
     { title:"Total Revenue", value:`₹${stats.totalRevenue.toLocaleString('en-IN')}`, sub:`Paid Bilties: ${stats.paidBilties}`, gradient:"from-[#2c3e8a] to-[#6c63ff]" }
   ]
 
-  if(loading) return <div className="p-10 text-center">Loading LIVE data...</div>
+  if(loading) return <div className="p-10 text-center font-bold">Loading LIVE data...</div>
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] p-6">
       <div className="flex justify-between mb-6">
-        <div><h1 className="text-[26px] font-bold">Dashboard Overview</h1><p className="text-[14px] text-[#64748b]">Consolidated view - LIVE Auto Update on Add/Delete/Edit</p></div>
+        <div><h1 className="text-[26px] font-bold">Dashboard Overview</h1><p className="text-[14px] text-[#64748b]">Consolidated view - LIVE Auto Update</p></div>
         <div className="text-right"><div className="text-[28px] font-bold">{timeString}</div><div className="text-[13px] text-[#94a3b8]">{dateString}</div></div>
       </div>
-
       <div className="bg-white rounded-xl shadow-sm border p-4 mb-6 flex gap-3 items-center">
         <span className="text-[14px] font-semibold">🏢 Filter by Branch:</span>
         <select value={selectedBranch} onChange={e=>setSelectedBranch(e.target.value)} className="border rounded-lg px-3 py-2 text-[13px] min-w-[260px]">
@@ -80,11 +76,9 @@ export default function Dashboard() {
         </select>
         <span className="ml-auto text-[11px] bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-bold animate-pulse">● LIVE - Main Data Connected</span>
       </div>
-
       <div className="grid grid-cols-4 gap-5 mb-8">
         {cards.map((c,i)=><div key={i} className={`bg-gradient-to-br ${c.gradient} rounded-xl p-5 text-white shadow-lg`}><div className="text-[13px] opacity-90">{c.title}</div><div className="text-[32px] font-bold mt-1">{c.value}</div><div className="text-[11px] bg-white/20 px-2 py-1 rounded inline-block mt-3">{c.sub}</div></div>)}
       </div>
-
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2">
           <h2 className="font-bold mb-3">Quick Actions</h2>
