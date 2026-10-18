@@ -40,7 +40,7 @@ const BranchPayments = lazy(() => import('./pages/BranchPayments'))
 const StockManagement = lazy(() => import('./pages/StockManagement'))
 const BranchPortal = lazy(() => import('./pages/BranchPortal'))
 const BranchLoginPage = lazy(() => import('./pages/BranchLoginPage'))
-
+const BranchDashboard = lazy(() => import('./pages/BranchDashboard'))
 const Ledger = lazy(() => import('./pages/Ledger'))
 const Outstanding = lazy(() => import('./pages/Outstanding'))
 const Commissions = lazy(() => import('./pages/Commissions'))
@@ -48,96 +48,79 @@ const Expenses = lazy(() => import('./pages/Expenses'))
 const BranchLayout = lazy(() => import('./components/BranchLayout'))
 const BranchFeatureNotice = lazy(() => import('./pages/BranchFeatureNotice'))
 
+// --- ALL 40 MODULES MAPPED ---
 const branchPages = {
+  'dashboard': null, // will be handled separately
   'bilty-entry': BiltyEntry,
-  consignments: Consignments,
+  'consignments': Consignments,
   'bilty-print': BiltyPrint,
   'bill-entry': BillEntry,
   'bill-list': BillList,
   'bill-print': BillPrint,
   'gadi-challan': GadiChallan,
   'gate-pass': GatePass,
-  pod: POD,
+  'branch-transfer': Transit,
+  'vehicle-tracking': TrackBilty,
+  'pod': POD,
   'pod-list': POD,
-  commission: Commissions,
+  'stock-report': StockManagement,
+  'stock-entry': StockManagement,
+  'diesel-entry': StockManagement,
+  'diesel-report': StockManagement,
+  'commission': Commissions,
   'commission-report': Commissions,
   'money-receipt': MR,
-  expense: Expenses,
-  ledger: Ledger,
-  'topay-report': Outstanding,
-  outstanding: Outstanding,
-  tracking: TrackBilty,
-  'rate-master': Rates,
-  income: Accounts,
+  'payment-entry': BranchPayments,
+  'to-pay-report': Outstanding,
+  'outstanding': Outstanding,
+  'challan-payment': BranchPayments,
+  'profit-loss': Reports,
   'cash-book': Accounts,
-  gst: Accounts,
-  tds: Accounts
+  'ledger': Ledger,
+  'gst': EwayBill,
+  'tds': Accounts,
+  'expense': Expenses,
+  'income': Accounts,
+  'customer-master': Customers,
+  'supplier': PartyList,
+  'driver': Drivers,
+  'vehicle': Vehicles,
+  'tyre': Vehicles,
+  'rate-master': Rates,
+  'city-master': Branches,
+  'notification': Reports,
+  'support': Reports,
 }
 
 function BranchModuleRoute() {
-  const { module, id } = useParams()
+  const { module, branchCode, id } = useParams()
+  if (module === 'dashboard') {
+    return <BranchDashboard />
+  }
   const Page = module === 'money-receipt' && id === 'create' ? MRCreate : branchPages[module]
-  return Page ? <Page branchMode /> : <BranchFeatureNotice title={module.replaceAll('-', ' ')} />
-}
-
-function getBranchRedirectPath(pathname, slug) {
-  if (pathname === '/consignments/new') return `/branch/${slug}/bilty-entry`
-  const consignmentEdit = pathname.match(/^\/(?:consignments|consignment)\/(\d+)\/edit$/)
-  if (consignmentEdit) return `/branch/${slug}/bilty-entry/${consignmentEdit[1]}`
-  if (pathname === '/consignments') return `/branch/${slug}/consignments`
-  if (pathname === '/bills' || pathname === '/bill/list') return `/branch/${slug}/bill-list`
-  if (pathname === '/bill-entry' || pathname === '/bill/new') return `/branch/${slug}/bill-entry`
-  const billEdit = pathname.match(/^\/(?:bill-edit|bill\/edit)\/(\d+)$/)
-  if (billEdit) return `/branch/${slug}/bill-entry/${billEdit[1]}`
-  const billPrint = pathname.match(/^\/bill-print(?:\/(\d+))?$|^\/bills\/(\d+)\/print$/)
-  if (billPrint) return `/branch/${slug}/bill-print/${billPrint[1] || billPrint[2] || ''}`
-  if (pathname === '/bilty-print') return `/branch/${slug}/bilty-print`
-  const biltyPrint = pathname.match(/^\/bilty-print\/(\d+)$/)
-  if (biltyPrint) return `/branch/${slug}/bilty-print/${biltyPrint[1]}`
-  if (pathname === '/gadi-challan') return `/branch/${slug}/gadi-challan`
-  if (pathname === '/gate-pass') return `/branch/${slug}/gate-pass`
-  if (pathname === '/pod') return `/branch/${slug}/pod`
-  if (pathname === '/mr') return `/branch/${slug}/money-receipt`
-  if (pathname === '/mr/create') return `/branch/${slug}/money-receipt/create`
-  if (pathname === '/expenses') return `/branch/${slug}/expense`
-  if (pathname === '/ledger') return `/branch/${slug}/ledger`
-  if (pathname === '/outstanding') return `/branch/${slug}/outstanding`
-  if (pathname === '/commissions') return `/branch/${slug}/commission`
-  if (pathname === '/rates') return `/branch/${slug}/rate-master`
-  if (pathname === '/accounts') return `/branch/${slug}/cash-book`
-  if (pathname === '/eway') return `/branch/${slug}/gst`
-  if (pathname === '/trips' || pathname === '/transit') return `/branch/${slug}/branch-transfer`
-  if (pathname === '/drivers') return `/branch/${slug}/drivers`
-  if (pathname === '/vehicles') return `/branch/${slug}/vehicles`
-  if (pathname === '/customers') return `/branch/${slug}/customers`
-  if (pathname === '/party') return `/branch/${slug}/suppliers`
-  if (pathname === '/stock') return `/branch/${slug}/stock-report`
-  return `/branch/${slug}`
+  if (Page) {
+    return <Page branchMode branchCode={branchCode} />
+  }
+  return <BranchFeatureNotice title={module ? module.replaceAll('-', ' ') : 'Module'} branchCode={branchCode} />
 }
 
 function PrivateRoute({ children }) {
   const { currentUser, loading } = useAuth()
   const location = useLocation()
-
   try {
     const branchSession = JSON.parse(localStorage.getItem('branch_session') || 'null')
     if (branchSession?.token && branchSession.branch?.url_slug) {
-      return <Navigate to={getBranchRedirectPath(location.pathname, branchSession.branch.url_slug)} replace />
+      const slug = branchSession.branch.url_slug
+      if (!location.pathname.startsWith('/branch/')) {
+         return <Navigate to={`/branch/${slug}/dashboard`} replace />
+      }
     }
   } catch (error) {
-    console.error('Unable to read the saved branch session:', error)
     localStorage.removeItem('branch_session')
   }
-
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f3f4f6'
-      }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' }}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent mb-4"></div>
           <h2 className="text-xl font-bold text-gray-700">Loading...</h2>
@@ -145,25 +128,15 @@ function PrivateRoute({ children }) {
       </div>
     )
   }
-
   return currentUser ? children : <Navigate to="/login" replace />
 }
 
 function LoadingFallback() {
   return (
-    <div style={{ 
-      padding: '50px', 
-      textAlign: 'center', 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      backgroundColor: '#f3f4f6'
-    }}>
+    <div style={{ padding: '50px', textAlign: 'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' }}>
       <div className="text-center">
         <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-red-700 border-t-transparent mb-4"></div>
         <h2 className="text-xl font-bold text-gray-700">Loading Bharat Transport...</h2>
-        <p className="text-gray-500 mt-2">Please wait...</p>
       </div>
     </div>
   )
@@ -174,7 +147,6 @@ function App() {
     <HashRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          {/* Public Routes - No Login Required */}
           <Route path="/login" element={<Login />} />
           <Route path="/track" element={<TrackBilty />} />
           <Route path="/bilty-print/:id?" element={<BiltyPrint />} />
@@ -183,22 +155,22 @@ function App() {
           <Route path="/gadi-challan-print/:id?" element={<GadiChallanPrint />} />
           <Route path="/pod-upload" element={<PODUpload />} />
           <Route path="/pod-view" element={<PODView />} />
-          
-          {/* Branch Portal Routes - Public Access */}
-          <Route path="/branch/:branchSlug" element={<BranchPortal />} />
-          <Route path="/branch/:branchSlug/:module/:id?" element={
-            <BranchLayout><BranchModuleRoute /></BranchLayout>
-          } />
           <Route path="/branch-login/:slug" element={<BranchLoginPage />} />
+          <Route path="/branch/:branchSlug" element={<BranchPortal />} />
 
-          {/* Protected Routes - Login Required */}
+          {/* --- FIXED BRANCH LAYOUT ROUTES - Nested with Outlet --- */}
+          <Route path="/branch/:branchCode" element={<BranchLayout />}>
+            <Route path="dashboard" element={<BranchDashboard />} />
+            <Route path=":module" element={<BranchModuleRoute />} />
+            <Route path=":module/:id" element={<BranchModuleRoute />} />
+          </Route>
+
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/consignments" element={<PrivateRoute><Consignments /></PrivateRoute>} />
           <Route path="/consignments/new" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
           <Route path="/consignments/:id/edit" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
           <Route path="/consignment/:id/edit" element={<PrivateRoute><BiltyEntry /></PrivateRoute>} />
-
           <Route path="/bills" element={<PrivateRoute><BillList /></PrivateRoute>} />
           <Route path="/bills/:id/print" element={<PrivateRoute><BillPrint /></PrivateRoute>} />
           <Route path="/bill-entry" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
@@ -208,7 +180,6 @@ function App() {
           <Route path="/bill/new" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/edit/:id" element={<PrivateRoute><BillEntry /></PrivateRoute>} />
           <Route path="/bill/list" element={<PrivateRoute><BillList /></PrivateRoute>} />
-
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
           <Route path="/party" element={<PrivateRoute><PartyList /></PrivateRoute>} />
           <Route path="/party/new" element={<PrivateRoute><PartyEntry /></PrivateRoute>} />
@@ -233,18 +204,16 @@ function App() {
           <Route path="/backup" element={<PrivateRoute><Backup /></PrivateRoute>} />
           <Route path="/branch-payments" element={<PrivateRoute><BranchPayments /></PrivateRoute>} />
           <Route path="/stock" element={<PrivateRoute><StockManagement /></PrivateRoute>} />
-
           <Route path="/ledger" element={<PrivateRoute><Ledger /></PrivateRoute>} />
           <Route path="/outstanding" element={<PrivateRoute><Outstanding /></PrivateRoute>} />
           <Route path="/commissions" element={<PrivateRoute><Commissions /></PrivateRoute>} />
           <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
 
-          {/* 404 Route */}
           <Route path="*" element={
             <div style={{padding:'50px',textAlign:'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
               <div>
                 <h1 className="text-4xl font-bold text-gray-800 mb-4">404 - Page Not Found</h1>
-                <button type="button" onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign('#/')} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block font-medium">Go Back</button>
+                <button type="button" onClick={() => window.location.assign('#/')} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-block font-medium">Go Home</button>
               </div>
             </div>
           } />
