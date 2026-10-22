@@ -3,6 +3,52 @@ import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
+function getLocalDateString(date) {
+  if (!date || isNaN(date.getTime())) return null
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseRecordDate(docData) {
+  const rawDate = docData.createdAt || docData.date || docData.lrDate || docData.lr_date
+  if (!rawDate) return null
+
+  if (typeof rawDate.toDate === 'function') {
+    const d = rawDate.toDate()
+    return isNaN(d.getTime()) ? null : d
+  }
+  if (rawDate instanceof Date) {
+    return isNaN(rawDate.getTime()) ? null : rawDate
+  }
+  if (typeof rawDate === 'number') {
+    const d = new Date(rawDate)
+    return isNaN(d.getTime()) ? null : d
+  }
+  if (typeof rawDate === 'string') {
+    const d = new Date(rawDate)
+    return isNaN(d.getTime()) ? null : d
+  }
+  return null
+}
+
+function getRecordTimestamp(docData) {
+  const rawDate = docData.createdAt || docData.date || docData.lrDate || docData.lr_date
+  if (!rawDate) return 0
+
+  if (typeof rawDate.seconds === 'number') {
+    return rawDate.seconds * 1000 + Math.floor((rawDate.nanoseconds || 0) / 1000000)
+  }
+  const d = parseRecordDate(docData)
+  return d ? d.getTime() : 0
+}
+
+function normalizePaymentStatus(docData) {
+  const rawStatus = (docData.paymentStatus || docData.payment_status || docData.status || '').toString().trim().toLowerCase()
+  return rawStatus === 'paid' ? 'Paid' : 'Unpaid'
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -20,38 +66,72 @@ export default function Dashboard() {
   useEffect(() => {
     const unsubBranches = onSnapshot(collection(db, 'branches'), (snap) => {
       setBranches(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    }, () => setBranches([]))
+    }, (err) => {
+      console.error('Failed to load branches snapshot:', err)
+      setBranches([])
+    })
 
-    const todayStr = currentTime.toISOString().split('T')[0]
-    const firstDayMonth = new Date(currentTime.getFullYear(), currentTime.getMonth(), 1)
+    return () => {
+      unsubBranches()
+    }
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
     const baseCol = collection(db, 'consignments')
-    const q = selectedBranch === 'all' ? baseCol : query(baseCol, where('branch', '==', selectedBranch))
+    const q = selectedBranch === 'all'
+      ? baseCol
+      : query(baseCol, where('branchId', '==', selectedBranch))
 
-    const unsub = onSnapshot(q, (snapshot) => {
+    const unsubConsignments = onSnapshot(q, (snapshot) => {
+      const now = new Date()
+      const todayStr = getLocalDateString(now)
+      const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const firstDayMonthStr = getLocalDateString(firstDayMonth)
+
       let todaysLR=0, monthLR=0, totalLR=snapshot.size, todaysRevenue=0, monthRevenue=0, pendingAmount=0, pendingLR=0, totalRevenue=0, paidBilties=0
       let recents = []
+
       snapshot.forEach(doc => {
         const d = { id: doc.id, ...doc.data() }
-        const createdDate = d.createdAt?.toDate ? d.createdAt.toDate() : (d.date ? new Date(d.date) : new Date())
-        const createdStr = createdDate.toISOString().split('T')[0]
-        const amount = Number(d.totalAmount || d.freight || d.grandTotal || 0)
-        const isPaid = (d.paymentStatus || d.status || '').toLowerCase() === 'paid'
-        if(createdStr===todayStr){todaysLR++; todaysRevenue+=amount}
-        if(createdDate>=firstDayMonth){monthLR++; monthRevenue+=amount}
-        if(!isPaid){pendingAmount+=amount; pendingLR++} else {totalRevenue+=amount; paidBilties++}
-        recents.push(d)
+        const createdDate = parseRecordDate(d)
+        const createdStr = getLocalDateString(createdDate)
+
+        const amount = Number(d.totalAmount || d.grandTotal || d.freight || d.grand_total || 0) || 0
+        const paymentStatus = normalizePaymentStatus(d)
+        const isPaid = paymentStatus === 'Paid'
+
+        if (createdStr && createdStr === todayStr) {
+          todaysLR++
+          todaysRevenue += amount
+        }
+        if (createdStr && firstDayMonthStr && createdStr >= firstDayMonthStr) {
+          monthLR++
+          monthRevenue += amount
+        }
+        if (!isPaid) {
+          pendingAmount += amount
+          pendingLR++
+        } else {
+          totalRevenue += amount
+          paidBilties++
+        }
+        recents.push({ ...d, normalizedPaymentStatus: paymentStatus })
       })
-      recents.sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
-      setRecentBilties(recents.slice(0,5))
+
+      recents.sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
+      setRecentBilties(recents.slice(0, 5))
       setStats({ todaysLR, monthLR, totalLR, todaysRevenue, monthRevenue, pendingAmount, pendingLR, totalRevenue, paidBilties })
       setLoading(false)
-    }, (err) => { console.error(err); setLoading(false) })
+    }, (err) => {
+      console.error('Failed to load consignments snapshot:', err)
+      setLoading(false)
+    })
 
-    return () => { 
-      unsub()
-      if (unsubBranches) unsubBranches() 
+    return () => {
+      unsubConsignments()
     }
-  }, [selectedBranch, currentTime])
+  }, [selectedBranch])
 
   const timeString = currentTime.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })
   const dateString = currentTime.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
@@ -63,7 +143,7 @@ export default function Dashboard() {
     { title:"Total Revenue", value:`₹${stats.totalRevenue.toLocaleString('en-IN')}`, sub:`Paid Bilties: ${stats.paidBilties}`, gradient:"from-[#2c3e8a] to-[#6c63ff]" }
   ]
 
-  if(loading) return <div className="p-10 text-center font-bold">Loading LIVE data...</div>
+  if (loading) return <div className="p-10 text-center font-bold">Loading LIVE data...</div>
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] p-6">
@@ -75,7 +155,11 @@ export default function Dashboard() {
         <span className="text-[14px] font-semibold">🏢 Filter by Branch:</span>
         <select value={selectedBranch} onChange={e=>setSelectedBranch(e.target.value)} className="border rounded-lg px-3 py-2 text-[13px] min-w-[260px]">
           <option value="all">🌐 All Branches (Consolidated)</option>
-          {branches.map(b=> <option key={b.id} value={b.code||b.name}>{b.name||b.code}</option>)}
+          {branches.map(b => (
+            <option key={b.id} value={b.id}>
+              {b.name || b.branchName || b.branch_name || b.code || b.branchCode || b.id}
+            </option>
+          ))}
         </select>
         <span className="ml-auto text-[11px] bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-bold animate-pulse">● LIVE - Main Data Connected</span>
       </div>
@@ -94,7 +178,15 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border p-4">
           <h3 className="font-bold text-[14px] mb-3">Recent 5 Bilties - LIVE</h3>
           {recentBilties.length===0 ? <p className="text-[12px] text-gray-400">No data</p> :
-            recentBilties.map(r=><div key={r.id} className="flex justify-between py-2 border-b text-[12px]"><span>{r.biltyNo||r.lrNo||r.id.slice(0,6)}</span><span className="font-bold">₹{Number(r.totalAmount||r.freight||0).toLocaleString()}</span><span className={r.paymentStatus==='Paid'?'text-green-600':'text-orange-500'}>{r.paymentStatus||'Pending'}</span></div>)
+            recentBilties.map(r => (
+              <div key={r.id} className="flex justify-between py-2 border-b text-[12px]">
+                <span>{r.biltyNo || r.lrNo || r.lr_no || (r.id ? r.id.slice(0,6) : '')}</span>
+                <span className="font-bold">₹{Number(r.totalAmount || r.grandTotal || r.freight || r.grand_total || 0).toLocaleString()}</span>
+                <span className={r.normalizedPaymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-500'}>
+                  {r.normalizedPaymentStatus === 'Paid' ? 'Paid' : 'Unpaid'}
+                </span>
+              </div>
+            ))
           }
         </div>
       </div>
