@@ -4,6 +4,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
 import toast from 'react-hot-toast'
 import { formatDateForInput } from '../utils/dateFormatter'
+
+if (toast && !toast.warning) {
+  toast.warning = (msg, options) => toast(msg, { icon: '⚠️', ...options })
+}
 import CreatableBranchSelect from '../components/CreatableBranchSelect'
 
 function CustomSelect({ label, value, onChange, options, name, required }) {
@@ -183,7 +187,8 @@ export default function BiltyEntry({ branchMode = false }) {
     if (!/^[A-Za-z0-9/-]+$/.test(normalizedLrNo)) { setLrError('Only letters, numbers, -, / allowed'); return false }
     const requestId = ++lrCheckRequest.current; setLrChecking(true)
     try {
-      const response = await biltyAPI.getAll({ lrNumber: normalizedLrNo })
+      const activeBranchCode = branchCode || formData.branch_code || ''
+      const response = await biltyAPI.getAll({ lrNumber: normalizedLrNo, branch_code: activeBranchCode })
       const consignments = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data)
@@ -192,11 +197,15 @@ export default function BiltyEntry({ branchMode = false }) {
             ? response.data.consignments
             : null
       if (!consignments) throw new Error('The server returned an invalid LR number check response')
-      const duplicate = consignments.some(item =>
-        String(item.id) !== String(id || '') &&
-        String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase()
-      )
-      if (requestId === lrCheckRequest.current) { setLrError(duplicate ? 'This Bilty No already exists - Dusra number dalo' : ''); setLrChecking(false) }
+      const duplicate = consignments.some(item => {
+        const isSameLR = String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase()
+        const currentBranch = String(activeBranchCode).trim().toLowerCase()
+        const itemBranch = String(item.branch_code || '').trim().toLowerCase()
+        const isSameBranch = !currentBranch || !itemBranch || currentBranch === itemBranch
+        const isNotCurrentEdit = String(item.id) !== String(id || '')
+        return isSameLR && isSameBranch && isNotCurrentEdit
+      })
+      if (requestId === lrCheckRequest.current) { setLrError(duplicate ? 'This Bilty No already exists' : ''); setLrChecking(false) }
       return !duplicate
     } catch (err) {
       console.error('LR No validation error:', err)
@@ -223,7 +232,12 @@ export default function BiltyEntry({ branchMode = false }) {
       if (name === 'charged_weight' || name === 'rate') {
         const w = parseFloat(name === 'charged_weight' ? value : prev.charged_weight) || 0
         const r = parseFloat(name === 'rate' ? value : prev.rate) || 0
-        if (prev.freight === 0 || prev.freight === (prev.charged_weight * prev.rate)) { newData.freight = w * r }
+        const oldW = parseFloat(prev.charged_weight) || 0
+        const oldR = parseFloat(prev.rate) || 0
+        const oldFreight = parseFloat(prev.freight) || 0
+        if (oldFreight === 0 || oldFreight === oldW * oldR || !prev.freight) {
+          newData.freight = w * r
+        }
       }
       if (['length', 'width', 'height', 'no_of_pkgs_dimension'].includes(name)) {
         const l = parseFloat(name === 'length' ? value : prev.length) || 0
@@ -233,10 +247,9 @@ export default function BiltyEntry({ branchMode = false }) {
         newData.total_cft_cmt = l * w * h * qty
       }
       const chargeFields = ['freight', 'aoc_amount', 'eov_charges', 'cover_charges', 'material_mgmt_ch', 'collection_charges', 'door_dly_charges', 'pass_cc_charges', 'enroute_charges', 'statistical_charges', 'misc_charges']
-      if (chargeFields.includes(name) || name === 'charged_weight' || name === 'rate') {
-        const total = chargeFields.reduce((sum, field) => sum + (parseFloat(newData[field]) || 0), 0)
-        newData.grand_total = total; newData.amount_in_words = numberToWords(total)
-      }
+      const total = chargeFields.reduce((sum, field) => sum + (parseFloat(newData[field]) || 0), 0)
+      newData.grand_total = total
+      newData.amount_in_words = numberToWords(total)
       return newData
     })
   }
@@ -283,6 +296,8 @@ export default function BiltyEntry({ branchMode = false }) {
             ? formData.third_party_name
             : formData.bill_to_party === 'PAID' ? 'Paid' : ''
       const { from_code: _fromCode, aoc_percent: _aocPercent, ...payloadData } = formData
+      const chargeFields = ['freight', 'aoc_amount', 'eov_charges', 'cover_charges', 'material_mgmt_ch', 'collection_charges', 'door_dly_charges', 'pass_cc_charges', 'enroute_charges', 'statistical_charges', 'misc_charges']
+      const calculatedGrandTotal = chargeFields.reduce((sum, field) => sum + (parseFloat(formData[field]) || 0), 0)
       const payload = {
         ...payloadData,
         ...(branchMode ? { branch_code: branchCode } : {}),
@@ -297,7 +312,9 @@ export default function BiltyEntry({ branchMode = false }) {
         billed_at_type: formData.bill_to_party,
         third_party_gstin: formData.third_party_gstin,
         third_party_gst: formData.third_party_gstin,
-        billed_at: billedAt
+        billed_at: billedAt,
+        grand_total: calculatedGrandTotal,
+        amount_in_words: numberToWords(calculatedGrandTotal)
       }
       payload.eway_valid_upto = payload.eway_valid_upto || null
       if (mrActive) { payload.mr_active = true; payload.mr_date = payload.mr_date || null }
@@ -309,7 +326,12 @@ export default function BiltyEntry({ branchMode = false }) {
         await biltyAPI.create(payload)
         toast.success('Bilty Saved - ' + payload.lr_no)
       }
-      navigate('/consignments')
+      const targetBranch = branchCode || formData.branch_code
+      if (branchMode && targetBranch) {
+        navigate(`/branch/${encodeURIComponent(targetBranch)}/consignments`)
+      } else {
+        navigate('/consignments')
+      }
     } catch (err) {
       const errorMsg = err.response?.data?.error || `Failed to ${id ? 'update' : 'create'} bilty`
       if (errorMsg.toLowerCase().includes('already exists') || errorMsg.toLowerCase().includes('duplicate')) {
