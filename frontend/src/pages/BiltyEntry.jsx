@@ -4,6 +4,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
 import toast from 'react-hot-toast'
 import { formatDateForInput } from '../utils/dateFormatter'
+
+if (toast && !toast.warning) {
+  toast.warning = (msg, options) => toast(msg, { icon: '⚠️', ...options })
+}
 import CreatableBranchSelect from '../components/CreatableBranchSelect'
 
 function CustomSelect({ label, value, onChange, options, name, required }) {
