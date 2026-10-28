@@ -130,9 +130,7 @@ function createBranchAccessMiddleware(pool) {
       req.user.branch_code = branch.branch_code
       if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
         req.body.branch_id = branchId
-        if (Object.prototype.hasOwnProperty.call(req.body, 'branch_code')) {
-          req.body.branch_code = branch.branch_code
-        }
+        req.body.branch_code = branch.branch_code
       }
 
       const recordRoute = req.path === '/api/bills/last-serial' ? null : getRecordRoute(req.path)

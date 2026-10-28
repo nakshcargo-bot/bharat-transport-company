@@ -171,9 +171,10 @@ CREATE TABLE IF NOT EXISTS rate_chart (
 -- 10. CONSIGNMENTS (LR / Bilty)
 CREATE TABLE IF NOT EXISTS consignments (
     id SERIAL PRIMARY KEY,
-    lr_no VARCHAR(30) UNIQUE NOT NULL,
+    lr_no VARCHAR(30) NOT NULL,
     lr_date DATE NOT NULL,
     branch_code VARCHAR(20),
+    CONSTRAINT consignments_lr_no_branch_code_key UNIQUE (lr_no, branch_code),
     
     -- Consignor
     consignor_name VARCHAR(200),

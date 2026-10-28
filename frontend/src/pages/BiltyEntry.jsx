@@ -3,6 +3,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { biltyAPI, customerAPI } from '../api'
 import toast from 'react-hot-toast'
+
+if (toast && typeof toast.warning !== 'function') {
+  toast.warning = (msg, options) => toast.error(msg, options)
+}
 import { formatDateForInput } from '../utils/dateFormatter'
 import CreatableBranchSelect from '../components/CreatableBranchSelect'
 
@@ -36,7 +40,8 @@ function CustomSelect({ label, value, onChange, options, name, required }) {
 }
 
 const numberToWords = (num) => {
-  if (!num || num === 0) return 'Zero Only'
+  const parsed = parseFloat(num) || 0
+  if (!parsed || parsed === 0) return 'Zero Only'
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
   const convert = (n) => {
@@ -47,8 +52,8 @@ const numberToWords = (num) => {
     if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '')
     return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '')
   }
-  const rupees = Math.floor(num)
-  const paise = Math.round((num - rupees) * 100)
+  const rupees = Math.floor(parsed)
+  const paise = Math.round((parsed - rupees) * 100)
   let result = 'Rupees ' + convert(rupees)
   if (paise > 0) result += ' and ' + convert(paise) + ' Paise'
   return result + ' Only'
@@ -183,6 +188,7 @@ export default function BiltyEntry({ branchMode = false }) {
     if (!/^[A-Za-z0-9/-]+$/.test(normalizedLrNo)) { setLrError('Only letters, numbers, -, / allowed'); return false }
     const requestId = ++lrCheckRequest.current; setLrChecking(true)
     try {
+      const currentBranch = formData.branch_code || branchCode || ''
       const response = await biltyAPI.getAll({ lrNumber: normalizedLrNo })
       const consignments = Array.isArray(response.data)
         ? response.data
@@ -194,7 +200,12 @@ export default function BiltyEntry({ branchMode = false }) {
       if (!consignments) throw new Error('The server returned an invalid LR number check response')
       const duplicate = consignments.some(item =>
         String(item.id) !== String(id || '') &&
-        String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase()
+        String(item.lr_no || '').trim().toLowerCase() === normalizedLrNo.toLowerCase() &&
+        (
+          !currentBranch ||
+          !item.branch_code ||
+          String(item.branch_code || '').trim().toLowerCase() === currentBranch.trim().toLowerCase()
+        )
       )
       if (requestId === lrCheckRequest.current) { setLrError(duplicate ? 'This Bilty No already exists - Dusra number dalo' : ''); setLrChecking(false) }
       return !duplicate
@@ -210,6 +221,30 @@ export default function BiltyEntry({ branchMode = false }) {
     const timeout = setTimeout(() => validateLRNo(formData.lr_no), 600)
     return () => clearTimeout(timeout)
   }, [formData.lr_no, isLrEditable])
+
+  useEffect(() => {
+    const chargeFields = [
+      'freight', 'aoc_amount', 'eov_charges', 'cover_charges',
+      'material_mgmt_ch', 'collection_charges', 'door_dly_charges',
+      'pass_cc_charges', 'enroute_charges', 'statistical_charges',
+      'misc_charges', 'material_charges'
+    ]
+    const total = chargeFields.reduce((sum, field) => sum + (parseFloat(formData[field]) || 0), 0)
+    const inWords = numberToWords(total)
+
+    if (formData.grand_total !== total || formData.amount_in_words !== inWords) {
+      setFormData(prev => ({
+        ...prev,
+        grand_total: total,
+        amount_in_words: inWords
+      }))
+    }
+  }, [
+    formData.freight, formData.aoc_amount, formData.eov_charges, formData.cover_charges,
+    formData.material_mgmt_ch, formData.collection_charges, formData.door_dly_charges,
+    formData.pass_cc_charges, formData.enroute_charges, formData.statistical_charges,
+    formData.misc_charges, formData.material_charges
+  ])
 
   const handleChange = (e) => {
     const { name, value } = e.target

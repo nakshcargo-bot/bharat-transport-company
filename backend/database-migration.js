@@ -37,6 +37,21 @@ async function runMigrations() {
     `);
     console.log('✅ Added consignee_email column');
 
+    // Update consignments UNIQUE constraint from UNIQUE(lr_no) to UNIQUE(lr_no, branch_code)
+    await pool.query(`
+      ALTER TABLE consignments
+      DROP CONSTRAINT IF EXISTS consignments_lr_no_key,
+      DROP CONSTRAINT IF EXISTS consignments_lr_no_branch_code_key;
+    `);
+    await pool.query(`
+      DROP INDEX IF EXISTS idx_consignments_lr_no_unique;
+    `);
+    await pool.query(`
+      ALTER TABLE consignments
+      ADD CONSTRAINT consignments_lr_no_branch_code_key UNIQUE (lr_no, branch_code);
+    `);
+    console.log('✅ Updated consignments constraint to UNIQUE(lr_no, branch_code)');
+
     // Gate Pass Table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS gate_passes (
