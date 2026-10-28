@@ -3,7 +3,8 @@
   "name": "bharat-transport-tms",
   "compatibility_date": "2026-10-12",
   "build": {
-    "command": "npm --prefix frontend install && npm --prefix frontend run build"
+    "command": "npm --prefix frontend install && npm --prefix frontend run build",
+    "watch_dir": "frontend/src"
   },
   "assets": {
     "directory": "frontend/dist",
