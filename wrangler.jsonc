@@ -3,7 +3,7 @@
   "name": "bharat-transport-company",
   "compatibility_date": "2026-10-12",
   "build": {
-    "command": "npm run build --prefix frontend"
+    "command": "npm run build"
   },
   "assets": {
     "directory": "frontend/dist",
