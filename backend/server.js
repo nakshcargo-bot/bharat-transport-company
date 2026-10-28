@@ -93,7 +93,7 @@ async function runMigrations() {
     `CREATE TABLE IF NOT EXISTS freight_rates (id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL, material TEXT, rate_per_kg NUMERIC, rate_per_pkg NUMERIC, min_charge NUMERIC, distance_km NUMERIC, effective_from DATE, effective_to DATE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS materials (id SERIAL PRIMARY KEY, material_name TEXT UNIQUE NOT NULL, material_code TEXT, hsn_code TEXT, category TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS routes (id SERIAL PRIMARY KEY, from_city TEXT NOT NULL, to_city TEXT NOT NULL, distance_km NUMERIC, via TEXT, estimated_days INTEGER, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS consignments (id SERIAL PRIMARY KEY, lr_no TEXT UNIQUE NOT NULL, lr_date DATE, branch_id INTEGER, branch_code TEXT, from_name TEXT, to_name TEXT, consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT, consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT, invoice_no TEXT, invoice_date TEXT, po_no TEXT, lorry_no TEXT, driver_name TEXT, driver_mobile TEXT, delivery_type TEXT DEFAULT 'DOOR DELIVERY', packages TEXT, no_of_packages TEXT, method_of_packing TEXT, hsn_code TEXT, actual_weight TEXT, charged_weight TEXT, material_desc TEXT, description TEXT, eway_bill_no TEXT, length TEXT, width TEXT, height TEXT, total_cft TEXT, cft_cmt TEXT, declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY', rv_no TEXT, rv_dt TEXT, rv_am TEXT, insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT, material_charges TEXT, collection_charges TEXT, door_dly_charges TEXT, door_delivery TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked', payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT, from_state TEXT, to_state TEXT, transporter_id TEXT, transporter_name TEXT, eway_valid_upto DATE, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS consignments (id SERIAL PRIMARY KEY, lr_no TEXT NOT NULL, lr_date DATE, branch_id INTEGER, branch_code TEXT, from_name TEXT, to_name TEXT, consignor_code TEXT, consignor_name TEXT, consignor_address TEXT, consignor_gst TEXT, consignee_code TEXT, consignee_name TEXT, consignee_address TEXT, consignee_gst TEXT, invoice_no TEXT, invoice_date TEXT, po_no TEXT, lorry_no TEXT, driver_name TEXT, driver_mobile TEXT, delivery_type TEXT DEFAULT 'DOOR DELIVERY', packages TEXT, no_of_packages TEXT, method_of_packing TEXT, hsn_code TEXT, actual_weight TEXT, charged_weight TEXT, material_desc TEXT, description TEXT, eway_bill_no TEXT, length TEXT, width TEXT, height TEXT, total_cft TEXT, cft_cmt TEXT, declared_value TEXT, basis_party TEXT, basis_booking TEXT DEFAULT 'TO PAY', rv_no TEXT, rv_dt TEXT, rv_am TEXT, insurance_company TEXT, policy_no TEXT, insurance_amount TEXT, freight TEXT, aoc_percent TEXT, material_mgmt_ch TEXT, material_charges TEXT, collection_charges TEXT, door_dly_charges TEXT, door_delivery TEXT, misc_charges TEXT, grand_total TEXT, status TEXT DEFAULT 'Booked', payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, pod_status TEXT DEFAULT 'Pending', pod_date DATE, pod_remarks TEXT, from_state TEXT, to_state TEXT, transporter_id TEXT, transporter_name TEXT, eway_valid_upto DATE, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), CONSTRAINT consignments_lr_no_branch_code_key UNIQUE (lr_no, branch_code))`,
     `CREATE TABLE IF NOT EXISTS pod_records (id SERIAL PRIMARY KEY, lr_no TEXT NOT NULL, branch_id INTEGER, delivery_date DATE, delivered_by TEXT, receiver_name TEXT, receiver_signature TEXT, receiver_phone TEXT, delivery_remarks TEXT, photo_url TEXT, status TEXT DEFAULT 'Delivered', created_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS bill_book (id SERIAL PRIMARY KEY, bill_no TEXT UNIQUE, bill_date DATE, branch_id INTEGER, party_name TEXT, party_code TEXT, party_gst TEXT, party_address TEXT, from_name TEXT, to_name TEXT, consignor_name TEXT, consignee_name TEXT, vehicle_no TEXT, lr_nos TEXT, amount TEXT, gst_amount TEXT, total_amount TEXT, grand_total NUMERIC DEFAULT 0, advance_received NUMERIC DEFAULT 0, balance_due NUMERIC DEFAULT 0, net_balance NUMERIC DEFAULT 0, trip_subtotal NUMERIC DEFAULT 0, gst_percent NUMERIC DEFAULT 0, invoice_no TEXT, invoice_date DATE, amount_in_words TEXT, payment_mode TEXT, payment_details TEXT, remarks TEXT, status TEXT DEFAULT 'Pending', payment_status TEXT DEFAULT 'Unpaid', mr_no TEXT, branch_code TEXT, customer_id INTEGER, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS bill_items (id SERIAL PRIMARY KEY, bill_id INTEGER REFERENCES bill_book(id) ON DELETE CASCADE, lr_no TEXT, invoice_no TEXT, from_name TEXT, to_name TEXT, weight_mt NUMERIC DEFAULT 0, packages INTEGER DEFAULT 0, freight NUMERIC DEFAULT 0, loading NUMERIC DEFAULT 0, unloading NUMERIC DEFAULT 0, other_charges NUMERIC DEFAULT 0, total NUMERIC DEFAULT 0, created_at TIMESTAMP DEFAULT NOW())`,
@@ -113,6 +113,23 @@ async function runMigrations() {
 
   for (const sql of tables) {
     try { await pool.query(sql); } catch (err) { console.error('Table error:', err.message); }
+  }
+
+  try {
+    await pool.query(`
+      ALTER TABLE consignments
+      DROP CONSTRAINT IF EXISTS consignments_lr_no_key,
+      DROP CONSTRAINT IF EXISTS consignments_lr_no_branch_code_key;
+    `);
+    await pool.query(`
+      DROP INDEX IF EXISTS idx_consignments_lr_no_unique;
+    `);
+    await pool.query(`
+      ALTER TABLE consignments
+      ADD CONSTRAINT consignments_lr_no_branch_code_key UNIQUE (lr_no, branch_code);
+    `);
+  } catch (err) {
+    console.warn('Consignments constraint migration notice:', err.message);
   }
 
   await pool.query(`CREATE TABLE IF NOT EXISTS manifests (id SERIAL PRIMARY KEY, manifest_no TEXT UNIQUE NOT NULL, manifest_date DATE NOT NULL, branch_id INTEGER, from_branch TEXT, to_branch TEXT, vehicle_no TEXT, driver_name TEXT, driver_mobile TEXT, status TEXT DEFAULT 'Created', remarks TEXT, created_by TEXT, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())`);
@@ -805,11 +822,13 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
   try {
     const isAdmin = String(req.user.role || '').toLowerCase() === 'admin';
     const branchId = Number(req.user.branch_id);
+    const branchCode = req.user.branch_code || '';
     const search = String(req.query.search || '').trim();
     const lrNumber = String(req.query.lrNumber || '').trim();
-    if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0)) {
+    if (!isAdmin && (!Number.isSafeInteger(branchId) || branchId <= 0) && !branchCode) {
       return res.status(403).json({ error: 'Your account is not assigned to a branch' });
     }
+    const branchWhere = '(branch_id = $1 OR (branch_code IS NOT NULL AND UPPER(TRIM(branch_code)) = UPPER(TRIM($2))))';
     const result = lrNumber
       ? isAdmin
         ? await pool.query(
@@ -817,16 +836,16 @@ app.get('/api/consignments', authMiddleware, async (req, res) => {
           [lrNumber]
         )
         : await pool.query(
-          'SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND branch_id = $2 AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
-          [lrNumber, branchId]
+          `SELECT id, lr_no FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND ${branchWhere} AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1`,
+          [lrNumber, branchId || -1, branchCode]
         )
       : isAdmin
       ? search
         ? await pool.query('SELECT * FROM consignments WHERE COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $1 ORDER BY (lr_no = $2) DESC, id DESC LIMIT 100', [`%${search}%`, search])
         : await pool.query('SELECT * FROM consignments WHERE COALESCE(is_deleted, FALSE) = FALSE ORDER BY id DESC LIMIT 500')
       : search
-        ? await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $2 ORDER BY (lr_no = $3) DESC, id DESC LIMIT 100', [branchId, `%${search}%`, search])
-        : await pool.query('SELECT * FROM consignments WHERE branch_id = $1 AND COALESCE(is_deleted, FALSE) = FALSE ORDER BY id DESC LIMIT 500', [branchId]);
+        ? await pool.query(`SELECT * FROM consignments WHERE ${branchWhere} AND COALESCE(is_deleted, FALSE) = FALSE AND lr_no ILIKE $3 ORDER BY (lr_no = $4) DESC, id DESC LIMIT 100`, [branchId || -1, branchCode, `%${search}%`, search])
+        : await pool.query(`SELECT * FROM consignments WHERE ${branchWhere} AND COALESCE(is_deleted, FALSE) = FALSE ORDER BY id DESC LIMIT 500`, [branchId || -1, branchCode]);
     res.json({ data: result.rows, total: result.rows.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -889,8 +908,8 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
     await client.query('SELECT pg_advisory_xact_lock($1)', [823741905]);
     if (!c.lr_no) c.lr_no = await generateBiltyNo(client);
     const existing = await client.query(
-      'SELECT 1 FROM consignments WHERE LOWER(lr_no) = LOWER($1) LIMIT 1',
-      [c.lr_no]
+      'SELECT 1 FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND LOWER(COALESCE(branch_code, \'\')) = LOWER(COALESCE($2, \'\')) AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
+      [c.lr_no, c.branch_code || '']
     );
     if (existing.rowCount > 0) {
       await client.query('ROLLBACK');
@@ -917,6 +936,16 @@ app.post('/api/consignments', authMiddleware, async (req, res) => {
 app.put('/api/consignments/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id; const data = { ...req.body }; delete data.id; delete data.created_at; data.updated_at = new Date().toISOString();
+    if (data.lr_no) {
+      const branchCodeCheck = data.branch_code !== undefined ? data.branch_code : (req.user?.branch_code || '');
+      const existing = await pool.query(
+        'SELECT id FROM consignments WHERE LOWER(lr_no) = LOWER($1) AND LOWER(COALESCE(branch_code, \'\')) = LOWER(COALESCE($2, \'\')) AND id != $3 AND COALESCE(is_deleted, FALSE) = FALSE LIMIT 1',
+        [data.lr_no.trim(), branchCodeCheck || '', id]
+      );
+      if (existing.rowCount > 0) {
+        return res.status(409).json({ error: 'This Bilty No already exists' });
+      }
+    }
     if ((!data.actual_weight || Number(data.actual_weight) === 0) && (data.act_wt ?? data.actWt) != null) data.actual_weight = data.act_wt ?? data.actWt;
     if ((!data.charged_weight || Number(data.charged_weight) === 0) && (data.chg_wt ?? data.chgWt) != null) data.charged_weight = data.chg_wt ?? data.chgWt;
     if ((!data.no_of_packages || Number(data.no_of_packages) === 0) && data.package_count != null) data.no_of_packages = data.package_count;

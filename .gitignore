@@ -1,2 +1,5 @@
 .wrangler/
 node_modules/
+dist/
+frontend/dist/*
+!frontend/dist/.gitkeep
