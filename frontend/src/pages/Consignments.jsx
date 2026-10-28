@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { biltyAPI } from '../api';
 import { Truck } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://bharat-transport-api.onrender.com';
 
 const Consignments = () => {
   const navigate = useNavigate();
@@ -34,20 +32,7 @@ const Consignments = () => {
   const fetchConsignments = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        setError('Please login first');
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(`${API_URL}/api/consignments`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await biltyAPI.getAll();
 
       console.log('API Response:', response.data);
       
@@ -81,10 +66,7 @@ const Consignments = () => {
     if (!window.confirm(`Delete Bilty ${lr_no}?`)) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/api/consignments/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await biltyAPI.delete(id);
       toast.success('Deleted');
       await fetchConsignments();
     } catch (err) {
